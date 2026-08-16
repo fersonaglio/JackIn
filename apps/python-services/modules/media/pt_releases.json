@@ -1,0 +1,46 @@
+{
+  "673a8bc41d60b4b20df1682cc6483ec95dcd8d06": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  },
+  "167ba4ede9022fa36c32b89d64108e3c1596d669": {
+    "pt": true,
+    "langs": [
+      "por"
+    ]
+  },
+  "ca294c5f6afb34519b04a9edf98822f1953a0b65": {
+    "pt": true,
+    "langs": [
+      "eng",
+      "por"
+    ]
+  },
+  "a0bf67ad1e99caad8a7a1dfcf572e81818d42c43": {
+    "pt": false,
+    "langs": [
+      "spa"
+    ]
+  },
+  "8e1a9044bb5457b5fb0a0be91b8d701885c2bb70": {
+    "pt": false,
+    "langs": [
+      "hin"
+    ]
+  },
+  "298c99a443fcb2b7e414a3b7ebf1aa8a0b8ad273": {
+    "pt": true,
+    "langs": [
+      "eng",
+      "por"
+    ]
+  },
+  "505687740a6466441c1acda208790d8f5debb4c2": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  }
+}

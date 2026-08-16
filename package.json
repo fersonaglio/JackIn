@@ -1,0 +1,14 @@
+{
+  "name": "jackin",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w apps/web",
+    "dev:server": "npm run dev -w apps/server",
+    "dev:all": "node dev.js",
+    "build": "npm run build -w apps/web"
+  }
+}

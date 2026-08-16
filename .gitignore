@@ -1,0 +1,63 @@
+# ===== JackIn — ignore rules (SECURITY) =====
+
+# Segredos / credenciais — NUNCA commitar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets.*
+**/credentials*.json
+
+# Dados de runtime (DBs, mídia baixada) — apenas raiz (/data), NUNCA o diretório
+# de código apps/web/src/data/ (um padrão não-ancorado "data/" esconderia código)
+/data/
+/downloads/
+/scratch/
+/github_repos/
+
+# Prowlarr/FlareSolverr local — NUNCA subir config.xml com ApiKey
+/infra/
+
+# Node / JS
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Mídia (com EXCEÇÃO do fixture de teste obrigatório do e2e)
+*.mp4
+!apps/web/e2e/fixtures/tiny.mp4
+*.mkv
+*.webm
+*.wav
+*.aac
+*.ogg
+*.mov
+
+# Testes E2E
+test-results/
+playwright-report/
+
+# SQLite lock files
+*.db-shm
+*.db-wal
+
+# macOS
+.DS_Store

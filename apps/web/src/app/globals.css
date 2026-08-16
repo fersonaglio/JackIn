@@ -1,0 +1,644 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@import "tailwindcss";
+
+/* ============================================
+   DESIGN TOKENS — Cosmic OKLCH Palette
+   ============================================ */
+:root {
+  /* Core Surfaces */
+  --surface-void: oklch(0.08 0.01 280);         /* deepest black-violet */
+  --surface-deep: oklch(0.11 0.015 275);         /* deep cosmic panels */
+  --surface-raised: oklch(0.14 0.02 270);        /* elevated glass panels */
+  --surface-glass: oklch(0.16 0.025 265 / 0.45); /* glassmorphic fill */
+  --surface-glass-hover: oklch(0.19 0.03 265 / 0.55);
+  
+  /* Borders */
+  --border-subtle: oklch(0.25 0.02 275 / 0.3);
+  --border-glass: oklch(0.4 0.03 280 / 0.15);
+  --border-glow-amber: oklch(0.75 0.18 75 / 0.4);
+  --border-glow-teal: oklch(0.72 0.12 175 / 0.3);
+  --border-glow-violet: oklch(0.55 0.15 290 / 0.25);
+  
+  /* Accent Colors */
+  --accent-amber: oklch(0.78 0.18 75);           /* primary amber/gold */
+  --accent-amber-dim: oklch(0.65 0.15 75);       /* dimmed amber */
+  --accent-amber-glow: oklch(0.78 0.18 75 / 0.25);
+  --accent-teal: oklch(0.74 0.11 175);           /* success teal */
+  --accent-teal-glow: oklch(0.74 0.11 175 / 0.2);
+  --accent-violet: oklch(0.55 0.18 290);         /* cosmic violet */
+  --accent-violet-glow: oklch(0.55 0.18 290 / 0.15);
+  --accent-red: oklch(0.6 0.2 25);               /* error red */
+  
+  /* Text */
+  --text-primary: oklch(0.95 0.005 280);
+  --text-secondary: oklch(0.72 0.01 275);
+  --text-muted: oklch(0.5 0.015 275);
+  --text-ghost: oklch(0.38 0.015 275);
+  
+  /* Shadows */
+  --shadow-ambient: 0 4px 32px oklch(0.05 0.02 280 / 0.6);
+  --shadow-glow-amber: 0 0 24px oklch(0.78 0.18 75 / 0.15), 0 0 60px oklch(0.78 0.18 75 / 0.05);
+  --shadow-glow-teal: 0 0 20px oklch(0.74 0.11 175 / 0.12);
+  --shadow-glow-violet: 0 0 30px oklch(0.55 0.18 290 / 0.1);
+  --shadow-elevation-1: 0 1px 3px oklch(0 0 0 / 0.3), 0 4px 12px oklch(0 0 0 / 0.15);
+  --shadow-elevation-2: 0 2px 8px oklch(0 0 0 / 0.35), 0 8px 24px oklch(0 0 0 / 0.2);
+  --shadow-elevation-3: 0 4px 16px oklch(0 0 0 / 0.4), 0 16px 48px oklch(0 0 0 / 0.25);
+  
+  /* Transitions */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+body {
+  background: oklch(0.08 0.01 280);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ============================================
+   GLASSMORPHISM UTILITY CLASSES
+   ============================================ */
+.glass-panel {
+  background: var(--surface-glass);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--border-glass);
+  border-radius: 20px;
+  box-shadow: var(--shadow-elevation-2);
+  transition: border-color var(--duration-normal) var(--ease-out-expo),
+              box-shadow var(--duration-normal) var(--ease-out-expo);
+}
+
+.glass-panel:hover {
+  border-color: oklch(0.4 0.03 280 / 0.25);
+}
+
+.glass-card {
+  background: oklch(0.12 0.02 275 / 0.6);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--shadow-elevation-1);
+  transition: all var(--duration-normal) var(--ease-out-expo);
+}
+
+.glass-card:hover {
+  border-color: oklch(0.35 0.04 280 / 0.35);
+  box-shadow: var(--shadow-elevation-2);
+  transform: translateY(-2px);
+}
+
+.glass-input {
+  background: oklch(0.1 0.015 280 / 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--duration-normal) var(--ease-out-expo),
+              box-shadow var(--duration-normal) var(--ease-out-expo);
+}
+
+.glass-input:focus {
+  border-color: var(--border-glow-amber);
+  box-shadow: 0 0 0 3px oklch(0.78 0.18 75 / 0.08), 0 0 20px oklch(0.78 0.18 75 / 0.06);
+}
+
+.glass-input::placeholder {
+  color: var(--text-ghost);
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+/* Cosmic floating particles */
+@keyframes cosmic-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  25% { transform: translate(30px, -40px) scale(1.1); opacity: 0.5; }
+  50% { transform: translate(-20px, -80px) scale(0.9); opacity: 0.35; }
+  75% { transform: translate(40px, -30px) scale(1.05); opacity: 0.45; }
+}
+
+@keyframes cosmic-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.2; }
+  33% { transform: translate(-50px, -30px) scale(1.15); opacity: 0.4; }
+  66% { transform: translate(20px, -60px) scale(0.85); opacity: 0.25; }
+}
+
+@keyframes cosmic-float-3 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.15; }
+  50% { transform: translate(-30px, -50px) rotate(180deg); opacity: 0.3; }
+}
+
+/* Glow pulse for active elements */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px oklch(0.78 0.18 75 / 0.15),
+                0 0 24px oklch(0.78 0.18 75 / 0.08);
+  }
+  50% {
+    box-shadow: 0 0 16px oklch(0.78 0.18 75 / 0.3),
+                0 0 48px oklch(0.78 0.18 75 / 0.12);
+  }
+}
+
+/* Glow pulse teal variant */
+@keyframes glow-pulse-teal {
+  0%, 100% {
+    box-shadow: 0 0 8px oklch(0.74 0.11 175 / 0.15);
+  }
+  50% {
+    box-shadow: 0 0 20px oklch(0.74 0.11 175 / 0.3);
+  }
+}
+
+/* Glass shimmer sweep */
+@keyframes shimmer-glass {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Ring fill for circular progress */
+@keyframes ring-fill {
+  from { stroke-dashoffset: 283; }
+}
+
+/* Waveform bar bounce */
+@keyframes wave-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* Subtle breathing for ambient elements */
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Stripe animation for progress bars */
+@keyframes stripe-march {
+  0% { background-position: 0 0; }
+  100% { background-position: -24px 0; }
+}
+
+/* Status dot pulse */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* Gradient border rotation */
+@keyframes border-rotate {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+/* Fade up entrance */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Fade in from right */
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Shimmer for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================
+   ANIMATION UTILITY CLASSES
+   ============================================ */
+.animate-cosmic-float-1 { animation: cosmic-float-1 12s ease-in-out infinite; }
+.animate-cosmic-float-2 { animation: cosmic-float-2 16s ease-in-out infinite; }
+.animate-cosmic-float-3 { animation: cosmic-float-3 20s ease-in-out infinite; }
+.animate-glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+.animate-glow-pulse-teal { animation: glow-pulse-teal 2.5s ease-in-out infinite; }
+.animate-breathe { animation: breathe 3s ease-in-out infinite; }
+.animate-dot-pulse { animation: dot-pulse 1.4s ease-in-out infinite; }
+.animate-stripe-march { animation: stripe-march 1s linear infinite; }
+.animate-fade-up { animation: fade-up 0.5s ease-out forwards; }
+
+.animate-shimmer {
+  background: linear-gradient(90deg, oklch(0.11 0.015 275) 25%, oklch(0.16 0.02 275) 50%, oklch(0.11 0.015 275) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.3 0.02 275 / 0.5);
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.4 0.02 275 / 0.7);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.3 0.02 275 / 0.5) transparent;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   CUSTOM RANGE SLIDER
+   ============================================ */
+input[type="range"].cosmic-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 100px;
+  background: oklch(0.2 0.02 275);
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"].cosmic-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  border: 3px solid oklch(0.12 0.02 275);
+  box-shadow: 0 0 10px oklch(0.78 0.18 75 / 0.3);
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+input[type="range"].cosmic-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 16px oklch(0.78 0.18 75 / 0.5);
+}
+
+input[type="range"].cosmic-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  border: 3px solid oklch(0.12 0.02 275);
+  box-shadow: 0 0 10px oklch(0.78 0.18 75 / 0.3);
+  cursor: pointer;
+}
+
+/* ============================================
+   TOGGLE SWITCH
+   ============================================ */
+.cosmic-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 100px;
+  background: oklch(0.2 0.02 275);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+}
+
+.cosmic-toggle[data-active="true"] {
+  background: var(--accent-amber);
+  border-color: oklch(0.78 0.18 75 / 0.5);
+  box-shadow: 0 0 12px oklch(0.78 0.18 75 / 0.25);
+}
+
+.cosmic-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--duration-normal) var(--ease-spring);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
+}
+
+.cosmic-toggle[data-active="true"]::after {
+  transform: translateX(18px);
+}
+
+/* ============================================
+   COSMIC HERO BACKGROUND
+   ============================================ */
+.cosmic-hero-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, oklch(0.2 0.12 290 / 0.4) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, oklch(0.18 0.08 250 / 0.3) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 60%, oklch(0.15 0.06 230 / 0.2) 0%, transparent 50%),
+    oklch(0.08 0.01 280);
+}
+
+/* ============================================
+   WIZARD STEP INDICATOR
+   ============================================ */
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.wizard-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: oklch(0.25 0.02 275);
+  border: 2px solid oklch(0.3 0.03 275);
+  transition: all var(--duration-normal) var(--ease-out-expo);
+  flex-shrink: 0;
+}
+
+.wizard-dot[data-active="true"] {
+  background: var(--accent-amber);
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 12px oklch(0.78 0.18 75 / 0.4);
+}
+
+.wizard-dot[data-completed="true"] {
+  background: var(--accent-teal);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 8px oklch(0.74 0.11 175 / 0.3);
+}
+
+.wizard-line {
+  flex: 1;
+  height: 2px;
+  background: oklch(0.2 0.02 275);
+  transition: background var(--duration-normal) var(--ease-out-expo);
+}
+
+.wizard-line[data-completed="true"] {
+  background: linear-gradient(90deg, var(--accent-teal), var(--accent-amber));
+}
+
+/* ============================================
+   RING PROGRESS (SVG)
+   ============================================ */
+.ring-track {
+  fill: none;
+  stroke: oklch(0.18 0.02 275);
+  stroke-width: 6;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: var(--accent-amber);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 283;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.8s var(--ease-out-expo);
+  filter: drop-shadow(0 0 6px oklch(0.78 0.18 75 / 0.3));
+}
+
+/* ============================================
+   WAVEFORM DECORATIVE BARS
+   ============================================ */
+.waveform-bar {
+  display: inline-block;
+  width: 3px;
+  border-radius: 100px;
+  background: linear-gradient(to top, var(--accent-amber), oklch(0.78 0.18 75 / 0.3));
+  transform-origin: bottom;
+}
+
+/* ============================================
+   MODE PILL TOGGLE
+   ============================================ */
+.mode-pill-group {
+  display: flex;
+  background: oklch(0.1 0.015 280 / 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-pill {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+  text-align: center;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.mode-pill:hover {
+  color: var(--text-secondary);
+  background: oklch(0.15 0.02 275 / 0.4);
+}
+
+.mode-pill[data-active="true"] {
+  background: oklch(0.18 0.03 270 / 0.7);
+  color: var(--text-primary);
+  border-color: var(--border-glow-amber);
+  box-shadow: 0 0 12px oklch(0.78 0.18 75 / 0.1);
+}
+
+/* ============================================
+   TEMPLATE CHIP
+   ============================================ */
+.template-chip {
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: oklch(0.12 0.015 275 / 0.5);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+  white-space: nowrap;
+}
+
+.template-chip:hover {
+  color: var(--text-primary);
+  background: oklch(0.18 0.03 270 / 0.5);
+  border-color: var(--border-glow-amber);
+  box-shadow: 0 0 12px oklch(0.78 0.18 75 / 0.08);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   COSMIC BUTTON
+   ============================================ */
+.cosmic-btn-primary {
+  background: linear-gradient(135deg, var(--accent-amber), oklch(0.7 0.16 65));
+  color: oklch(0.12 0.02 75);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-amber);
+  transition: all var(--duration-normal) var(--ease-out-expo);
+}
+
+.cosmic-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 24px oklch(0.78 0.18 75 / 0.35), 0 0 60px oklch(0.78 0.18 75 / 0.1);
+  transform: translateY(-1px);
+}
+
+.cosmic-btn-primary:active:not(:disabled) {
+  transform: scale(0.98) translateY(0);
+}
+
+.cosmic-btn-primary:disabled {
+  background: oklch(0.2 0.02 275);
+  color: var(--text-ghost);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   STATUS BADGES
+   ============================================ */
+.status-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 100px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-badge-done {
+  color: var(--accent-teal);
+  background: oklch(0.74 0.11 175 / 0.08);
+  border: 1px solid oklch(0.74 0.11 175 / 0.25);
+}
+
+.status-badge-processing {
+  color: var(--accent-amber);
+  background: oklch(0.78 0.18 75 / 0.08);
+  border: 1px solid oklch(0.78 0.18 75 / 0.25);
+}
+
+.status-badge-error {
+  color: var(--accent-red);
+  background: oklch(0.6 0.2 25 / 0.08);
+  border: 1px solid oklch(0.6 0.2 25 / 0.25);
+}
+
+.status-badge-pending {
+  color: var(--text-ghost);
+  background: oklch(0.2 0.02 275 / 0.3);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ============================================
+   PROJECT CARD PROGRESS BAR
+   ============================================ */
+.progress-bar-cosmic {
+  height: 4px;
+  border-radius: 100px;
+  background: oklch(0.15 0.02 275);
+  overflow: hidden;
+}
+
+.progress-bar-cosmic-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--accent-amber-dim), var(--accent-amber));
+  background-size: 24px 24px;
+  animation: stripe-march 1s linear infinite;
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--accent-amber) 0px,
+    var(--accent-amber) 4px,
+    var(--accent-amber-dim) 4px,
+    var(--accent-amber-dim) 8px
+  );
+  transition: width 0.6s var(--ease-out-expo);
+}
+
+/* ============================================
+   LABEL STYLE
+   ============================================ */
+.cosmic-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* ============================================
+   PREFERS REDUCED MOTION
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(234, 179, 8, 0.15); }
+  50% { box-shadow: 0 0 24px rgba(234, 179, 8, 0.3); }
+}
+
+@keyframes check-fill {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
