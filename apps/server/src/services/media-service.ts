@@ -609,24 +609,48 @@ export function isPreparing(projectId: string): boolean {
 // Sem trava, dezenas de ffmpeg rodam simultâneos e nada termina. Com limite,
 // os episódios ficam prontos um a um — dá para assistir enquanto o resto
 // prepara.
+// A fila é PRIORITÁRIA: (temporada, episódio) menor sai primeiro, então a
+// temporada 1 de uma série fica pronta antes das demais.
 const PREP_CONCURRENCY = 3;
-const prepQueue: Array<() => Promise<void>> = [];
+
+export interface PrepPriority {
+  season: number;
+  episode: number;
+}
+
+export interface PrepTask {
+  priority: PrepPriority;
+  run: () => Promise<void>;
+}
+
+// Índice da tarefa de menor prioridade (primeira a rodar). Puro e testável.
+export function pickNextPrepIndex(tasks: PrepTask[]): number {
+  let best = 0;
+  for (let i = 1; i < tasks.length; i++) {
+    const a = tasks[best].priority;
+    const b = tasks[i].priority;
+    if (b.season < a.season || (b.season === a.season && b.episode < a.episode)) best = i;
+  }
+  return best;
+}
+
+const prepQueue: PrepTask[] = [];
 let prepActive = 0;
 
 function pumpPrep(): void {
   while (prepActive < PREP_CONCURRENCY && prepQueue.length > 0) {
-    const run = prepQueue.shift()!;
+    const [task] = prepQueue.splice(pickNextPrepIndex(prepQueue), 1);
     prepActive++;
-    run().finally(() => {
+    task.run().finally(() => {
       prepActive--;
       pumpPrep();
     });
   }
 }
 
-function enqueuePrep(fn: () => Promise<void>): Promise<void> {
+function enqueuePrep(priority: PrepPriority, fn: () => Promise<void>): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    prepQueue.push(() => fn().then(resolve, reject));
+    prepQueue.push({ priority, run: () => fn().then(resolve, reject) });
     pumpPrep();
   });
 }
@@ -635,7 +659,15 @@ export function prepareProject(projectId: string): Promise<void> {
   const existing = runningPrep.get(projectId);
   if (existing) return existing;
 
-  const proc = enqueuePrep(() => doPrepare(projectId)).finally(() => {
+  // Prioridade pela temporada/episódio do projeto: séries preparam a 1ª
+  // temporada antes das demais; filmes (sem temporada) têm prioridade máxima.
+  const row = getDb().exec('SELECT season_number, episode_number FROM projects WHERE id = ?', [projectId])[0]?.values[0];
+  const priority: PrepPriority = {
+    season: row && row[0] != null ? Number(row[0]) : 0,
+    episode: row && row[1] != null ? Number(row[1]) : 0,
+  };
+
+  const proc = enqueuePrep(priority, () => doPrepare(projectId)).finally(() => {
     runningPrep.delete(projectId);
   });
   runningPrep.set(projectId, proc);

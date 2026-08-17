@@ -100,13 +100,24 @@ export function useMediaExplorer() {
         }, ptTitleIfDifferent);
         const results = data.results || [];
         const withOptions = results.filter((r) => r.options && r.options.length > 0);
+        // Filtra por tipo do item do catálogo: um filme NÃO deve usar resultados
+        // de série (e vice-versa). A engine às vezes retorna um "series" falso
+        // para filme (magnets com "Temporada 1/2" de outro título) — sem este
+        // filtro, o agrupamento por temporada engole o filme dublado real e o
+        // modal só mostra as opções ORIGINAL da série fake.
+        const byType =
+          item.type === 'tv'
+            ? withOptions.filter((r) => r.mediaType === 'series' || r.mediaType === 'tv')
+            : withOptions.filter((r) => r.mediaType !== 'series' && r.mediaType !== 'tv');
+        // Se o filtro esvaziou, usa o que a engine achou (melhor que nada).
+        const usable = byType.length > 0 ? byType : withOptions;
         // Prefer a result carrying a confirmed PT-BR option (the dubbed release),
         // so the modal never shows only the 4K MULTI while hiding the real dub.
-        const ptResult = withOptions.find((r) => r.options.some((o) => o.ptConfirmed));
-        const top = ptResult || withOptions[0] || null;
+        const ptResult = usable.find((r) => r.options.some((o) => o.ptConfirmed));
+        const top = ptResult || usable[0] || null;
         // Séries: agrupa TODAS as temporadas retornadas (a busca traz um
         // resultado por temporada) em vez de mostrar só a primeira.
-        const seasons = groupSeriesSeasons(withOptions);
+        const seasons = groupSeriesSeasons(usable);
         if (top) {
           if (top.exactMatch) {
             setSelectedMovie({ ...preview, options: top.options, ptUnavailable: top.ptUnavailable, seasons });

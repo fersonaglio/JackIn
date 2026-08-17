@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyForTarget, audioBitrate, type MediaInfo, type Target } from '../services/media-service.js';
+import { classifyForTarget, audioBitrate, pickNextPrepIndex, type MediaInfo, type Target, type PrepTask } from '../services/media-service.js';
 
 function mkInfo(partial: Partial<MediaInfo>): MediaInfo {
   return {
@@ -112,5 +112,36 @@ describe('audioBitrate', () => {
     const targets: Target[] = ['hevc', 'h264'];
     expect(targets).toContain('h264');
     expect(targets).toContain('hevc');
+  });
+});
+
+describe('pickNextPrepIndex (fila de preparação prioritária)', () => {
+  const task = (season: number, episode: number): PrepTask => ({
+    priority: { season, episode },
+    run: async () => {},
+  });
+
+  it('temporada 1 sai antes das demais', () => {
+    const tasks = [task(3, 1), task(1, 8), task(2, 1), task(4, 1)];
+    expect(pickNextPrepIndex(tasks)).toBe(1);
+  });
+
+  it('dentro da mesma temporada, episódio menor sai antes', () => {
+    const tasks = [task(1, 10), task(1, 2), task(1, 5)];
+    expect(pickNextPrepIndex(tasks)).toBe(1);
+  });
+
+  it('filmes (sem temporada, prioridade 0) saem antes de qualquer série', () => {
+    const tasks = [task(1, 1), task(0, 0), task(2, 1)];
+    expect(pickNextPrepIndex(tasks)).toBe(1);
+  });
+
+  it('pack da temporada (episódio 0) precede os episódios da mesma temporada', () => {
+    const tasks = [task(1, 3), task(1, 0), task(1, 1)];
+    expect(pickNextPrepIndex(tasks)).toBe(1);
+  });
+
+  it('fila unitária retorna o índice 0', () => {
+    expect(pickNextPrepIndex([task(5, 9)])).toBe(0);
   });
 });
