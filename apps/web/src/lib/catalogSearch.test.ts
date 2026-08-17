@@ -7,6 +7,7 @@ describe('expandGluedQuery', () => {
     expect(expandGluedQuery('homemdeferro')).toBe('homem de ferro');
     expect(expandGluedQuery('piratasdocaribe')).toBe('piratas do caribe');
     expect(expandGluedQuery('senhordosaneis')).toBe('senhor dos aneis');
+    expect(expandGluedQuery('formiguinhaz')).toBe('antz');
   });
 
   it('is case/space/accent insensitive', () => {

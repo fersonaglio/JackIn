@@ -28,6 +28,7 @@ const GLUED_TITLES: Record<string, string> = {
   comotreinarseudragao: 'como treinar o seu dragao',
   meumalvadofavorito: 'meu malvado favorito',
   homemdasmascaradeferro: 'o homem da mascara de ferro',
+  formiguinhaz: 'antz',
   ironmen: 'iron man',
   ironmans: 'iron man',
 };
@@ -65,5 +66,7 @@ export async function catalogSearch(query: string, signal?: AbortSignal): Promis
   });
   if (!res.ok) throw new Error('Falha na busca do catálogo');
   const data = await res.json();
+  // A API local de torrents está fora do ar → erro claro em vez de "nada achado".
+  if (data.offline) throw new Error('API_OFFLINE');
   return (data.results || []).map(apiResultToCatalogItem);
 }

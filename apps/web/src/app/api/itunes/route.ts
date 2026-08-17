@@ -122,6 +122,10 @@ export async function GET(request: Request) {
       torrentSearchFallback(rawQuery),
     ]);
 
+    // A API local (Express :3001) ficou fora do ar/falhou → sinaliza ao cliente
+    // para mostrar "servidor offline" em vez de fingir que nada foi achado.
+    const apiOffline = torrentItems.status === 'rejected';
+
     const wikiResults = wikiItems.status === 'fulfilled'
       ? wikiItems.value.map((it) => ({
           id: it.id,
@@ -307,9 +311,9 @@ export async function GET(request: Request) {
       merged.push(...filtered);
     }
 
-    return Response.json({ results: merged }, { headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ results: merged, offline: apiOffline }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
-    return Response.json({ results: [] }, { headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ results: [], offline: false }, { headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
@@ -346,6 +350,8 @@ async function torrentSearchFallback(rawQuery: string) {
         ptUnavailable: r.ptUnavailable,
       }));
   } catch {
-    return [];
+    // API local fora do ar (conexão recusada/timeout) — o cliente precisa saber
+    // que a busca de torrents não rodou, e não que "não existe resultado".
+    throw new Error('API_OFFLINE');
   }
 }

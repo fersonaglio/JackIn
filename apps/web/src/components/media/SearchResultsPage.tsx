@@ -12,7 +12,7 @@ import MediaExplorerOverlays from './MediaExplorerOverlays';
 export default function SearchResultsPage({ query }: { query: string }) {
   const router = useRouter();
   const [results, setResults] = useState<CatalogItem[] | null>(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<'offline' | 'generic' | null>(null);
   const explorer = useMediaExplorer();
 
   useEffect(() => {
@@ -23,13 +23,15 @@ export default function SearchResultsPage({ query }: { query: string }) {
     let cancelled = false;
     const ctrl = new AbortController();
     setResults(null);
-    setError(false);
+    setError(null);
     const timer = setTimeout(async () => {
       try {
         const items = await catalogSearch(query, ctrl.signal);
         if (!cancelled) setResults(items);
-      } catch {
-        if (!cancelled && !ctrl.signal.aborted) setError(true);
+      } catch (e) {
+        if (!cancelled && !ctrl.signal.aborted) {
+          setError((e as Error).message === 'API_OFFLINE' ? 'offline' : 'generic');
+        }
       }
     }, 300);
     return () => {
@@ -54,6 +56,30 @@ export default function SearchResultsPage({ query }: { query: string }) {
           </div>
           {results === null ? (
             <SearchLoading query={query} />
+          ) : error === 'offline' ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+              <span className="text-4xl">🔌</span>
+              <p className="text-zinc-300 font-bold text-sm">
+                O servidor local está offline.
+              </p>
+              <p className="text-zinc-500 text-xs max-w-md">
+                Inicie a API do JackIn (na pasta do projeto: <code className="text-zinc-400">npm run dev:server</code> ou <code className="text-zinc-400">npm run dev:all</code>) e tente buscar de novo.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleBack}
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition-colors"
+                >
+                  &#8592; Voltar ao Catálogo
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 rounded-xl bg-[#EF9F27] hover:bg-[#ffb04d] text-black font-bold text-xs transition-colors"
+                >
+                  &#8635; Tentar de novo
+                </button>
+              </div>
+            </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
               <span className="text-4xl">📡</span>

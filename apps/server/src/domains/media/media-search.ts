@@ -22,6 +22,52 @@ const runningDownloads = new Set<string>();
 const runningProcesses = new Map<string, ReturnType<typeof spawn>>();
 const pauseRequested = new Set<string>();
 
+// Auto-retry de downloads: tenta novamente (com backoff) até finalizar, mas de
+// forma LIMITADA para não re-tentar infinitamente uma fonte morta/rejeitada.
+const MAX_AUTO_RETRIES = 3;
+const RETRY_BACKOFF_MS = [10_000, 30_000, 90_000];
+const autoRetryState = new Map<string, { attempts: number; timer?: NodeJS.Timeout }>();
+
+function scheduleAutoRetry(id: string, opts: DownloadOptions): void {
+  const state = autoRetryState.get(id);
+  const attempts = state?.attempts ?? 0;
+  if (attempts >= MAX_AUTO_RETRIES) {
+    autoRetryState.delete(id);
+    return;
+  }
+  if (state?.timer) return; // já há um retry agendado
+
+  const delay = RETRY_BACKOFF_MS[Math.min(attempts, RETRY_BACKOFF_MS.length - 1)];
+  const timer = setTimeout(() => {
+    // Marca a tentativa em execução (contador persiste entre re-spawns).
+    autoRetryState.set(id, { attempts: attempts + 1 });
+    try {
+      const row = getDb().exec('SELECT id, status FROM projects WHERE id = ?', [id])[0]?.values[0];
+      if (!row) {
+        autoRetryState.delete(id);
+        return;
+      }
+      const st = row[1] as string;
+      if (st === 'paused' || st === 'done' || st === 'preparing') {
+        autoRetryState.delete(id);
+        return;
+      }
+      console.log(`[JackIn Media] Auto-retry (${attempts + 1}/${MAX_AUTO_RETRIES}) do download ${id}`);
+      getDb().run(
+        'UPDATE projects SET status = ?, progress_status = ? WHERE id = ?',
+        ['downloading', `Tentando novamente (${attempts + 1}/${MAX_AUTO_RETRIES})...`, id]
+      );
+      persist();
+      startMovieDownload(id, opts);
+    } catch (e) {
+      console.error(`[JackIn Media] Auto-retry de ${id} falhou ao reagendar:`, (e as Error).message);
+      autoRetryState.delete(id);
+    }
+  }, delay);
+  autoRetryState.set(id, { attempts, timer });
+  timer.unref?.();
+}
+
 // Learned per-release knowledge: does this infohash actually contain PT audio?
 // Written after every completed download (ffprobe) and read by the search
 // engine so real PT-BR releases are preferred and non-PT "DUAL" releases are
@@ -224,6 +270,7 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
     // error. aria2 leaves the .aria2 control file so a resume can pick up.
     if (pauseRequested.has(id)) {
       pauseRequested.delete(id);
+      autoRetryState.delete(id);
       const progressRow = db.exec('SELECT progress_pct FROM projects WHERE id = ?', [id]);
       const lastPct = (progressRow[0]?.values[0]?.[0] ?? 0) as number;
       try {
@@ -241,6 +288,7 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
     }
 
     if (code === 0) {
+      autoRetryState.delete(id);
       console.log(`[JackIn Media] Download do projeto ${id} concluído e validado pelo escudo anti-vírus.`);
       let audioLabel = '';
       let downloadedVideoPath: string | null = null;
@@ -313,22 +361,31 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
         console.error('[JackIn Media] Erro ao atualizar status de erro do banco:', dbErr);
       }
       progressEvents.emit(id, { stage: 'error', progress: 0, status: errorMessage });
+
+      // Rejeição definitiva (escudo anti-vírus/conteúdo inválido) NÃO é
+      // re-tentada; falhas transitórias (sem seeders/rede) tentam de novo até
+      // o limite, para o download finalizar sem intervenção manual.
+      const definitive = /ESCUDO|quarentena|reprovad|rejeit/i.test(errorMessage);
+      if (!definitive) {
+        scheduleAutoRetry(id, opts);
+      }
     }
   });
 }
 
 // Reconcile a project stuck in "downloading" after a server restart.
 // Cobre TODOS os tipos (filme, série, upload): se um arquivo de vídeo completo
-// existe (sem .aria2 vivo), marca done e dispara o prepare; senão marca error.
+// existe (sem .aria2 vivo), marca done e dispara o prepare; senão RETOMA o
+// download automaticamente (aria2 continua do .aria2) até finalizar.
 export function reconcileMovieStatus(projectId: string): void {
   const db = getDb();
   const row = db.exec(
-    'SELECT id, status, video_path FROM projects WHERE id = ?',
+    'SELECT id, status, video_path, faceless_config, title FROM projects WHERE id = ?',
     [projectId]
   )[0]?.values[0];
   if (!row) return;
 
-  const [id, status, videoPath] = row as [string, string, string | null];
+  const [id, status, videoPath, facelessConfigRaw, rawTitle] = row as [string, string, string | null, string | null, string | null];
   if (status !== 'downloading' && status !== 'preparing') return;
   if (runningDownloads.has(id)) return;
   if (isPreparing(id)) return;
@@ -371,6 +428,36 @@ export function reconcileMovieStatus(projectId: string): void {
     );
     persist();
     reconcileProjectMedia(id);
+  } else if (status === 'downloading') {
+    // Download interrompido no meio (servidor reiniciou) → retoma sozinho.
+    // O worker (aria2) continua do arquivo .aria2 salvo até finalizar.
+    let fc: { sourceUrl?: string; quality?: string; posterUrl?: string; altSourceUrls?: string[] } | null = null;
+    try {
+      fc = facelessConfigRaw ? JSON.parse(facelessConfigRaw) : null;
+    } catch {}
+    const sourceUrl = fc?.sourceUrl;
+    if (sourceUrl) {
+      console.log(`[JackIn Media] Auto-retry: retomando download interrompido ${id}`);
+      db.run(
+        'UPDATE projects SET status = ?, progress_status = ? WHERE id = ?',
+        ['downloading', 'Retomando automaticamente após reinício...', id]
+      );
+      persist();
+      startMovieDownload(id, {
+        sourceUrl,
+        title: rawTitle || 'Mídia',
+        quality: fc?.quality || '4K',
+        posterUrl: fc?.posterUrl || '',
+        altSourceUrls: fc?.altSourceUrls,
+      });
+    } else {
+      console.log(`[JackIn Media] Reconciliado: download ${id} interrompido sem fonte para retomar`);
+      db.run(
+        'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
+        ['error', 'Download interrompido (servidor reiniciou)', id]
+      );
+      persist();
+    }
   } else {
     console.log(`[JackIn Media] Reconciliado: download ${id} interrompido (sem arquivo completo)`);
     db.run(
@@ -591,6 +678,8 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
   }
 
   const [, sourceUrl, title, status, facelessRaw] = row as [string, string, string, string, string | null];
+  // Retry manual zera o contador de auto-retry para um ciclo novo.
+  autoRetryState.delete(projectId);
 
   if (runningDownloads.has(projectId) || status === 'downloading') {
     res.status(409).json({ error: 'Download já em andamento' });
