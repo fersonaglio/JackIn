@@ -581,6 +581,41 @@ def main():
 
     try:
         final_video = download_file_with_shield(urls, output_dir, args.title, args.quality)
+
+        # Detecta episódios individuais do pack (S01E01, "1x01", "E01") — cada
+        # arquivo de vídeo do diretório vira um projeto de episódio no servidor,
+        # para o modal de série permitir assistir cada um separadamente.
+        episodes = []
+        ep_seen = set()
+        ep_paths = []
+        for root, _dirs, files in os.walk(output_dir):
+            for f in files:
+                ext = Path(f).suffix.lower()
+                if ext not in ALLOWED_EXTENSIONS:
+                    continue
+                full = Path(root) / f
+                if full == final_video:
+                    continue
+                ep_paths.append(full)
+        ep_paths.sort(key=lambda p: p.stat().st_size, reverse=True)
+        for full in ep_paths:
+            name = full.name
+            m = re.search(r"\bS(\d{1,3})[Ee](\d{1,3})\b", name) or \
+                re.search(r"\b(\d{1,3})x(\d{1,3})\b", name) or \
+                re.search(r"\b(?:[Ee]pisode|[Ee]pis[oó]dio)\s*(\d{1,3})\b", name)
+            if m:
+                season = int(m.group(1))
+                ep = int(m.group(2)) if m.lastindex == 2 else int(m.group(1))
+                key = (season, ep)
+                if key in ep_seen:
+                    continue
+                ep_seen.add(key)
+                episodes.append({
+                    "path": str(full),
+                    "season": season,
+                    "episode": ep,
+                })
+
         result = {
             "status": "success",
             "video_path": str(final_video),
@@ -588,7 +623,8 @@ def main():
             "audio_languages": detect_audio_languages(final_video),
             "subtitle_languages": detect_subtitle_languages(final_video),
             "quality": args.quality,
-            "title": args.title
+            "title": args.title,
+            "episodes": episodes,
         }
         print(json.dumps(result))
     except Exception as e:

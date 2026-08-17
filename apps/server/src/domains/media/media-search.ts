@@ -348,10 +348,12 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
       let downloadedVideoPath: string | null = null;
       let audioLangs: string[] = [];
       let isBlockedAudio = false;
+      let episodes: { path: string; season: number; episode: number }[] = [];
       const WANTED_LANGS = new Set(['eng', 'en', 'por', 'pt', 'pt-br', 'ptbr', 'spa', 'es']);
       try {
         const result = JSON.parse(stdout);
         if (result.video_path) downloadedVideoPath = result.video_path;
+        if (Array.isArray(result.episodes)) episodes = result.episodes;
         if (Array.isArray(result.audio_languages)) audioLangs = result.audio_languages;
         if (audioLangs.length > 0) {
           audioLabel += ` — Áudio: ${audioLangs.join(' / ')}`;
@@ -381,6 +383,40 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
         persist();
       } catch (dbErr) {
         console.error('[JackIn Media] Erro ao atualizar status final do banco:', dbErr);
+      }
+      // Pack de temporada (ex.: "S03 COMPLETE" com vários .mkv): indexa cada
+      // episódio como projeto próprio para o modal de série permitir assistir
+      // individualmente. O projeto pai vira um placeholder da temporada.
+      if (episodes.length > 1) {
+        try {
+          const parentRow = db.exec('SELECT series_id, season_number, title FROM projects WHERE id = ?', [id])[0]?.values[0];
+          const parentSeriesId = (parentRow?.[0] as string) || id;
+          const parentSeason = (parentRow?.[1] as number) || null;
+          const parentTitle = (parentRow?.[2] as string) || opts.title;
+
+          const created = 0;
+          for (const ep of episodes) {
+            if (!ep.path || !fs.existsSync(ep.path)) continue;
+            const epId = uuid();
+            const epTitle = `${parentTitle.replace(/\s*\(T\d+\)\s*$/i, '')} S${String(ep.season).padStart(2, '0')}E${String(ep.episode).padStart(2, '0')}`;
+            db.run(
+              'INSERT INTO projects (id, youtube_url, title, status, project_type, video_path, series_id, season_number, episode_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [epId, opts.sourceUrl, epTitle, 'preparing', 'series', ep.path, parentSeriesId, ep.season, ep.episode]
+            );
+            persist();
+            // Prepara cada episódio para playback (master/playable/áudio/legendas).
+            progressEvents.emit(epId, { stage: 'preparing', progress: 1, status: 'Preparando episódio...' });
+            prepareProject(epId).catch((e: any) => {
+              console.error(`[JackIn Media] Prepare do episódio ${epId} falhou:`, e);
+              db.run('UPDATE projects SET status = ?, error_message = ? WHERE id = ?', ['error', `Falha ao preparar episódio: ${e.message}`, epId]);
+              persist();
+            });
+          }
+          console.log(`[JackIn Media] Pack de temporada: indexados ${episodes.length} episódios do projeto ${id}`);
+          void created;
+        } catch (epErr) {
+          console.error('[JackIn Media] Erro ao indexar episódios do pack:', epErr);
+        }
       }
       // Pré-processa TODOS os artefatos de playback (master/playable/variantes de
       // áudio/legendas) ANTES de liberar como "done" — clicar em assistir é

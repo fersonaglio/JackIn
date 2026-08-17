@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@/lib/api';
 import { pauseMediaDownload, resumeMediaDownload } from '@/lib/api';
@@ -87,11 +87,60 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
     try { await resumeMediaDownload(p.id); } catch {}
   };
 
-  const visibleDownloads = projects.filter((p) => p.projectType === 'movie' && !dismissedIds.has(p.id));
+  // Inclui filmes E séries (projectType 'movie'/'series') — todos os downloads
+  // em andamento aparecem na dock, igual filme.
+  const visibleDownloads = projects.filter((p) => !dismissedIds.has(p.id));
   const downloadingItems = visibleDownloads.filter((p) => p.status === 'downloading' || p.status === 'preparing');
+
+  // Séries: agrupa as temporadas sob um único item (ex.: baixar todas as
+  // temporadas juntas mostra UM card "Love, Death & Robots" com o progresso
+  // agregado, em vez de um card por temporada).
+  const groupedDownloads = useMemo(() => {
+    const seriesMap = new Map<string, Project[]>();
+    const singles: Project[] = [];
+    for (const p of visibleDownloads) {
+      if (p.seriesId) {
+        const list = seriesMap.get(p.seriesId) || [];
+        list.push(p);
+        seriesMap.set(p.seriesId, list);
+      } else {
+        singles.push(p);
+      }
+    }
+    const seriesGroups = Array.from(seriesMap.values()).map((eps) => {
+      const sorted = [...eps].sort((a, b) => (a.seasonNumber ?? 0) - (b.seasonNumber ?? 0));
+      const statuses = new Set(sorted.map((e) => e.status));
+      const isDone = sorted.length > 0 && sorted.every((e) => e.status === 'done');
+      const isDownloading = statuses.has('downloading') || statuses.has('preparing');
+      const isPaused = !isDownloading && statuses.has('paused');
+      // Progresso agregado: média das temporadas (ou do item mais avançado).
+      const avgPct = sorted.length > 0
+        ? Math.round(sorted.reduce((acc, e) => acc + (e.progressPct || 0), 0) / sorted.length)
+        : 0;
+      const doneCount = sorted.filter((e) => e.status === 'done').length;
+      const title = (sorted[0]?.title || 'Série').replace(/\s*\(T\d+\)\s*$/i, '').trim();
+      return {
+        id: `series-${sorted[0]?.seriesId || ''}`,
+        title: `${title} (${doneCount}/${sorted.length} temp.)`,
+        status: isDone ? 'done' : isDownloading ? 'downloading' : isPaused ? 'paused' : 'error',
+        progressPct: avgPct,
+        progressStatus: isDownloading
+          ? `Baixando ${doneCount + 1}/${sorted.length} temporadas`
+          : isDone ? 'Concluído' : 'Falha',
+        episodeCount: sorted.length,
+        episodes: sorted,
+        baseTitle: title,
+      };
+    });
+    return { singles, series: seriesGroups };
+  }, [visibleDownloads]);
 
   const hasActiveDownloads = downloadingItems.length > 0;
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Total de itens exibidos na dock (séries agrupadas contam como 1).
+  const dockItemCount = groupedDownloads.singles.length + groupedDownloads.series.length;
+  const activeDockCount = dockItemCount;
 
   // Auto-expand when a new download starts
   useEffect(() => {
@@ -112,9 +161,9 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
         title="Downloads"
       >
         <span className="text-xl">📥</span>
-        {downloadingItems.length > 0 && (
+        {activeDockCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-600 border border-zinc-950 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
-            {downloadingItems.length}
+            {activeDockCount}
           </span>
         )}
       </button>
@@ -137,13 +186,13 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
             DOWNLOADS
           </span>
           <span className="text-[10px] font-bold text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
-            {downloadingItems.length}
+            {activeDockCount}
           </span>
         </div>
 
         <div className="flex items-center gap-3 overflow-x-auto py-0.5 no-scrollbar pr-6">
           <AnimatePresence>
-            {visibleDownloads.map((p) => {
+            {[...groupedDownloads.singles, ...groupedDownloads.series].map((p: any) => {
               const isDone = p.status === 'done';
               const isDownloading = p.status === 'downloading';
               const isPreparing = p.status === 'preparing';
@@ -190,7 +239,10 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                   {isDone ? (
                     <button
                       type="button"
-                      onClick={() => handleDismiss(p.id)}
+                      onClick={() => {
+                        if (p.episodes?.length) p.episodes.forEach((e: Project) => handleDismiss(e.id));
+                        else handleDismiss(p.id);
+                      }}
                       className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-black rounded-lg text-[10px] uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1 cursor-pointer"
                       title="Concluído - Remover da barra"
                     >
@@ -204,7 +256,10 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => handlePause(p)}
+                        onClick={() => {
+                          if (p.episodes?.length) p.episodes.forEach((e: Project) => handlePause(e));
+                          else handlePause(p);
+                        }}
                         className="px-2.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 font-black rounded-lg text-[10px] transition-all flex items-center gap-1 cursor-pointer"
                         title="Pausar download"
                       >
@@ -214,7 +269,10 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                   ) : isPaused ? (
                     <button
                       type="button"
-                      onClick={() => handleResume(p)}
+                      onClick={() => {
+                        if (p.episodes?.length) p.episodes.forEach((e: Project) => handleResume(e));
+                        else handleResume(p);
+                      }}
                       className="px-2.5 py-1.5 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-300 border border-sky-500/30 font-black rounded-lg text-[10px] transition-all flex items-center gap-1 cursor-pointer"
                       title="Retomar download"
                     >
@@ -223,7 +281,10 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => onRetry?.(p)}
+                      onClick={() => {
+                        if (p.episodes?.length) p.episodes.forEach((e: Project) => onRetry?.(e));
+                        else onRetry?.(p);
+                      }}
                       className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 font-black rounded-lg text-[10px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
                       title="Tentar baixar novamente"
                     >
