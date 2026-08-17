@@ -1,4 +1,6 @@
 'use client';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DeleteDialog({
@@ -19,17 +21,22 @@ export default function DeleteDialog({
   customTitle?: string;
   customMessage?: string;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const content = (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-[110] flex items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
         >
-          <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onCancel} />
           <motion.div
             className="relative bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-sm mx-4 w-full"
             initial={{ opacity: 0, scale: 0.95, y: 8 }}
@@ -70,4 +77,7 @@ export default function DeleteDialog({
       )}
     </AnimatePresence>
   );
+
+  if (!mounted || typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }
