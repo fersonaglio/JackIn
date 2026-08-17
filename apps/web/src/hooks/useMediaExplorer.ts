@@ -212,6 +212,55 @@ export function useMediaExplorer() {
     [selectedMovie, pollActiveProjects]
   );
 
+  // Baixa uma temporada como projeto de série (agrupado na biblioteca).
+  const startSeasonDownload = useCallback(
+    async (seriesTitle: string, seasonNumber: number, option: MediaOption, posterUrl?: string) => {
+      if (!isValidSourceUrl(option.sourceUrl)) return;
+      const key = `${seriesTitle}-S${seasonNumber}-${option.id}`;
+      setDownloadingItems((prev) => ({ ...prev, [key]: true }));
+      try {
+        const finalPosterUrl = posterUrl || selectedMovie?.posterUrl;
+        await downloadMediaMovie(
+          seriesTitle,
+          option.quality,
+          option.sourceUrl,
+          finalPosterUrl,
+          undefined,
+          seriesTitle,
+          seasonNumber
+        );
+        pollActiveProjects();
+        setStartedItems((prev) => ({ ...prev, [key]: true }));
+        setTimeout(() => {
+          setStartedItems((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+        }, 3200);
+      } catch {
+        // silent
+      } finally {
+        setDownloadingItems((prev) => ({ ...prev, [key]: false }));
+      }
+    },
+    [selectedMovie, pollActiveProjects]
+  );
+
+  // Baixa todas as temporadas EM SEQUÊNCIA (uma de cada vez, não em paralelo)
+  // para não sobrecarregar com N workers simultâneos.
+  const handleDownloadAllSeasons = useCallback(
+    async (seriesTitle: string, posterUrl: string | undefined, seasons: { seasonNumber: number; option: MediaOption }[]) => {
+      for (const s of seasons) {
+        await startSeasonDownload(seriesTitle, s.seasonNumber, s.option, posterUrl);
+        // Pequena pausa entre temporadas para o servidor processar.
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+      pollActiveProjects();
+    },
+    [startSeasonDownload, pollActiveProjects]
+  );
+
   const handleDeleteItem = useCallback(async () => {
     if (!itemToDelete) return;
     try {
@@ -310,6 +359,7 @@ export function useMediaExplorer() {
     handleOpenModal,
     handleSuggestionClick,
     handleStartDownload,
+    handleDownloadAllSeasons,
     handleDeleteItem,
     handleDeleteSeries,
     handleRetry,

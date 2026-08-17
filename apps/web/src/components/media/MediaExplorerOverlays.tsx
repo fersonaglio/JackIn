@@ -20,6 +20,7 @@ interface MediaExplorerOverlaysProps {
   onCloseModal: () => void;
   onCloseCinema: () => void;
   onDownload: (movieTitle: string, option: MediaOption, posterUrl?: string) => void;
+  onDownloadAll?: (seriesTitle: string, posterUrl: string | undefined, seasons: { seasonNumber: number; option: MediaOption }[]) => void;
   onWatch: (project: Project, episodeList?: { id: string; title: string; videoUrl: string }[]) => void;
   onRetry: (project: Project) => void;
   onConfirmDelete: () => void;
@@ -41,6 +42,7 @@ export default function MediaExplorerOverlays({
   onCloseModal,
   onCloseCinema,
   onDownload,
+  onDownloadAll,
   onWatch,
   onRetry,
   onConfirmDelete,
@@ -58,6 +60,7 @@ export default function MediaExplorerOverlays({
         downloadingItems={downloadingItems}
         startedItems={startedItems}
         onDownload={onDownload}
+        onDownloadAll={onDownloadAll}
         isSearchingTorrents={modalSearching}
         initialAudioFilter="any"
         ptStrictRequest={audioPref === 'ptbr'}

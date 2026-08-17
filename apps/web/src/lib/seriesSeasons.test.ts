@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   seasonNumberFromTitle,
   seriesBaseTitle,
-  episodeInfoFromOptions,
+  seasonInfoFromSource,
+  seasonLabelFromSource,
   groupSeriesSeasons,
 } from './seriesSeasons';
 import type { MediaOption, MovieSearchResult } from './api';
@@ -45,17 +46,39 @@ describe('seriesBaseTitle', () => {
   });
 });
 
-describe('episodeInfoFromOptions', () => {
-  it('conta episódios únicos pelos magnets', () => {
-    const opts = [
-      option('a', 'magnet:?xt=urn:btih:aa&dn=Show S01E01 1080p'),
-      option('b', 'magnet:?xt=urn:btih:bb&dn=Show S01E02 1080p'),
-      option('c', 'magnet:?xt=urn:btih:cc&dn=Show S01E02 720p'),
-    ];
-    expect(episodeInfoFromOptions(opts)).toEqual({ count: 2, maxEpisode: 2 });
+describe('seasonInfoFromSource', () => {
+  it('detecta S01 como temporada única', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:aa&dn=Show S01 COMPLETE 1080p')).toEqual({ seasons: [1], all: false });
   });
-  it('retorna zero sem episódios', () => {
-    expect(episodeInfoFromOptions([option('a', 'magnet:?xt=urn:btih:aa&dn=Show Complete')])).toEqual({ count: 0, maxEpisode: 0 });
+  it('detecta S01E01 como temporada 1', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:bb&dn=Show S01E01 1080p')).toEqual({ seasons: [1], all: false });
+  });
+  it('detecta range S01-S03', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:cc&dn=Show S01-S03 1080p')).toEqual({ seasons: [1, 2, 3], all: false });
+  });
+  it('detecta Season 3 word', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:dd&dn=Show Season 3 720p')).toEqual({ seasons: [3], all: false });
+  });
+  it('detecta Complete Series como all', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:ee&dn=Show Complete Series 1080p')).toEqual({ seasons: [], all: true });
+  });
+  it('retorna vazio sem marcador', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:ff&dn=Some Movie')).toEqual({ seasons: [], all: false });
+  });
+});
+
+describe('seasonLabelFromSource', () => {
+  it('rótulo de temporada única', () => {
+    expect(seasonLabelFromSource('magnet:?xt=urn:btih:aa&dn=Show S01 COMPLETE')).toBe('Temporada 1');
+  });
+  it('rótulo de range', () => {
+    expect(seasonLabelFromSource('magnet:?xt=urn:btih:cc&dn=Show S01-S03')).toBe('T1-3 (3 temp.)');
+  });
+  it('rótulo de série completa', () => {
+    expect(seasonLabelFromSource('magnet:?xt=urn:btih:ee&dn=Show Complete Series')).toBe('Série completa');
+  });
+  it('null sem temporada', () => {
+    expect(seasonLabelFromSource('magnet:?xt=urn:btih:ff&dn=Some Movie')).toBeNull();
   });
 });
 
@@ -100,8 +123,8 @@ describe('groupSeriesSeasons', () => {
     const seasons = groupSeriesSeasons([s2, s1, movie]);
     expect(seasons).toBeDefined();
     expect(seasons!.map((s) => s.seasonNumber)).toEqual([1, 2]);
-    expect(seasons![0].episodeCount).toBe(1);
-    expect(seasons![1].episodeCount).toBe(2);
+    expect(seasons![0].options.length).toBe(1);
+    expect(seasons![1].options.length).toBe(2);
   });
 
   it('retorna undefined sem nenhuma série', () => {
@@ -112,5 +135,31 @@ describe('groupSeriesSeasons', () => {
     const dup = { ...s1, options: [option('x', 'magnet:?xt=urn:btih:aa&dn=Show S01E01')] };
     const seasons = groupSeriesSeasons([s1, dup])!;
     expect(seasons[0].options.length).toBe(1);
+  });
+
+  it('agrupa por temporada dos magnets quando o título não tem marcador (engine /search)', () => {
+    // A engine /search retorna UM resultado de série com opções de várias
+    // temporadas misturadas, título sem "Season N".
+    const mixed: MovieSearchResult = {
+      id: 'mixed',
+      title: 'Love, Death & Robots',
+      originalTitle: 'Love, Death & Robots',
+      year: '2019',
+      overview: '',
+      posterUrl: '',
+      genre: '',
+      rating: '',
+      mediaType: 'series',
+      options: [
+        option('a', 'magnet:?xt=urn:btih:a1&dn=Show S01 COMPLETE 1080p'),
+        option('b', 'magnet:?xt=urn:btih:b1&dn=Show S01E01 1080p'),
+        option('c', 'magnet:?xt=urn:btih:c1&dn=Show S04E03 1080p'),
+        option('d', 'magnet:?xt=urn:btih:d1&dn=Show S04E07 720p'),
+      ],
+    };
+    const seasons = groupSeriesSeasons([mixed])!;
+    expect(seasons.map((s) => s.seasonNumber)).toEqual([1, 4]);
+    expect(seasons[0].options.length).toBe(2);
+    expect(seasons[1].options.length).toBe(2);
   });
 });

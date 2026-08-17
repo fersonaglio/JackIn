@@ -38,6 +38,7 @@ export default function MediaExplorerPage() {
         onCloseModal={() => explorer.setModalOpen(false)}
         onCloseCinema={() => explorer.setCinemaMedia(null)}
         onDownload={explorer.handleStartDownload}
+        onDownloadAll={explorer.handleDownloadAllSeasons}
         onWatch={explorer.handleWatch}
         onRetry={explorer.handleRetry}
         onConfirmDelete={explorer.handleDeleteItem}

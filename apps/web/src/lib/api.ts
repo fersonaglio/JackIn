@@ -160,8 +160,6 @@ export interface SeriesSeason {
   seasonNumber: number;
   title: string;
   options: MediaOption[];
-  /** Estimativa de episódios únicos detectados nos magnets, se conhecível. */
-  episodeCount?: number;
 }
 
 export interface MediaSearchMeta {
@@ -215,11 +213,13 @@ export async function downloadMediaMovie(
   quality: string,
   sourceUrl: string,
   posterUrl?: string,
-  altSourceUrls?: string[]
+  altSourceUrls?: string[],
+  seriesTitle?: string,
+  seasonNumber?: number | null
 ): Promise<{ id: string; title: string; status: string; quality: string }> {
   return fetchApi('/media-search/download', {
     method: 'POST',
-    body: JSON.stringify({ title, quality, sourceUrl, posterUrl, altSourceUrls })
+    body: JSON.stringify({ title, quality, sourceUrl, posterUrl, altSourceUrls, seriesTitle, seasonNumber })
   });
 }
 

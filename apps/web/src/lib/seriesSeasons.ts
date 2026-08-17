@@ -21,22 +21,57 @@ export function seriesBaseTitle(title: string): string {
     .trim();
 }
 
-// Detecta episódios únicos (S01E01, 1x01, "Episode 5") nos magnets de uma
-// temporada. Retorna o maior número de episódio encontrado (estimativa) e a
-// contagem de episódios distintos.
-const EPISODE_NUM_RE = /[Ee](\d{1,3})\b|\b(\d{1,3})x(\d{1,3})\b|\b(?:episode|epis[oó]dio)\s*(\d{1,3})\b/i;
+// Quais temporadas um magnet contém, extraídas do dn do magnet:
+//   "Show S01"               -> { seasons: [1] }
+//   "Show S01 COMPLETE"      -> { seasons: [1] }
+//   "Show S01E01"            -> { seasons: [1] }
+//   "Show S01-S02"           -> { seasons: [1,2] }
+//   "Show Complete Series"   -> { all: true }
+//   "Show Season 3"          -> { seasons: [3] }
+// Retorna null se o magnet não indicar temporada (ex.: filme, pack sem marca).
+const S_TOKEN_RE = /\b[Ss](\d{1,3})(?:-([Ss]?)(\d{1,3}))?(?!\d)|\b(?:season|temporada)\s*(\d{1,3})\b|(\d{1,3})[ºªo]?\s*[Tt]emporada/gi;
 
-export function episodeInfoFromOptions(options: MediaOption[]): { count: number; maxEpisode: number } {
-  const eps = new Set<number>();
-  for (const o of options) {
-    const dn = o.sourceUrl || '';
-    const m = dn.match(EPISODE_NUM_RE);
-    if (!m) continue;
-    const raw = m[1] ?? m[3] ?? m[4];
-    if (raw) eps.add(parseInt(raw, 10));
+export interface MagnetSeasonInfo {
+  /** Temporadas individuais detectadas (ex.: [1], [1,2]). */
+  seasons: number[];
+  /** Torrent que cobre a série inteira ("Complete Series", "All Seasons"). */
+  all: boolean;
+}
+
+export function seasonInfoFromSource(sourceUrl: string): MagnetSeasonInfo {
+  const dn = decodeURIComponent(sourceUrl || '');
+  const info: MagnetSeasonInfo = { seasons: [], all: false };
+
+  if (/\b(complete\s+series|all\s+seasons|s[eé]rie\s+completa|todas\s+as\s+temporadas)\b/i.test(dn)) {
+    info.all = true;
+    return info;
   }
-  if (eps.size === 0) return { count: 0, maxEpisode: 0 };
-  return { count: eps.size, maxEpisode: Math.max(...eps) };
+
+  const seen = new Set<number>();
+  for (const m of dn.matchAll(S_TOKEN_RE)) {
+    const a = m[1] ?? m[4] ?? m[5];
+    const b = m[3];
+    if (!a) continue;
+    const sA = parseInt(a, 10);
+    seen.add(sA);
+    if (b) {
+      // Range "S01-S03"
+      const sB = parseInt(b, 10);
+      for (let s = Math.min(sA, sB); s <= Math.max(sA, sB); s++) seen.add(s);
+    }
+  }
+  info.seasons = [...seen].sort((x, y) => x - y);
+  return info;
+}
+
+/** Rótulo curto das temporadas de um magnet ("1 temporada", "T1-T3", "Série completa"). */
+export function seasonLabelFromSource(sourceUrl: string): string | null {
+  const info = seasonInfoFromSource(sourceUrl);
+  if (info.all) return 'Série completa';
+  if (info.seasons.length === 0) return null;
+  if (info.seasons.length === 1) return `Temporada ${info.seasons[0]}`;
+  const range = `${info.seasons[0]}-${info.seasons[info.seasons.length - 1]}`;
+  return `T${range} (${info.seasons.length} temp.)`;
 }
 
 // Agrupa os resultados de uma série em temporadas ordenadas. Resultados de
@@ -45,37 +80,51 @@ export function groupSeriesSeasons(results: MovieSearchResult[]): SeriesSeason[]
   const seasons = new Map<number, SeriesSeason>();
   let sawSeries = false;
 
+  const addOption = (seasonNum: number, baseTitle: string, o: MediaOption) => {
+    const existing = seasons.get(seasonNum);
+    if (existing) {
+      // Mescla opções da mesma temporada (dedup por magnet).
+      const seen = new Set(existing.options.map((x) => x.sourceUrl));
+      if (!seen.has(o.sourceUrl)) existing.options.push(o);
+    } else {
+      seasons.set(seasonNum, { seasonNumber: seasonNum, title: baseTitle, options: [o] });
+    }
+  };
+
   for (const r of results) {
-    const isSeries = r.mediaType === 'series' || seasonNumberFromTitle(r.title) !== null;
+    const titleSeason = seasonNumberFromTitle(r.title);
+    const isSeries = r.mediaType === 'series' || titleSeason !== null;
     if (!isSeries) continue;
     sawSeries = true;
 
-    const season = seasonNumberFromTitle(r.title) ?? 1;
-    const existing = seasons.get(season);
-    if (existing) {
-      // Mescla opções da mesma temporada (dedup por magnet).
-      const seen = new Set(existing.options.map((o) => o.sourceUrl));
-      for (const o of r.options) {
-        if (!seen.has(o.sourceUrl)) existing.options.push(o);
+    const base = seriesBaseTitle(r.title) || r.title;
+    const hasTitleSeason = titleSeason !== null;
+
+    for (const o of r.options || []) {
+      if (hasTitleSeason) {
+        // Resultado já etiquetado com temporada no título (ex.: "Season 2").
+        addOption(titleSeason as number, base, o);
+      } else {
+        // Resultado único de série com opções de várias temporadas misturadas
+        // (engine /search): extrai a temporada do próprio magnet (S01, S04...).
+        const info = seasonInfoFromSource(o.sourceUrl);
+        if (info.all) {
+          // "Complete Series" — sem temporada específica; mantém como temporada 1.
+          addOption(1, base, o);
+        } else if (info.seasons.length === 1) {
+          addOption(info.seasons[0], base, o);
+        } else {
+          // Magnet sem marcador (ou range): mantém na temporada do título ou 1.
+          addOption(1, base, o);
+        }
       }
-    } else {
-      seasons.set(season, {
-        seasonNumber: season,
-        title: seriesBaseTitle(r.title) || r.title,
-        options: [...r.options],
-      });
     }
   }
 
   if (!sawSeries) return undefined;
 
-  const list = [...seasons.entries()]
+  return [...seasons.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([, s]) => {
-      const info = episodeInfoFromOptions(s.options);
-      return { ...s, episodeCount: info.maxEpisode > 0 ? info.maxEpisode : undefined };
-    });
-
-  // Apenas expõe temporadas que realmente têm opções.
-  return list.filter((s) => s.options.length > 0);
+    .map(([, s]) => s)
+    .filter((s) => s.options.length > 0);
 }

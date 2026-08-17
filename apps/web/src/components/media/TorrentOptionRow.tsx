@@ -7,6 +7,8 @@ interface TorrentOptionRowProps {
   isDownloading: boolean;
   started?: boolean;
   onDownload: (option: MediaOption) => void;
+  /** Séries: quantas temporadas o magnet inclui (ex.: "1 temporada", "T1-T3"). */
+  seasonLabel?: string | null;
 }
 
 const qualityColors: Record<string, string> = {
@@ -35,7 +37,7 @@ function audioBadge(option: MediaOption): { label: string; cls: string } | null 
   return null;
 }
 
-export default function TorrentOptionRow({ option, isDownloading, started = false, onDownload }: TorrentOptionRowProps) {
+export default function TorrentOptionRow({ option, isDownloading, started = false, onDownload, seasonLabel }: TorrentOptionRowProps) {
   const badge = audioBadge(option);
   const qualityColor = getQualityColor(option.quality);
   const subsBadge = option.hasSubtitles
@@ -58,6 +60,11 @@ export default function TorrentOptionRow({ option, isDownloading, started = fals
       <div className="flex-1 space-y-2 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-black text-zinc-100 tracking-tight">{option.quality}</span>
+          {seasonLabel && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 bg-sky-500/15 border-sky-500/40 text-sky-300" title="Temporadas incluídas no download">
+              {seasonLabel}
+            </span>
+          )}
           {badge && (
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badge.cls}`}>
               {badge.label}
