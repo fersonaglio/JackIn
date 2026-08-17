@@ -21,6 +21,12 @@ export default function HeroBanner({ items, onPlay, onMoreInfo }: HeroBannerProp
     }
   }, [items.length]);
 
+  const prevSlide = useCallback(() => {
+    if (items.length > 1) {
+      setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+    }
+  }, [items.length]);
+
   useEffect(() => {
     if (isPaused || items.length <= 1) return;
     const timer = setInterval(nextSlide, 8000);
@@ -160,17 +166,52 @@ export default function HeroBanner({ items, onPlay, onMoreInfo }: HeroBannerProp
           </div>
         </div>
 
+        {/* Navigation arrows (Left and Right) */}
         {items.length > 1 && (
-          <div className="absolute bottom-6 right-8 flex items-center gap-2">
-            {items.slice(0, 5).map((_, idx) => (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                prevSlide();
+              }}
+              className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/60 hover:bg-[#E50914] text-white flex items-center justify-center backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 z-20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]"
+              aria-label="Título anterior"
+              title="Anterior"
+            >
+              <svg className="w-6 h-6 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                nextSlide();
+              }}
+              className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/60 hover:bg-[#E50914] text-white flex items-center justify-center backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 z-20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]"
+              aria-label="Próximo título"
+              title="Próximo"
+            >
+              <svg className="w-6 h-6 -mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </>
+        )}
+
+        {items.length > 1 && (
+          <div className="absolute bottom-6 right-8 flex items-center gap-2 z-20">
+            {items.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => setCurrentIndex(idx)}
-                className={`h-1 rounded-full transition-all duration-300 focus:outline-none ${
+                className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none ${
                   idx === currentIndex
-                    ? 'w-8 bg-[#EF9F27]'
-                    : 'w-4 bg-zinc-600 hover:bg-zinc-500'
+                    ? 'w-8 bg-[#E50914]'
+                    : 'w-3 bg-zinc-600/70 hover:bg-zinc-400'
                 }`}
                 aria-label={`Slide ${idx + 1}`}
               />

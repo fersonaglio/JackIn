@@ -6,6 +6,7 @@ export interface CatalogItem {
   posterPath: string | null;
   backdropPath: string | null;
   year: number | null;
+  releaseDate?: string | null;
   rating: number;
   genres: string[];
   type: 'movie' | 'tv';

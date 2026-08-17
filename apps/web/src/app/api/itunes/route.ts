@@ -62,6 +62,7 @@ function entryToResult(entry: RssEntry, fallbackGenre: string) {
     posterUrl: art ? resizeArt(art, '600x600bb') : '',
     backdropUrl: art ? resizeArt(art, '1000x1000bb') : '',
     year: date ? Number(date.slice(0, 4)) || null : null,
+    releaseDate: date || '',
     genre: entry.category?.attributes?.label || fallbackGenre,
     rating: 8.5,
   };

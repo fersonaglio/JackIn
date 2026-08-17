@@ -35,6 +35,7 @@ async function fetchFeed(feed: string, genre?: string): Promise<CatalogItem[]> {
     posterPath: r.posterUrl || null,
     backdropPath: r.backdropUrl || r.posterUrl || null,
     year: r.year ? parseInt(String(r.year), 10) : null,
+    releaseDate: r.releaseDate || null,
     rating: r.rating || 8.5,
     genres: r.genre ? [r.genre] : [],
     type: isTv ? ('tv' as const) : ('movie' as const),
@@ -73,11 +74,35 @@ export function useCatalog(): UseCatalogReturn {
       const dedupedMovies = dedupByTitle(movies);
       const dedupedSeries = dedupByTitle(series);
 
+      // Sort by newest release date / year descending
+      const sortByNewest = (items: CatalogItem[]) =>
+        [...items].sort((a, b) => {
+          const dateA = a.releaseDate ? new Date(a.releaseDate).getTime() : (a.year || 0) * 10000;
+          const dateB = b.releaseDate ? new Date(b.releaseDate).getTime() : (b.year || 0) * 10000;
+          return dateB - dateA;
+        });
+
+      const recentMovies = sortByNewest(dedupedMovies);
+      const recentSeries = sortByNewest(dedupedSeries);
+
+      // Prefer 2026 and recent 2025 releases
+      const currentYear = new Date().getFullYear();
+      const isRecentRelease = (it: CatalogItem) => {
+        if (!it.year) return false;
+        return it.year >= currentYear - 1;
+      };
+
+      const filteredMovies = recentMovies.filter(isRecentRelease);
+      const filteredSeries = recentSeries.filter(isRecentRelease);
+
+      const poolMovies = filteredMovies.length > 0 ? filteredMovies : recentMovies;
+      const poolSeries = filteredSeries.length > 0 ? filteredSeries : recentSeries;
+
       const top10Featured: CatalogItem[] = [];
-      const maxLen = Math.max(dedupedMovies.length, dedupedSeries.length);
+      const maxLen = Math.max(poolMovies.length, poolSeries.length);
       for (let i = 0; i < maxLen && top10Featured.length < 10; i++) {
-        if (dedupedMovies[i]) top10Featured.push(dedupedMovies[i]);
-        if (dedupedSeries[i] && top10Featured.length < 10) top10Featured.push(dedupedSeries[i]);
+        if (poolMovies[i]) top10Featured.push(poolMovies[i]);
+        if (poolSeries[i] && top10Featured.length < 10) top10Featured.push(poolSeries[i]);
       }
 
       const nextData: CatalogData = {
