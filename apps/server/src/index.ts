@@ -56,6 +56,10 @@ app.get('/api/lan-ip', (_req, res) => {
 
 app.use('/api/media-search', mediaSearchRouter);
 app.use('/api/media-library', mediaLibraryRouter);
+// O front-end JackIn consome /api/projects/* (URLs montadas pelo player, cards
+// da biblioteca, faixas, cast, legendas, progresso, séries, histórico). O mesmo
+// router também é exposto em /api/media-library para a API documentada.
+app.use('/api/projects', mediaLibraryRouter);
 
 // After a restart, projects stuck in downloading/preparing are reconciled and
 // missing playback artifacts are regenerated — media-only, same as the source monorepo.

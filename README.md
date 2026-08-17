@@ -210,14 +210,19 @@ JackIn/
 # 1. Instalar dependências (workspaces npm)
 npm install
 
-# 2. Configurar variáveis de ambiente
+# 2. Criar o ambiente Python da engine de busca/download
+python3 -m venv .venv
+.venv/bin/pip install -r apps/python-services/requirements.txt
+#    Se o Python não estiver no caminho esperado, defina PYTHON_BIN no .env
+
+# 3. Configurar variáveis de ambiente
 cp .env.example .env
 #    → edite apenas o que for usar (tudo funciona vazio; veja a tabela abaixo)
 
-# 3. Subir a API (porta 3001)
+# 4. Subir a API (porta 3001)
 npm run dev:server
 
-# 4. Em outro terminal, subir a web (porta 3000)
+# 5. Em outro terminal, subir a web (porta 3000)
 npm run dev:web
 ```
 

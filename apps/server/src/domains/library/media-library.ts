@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { getDb, persist, persistThrottled, DATA_DIR } from '../../db/schema.js';
-import { existsSync, rmSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, rmSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { execSync, spawn } from 'child_process';
 import { progressEvents } from '../../services/progress-events.js';
 import { resolveVideoFile, getProjectMedia, prepareProject, isPreparing, resolveCastFile, listCastAudioTracks, type Target } from '../../services/media-service.js';
 import { TRACKERS_LIST } from '../media/trackers.js';
 import { LANG_TO_CODES, codeToLang } from '../../services/language-map.js';
+import { FFMPEG_BIN } from '../../services/binary-paths.js';
 
 const router = Router();
 
@@ -54,6 +55,41 @@ export function recordWatchHistory(projectId: string) {
     console.error(`[JackIn] Erro ao gravar histórico de assistidos para ${projectId}:`, err.message);
   }
 }
+
+// Lista a biblioteca de mídia (projetos movie/series). Suporta ?type=movie|series.
+router.get('/', (req: Request, res: Response) => {
+  const typeFilter = String(req.query.type || '').toLowerCase();
+  const db = getDb();
+  const filtered = typeFilter === 'movie' || typeFilter === 'series';
+  const where = filtered ? 'WHERE project_type = ?' : "WHERE project_type IN ('movie','series')";
+  const params = filtered ? [typeFilter] : [];
+  const result = db.exec(
+    `SELECT id, youtube_url, title, status, error_message, created_at, video_path,
+            COALESCE(project_type,'movie') as project_type, faceless_config,
+            series_id, season_number, episode_number, watch_progress, watched
+     FROM projects ${where} ORDER BY created_at DESC`,
+    params
+  );
+  const rows = result[0]?.values || [];
+  res.json(
+    rows.map((r: any[]) => ({
+      id: r[0],
+      youtubeUrl: r[1],
+      title: r[2],
+      status: r[3],
+      errorMessage: r[4],
+      createdAt: r[5],
+      videoPath: r[6],
+      projectType: r[7],
+      facelessConfig: r[8] ? JSON.parse(r[8] as string) : null,
+      seriesId: r[9] as string | null,
+      seasonNumber: r[10] as number | null,
+      episodeNumber: r[11] as number | null,
+      watchProgress: r[12] as number | null,
+      watched: r[13] as number | null,
+    }))
+  );
+});
 
 router.get('/series/:seriesId', (req: Request, res: Response) => {
   const seriesId = String(req.params.seriesId);
@@ -219,6 +255,76 @@ router.get('/:id', (req: Request, res: Response) => {
     watchProgress: row[10] as number | null,
     watched: row[11] as number | null,
   });
+});
+
+// Capa/poster da mídia. Prioridade: arquivo de capa na pasta do projeto →
+// frame extraído do vídeo (ffmpeg) → poster via iTunes pelo título.
+router.get('/:id/thumbnail', async (req: Request, res: Response) => {
+  const projectId = String(req.params.id);
+  const projectDir = path.join(DATA_DIR, 'projects', projectId);
+
+  if (existsSync(projectDir)) {
+    const candidates = ['thumbnail.jpg', 'thumbnail.png', 'poster.jpg', 'poster.png', 'project_thumb.jpg', 'project_thumb.png', 'cover.jpg', 'cover.png'];
+    for (const file of candidates) {
+      const filePath = path.join(projectDir, file);
+      if (existsSync(filePath)) {
+        res.sendFile(path.resolve(filePath));
+        return;
+      }
+    }
+  }
+
+  const proj = getDb().exec('SELECT video_path, title FROM projects WHERE id = ?', [projectId])[0]?.values[0];
+  let videoPath = proj?.[0] as string | null;
+  const rawTitle = proj?.[1] as string | null;
+
+  if (!videoPath && existsSync(projectDir)) {
+    try {
+      const files = readdirSync(projectDir);
+      const found = files.find((f) => f.startsWith('original.') || f.startsWith('source_') || /\.(mp4|webm|mkv|avi)$/i.test(f));
+      if (found) videoPath = path.join(projectDir, found);
+    } catch {}
+  }
+
+  if (videoPath && existsSync(videoPath)) {
+    const thumbPath = path.join(projectDir, 'project_thumb.jpg');
+    try {
+      execSync(`"${FFMPEG_BIN}" -y -ss 00:00:01 -i "${videoPath}" -vframes 1 -q:v 2 "${thumbPath}"`, { stdio: 'pipe' });
+      res.sendFile(path.resolve(thumbPath));
+      return;
+    } catch (e) {
+      console.error(`[JackIn] Falha ao gerar thumbnail de ${projectId}:`, (e as Error).message);
+    }
+  }
+
+  if (rawTitle) {
+    const cleanTitle = rawTitle.replace(/\s*\([^)]*\)/g, '').trim();
+    if (cleanTitle) {
+      try {
+        const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanTitle)}&limit=1`;
+        const itunesRes = await fetch(searchUrl);
+        if (itunesRes.ok) {
+          const data = await itunesRes.json();
+          const artUrl = data.results?.[0]?.artworkUrl100;
+          if (artUrl) {
+            const hiRes = artUrl.replace('100x100bb.jpg', '600x600bb.jpg');
+            const imgRes = await fetch(hiRes);
+            if (imgRes.ok) {
+              mkdirSync(projectDir, { recursive: true });
+              const thumbPath = path.join(projectDir, 'thumbnail.jpg');
+              writeFileSync(thumbPath, Buffer.from(await imgRes.arrayBuffer()));
+              res.sendFile(path.resolve(thumbPath));
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`[JackIn] Falha ao buscar poster iTunes de ${projectId}:`, (e as Error).message);
+      }
+    }
+  }
+
+  res.status(404).json({ error: 'Thumbnail not available' });
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
