@@ -486,7 +486,7 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
         quarantine_file(target_path, "inspeção de mídia reprovada (quarentena em vez de deleção)")
         raise RuntimeError("ESCUDO DE SEGURANÇA: Arquivo de vídeo corrompido ou sem faixas decodificáveis válidas (colocado em quarentena).")
 
-    # Camada 3: Extração de áudio limpo whisper_audio.wav para a IA de cortes
+    # Camada 3: Extração de áudio limpo whisper_audio.wav para transcrição
     # (mono 16kHz é artefato de transcrição/Whisper — NÃO é o áudio do playback).
     emit_progress(98, "Extraindo faixa de áudio para curadoria do JackIn...", 0)
     try:

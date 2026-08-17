@@ -4,9 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function DeleteDialog({
   open,
   title,
-  pendingCount = 0,
-  postedCount = 0,
-  cutsCount = 0,
   onConfirm,
   onCancel,
   customTitle,
@@ -51,33 +48,6 @@ export default function DeleteDialog({
               )}
             </p>
 
-            {/* Alertas sobre o estado de postagem (apenas se não for mensagem customizada) */}
-            {!customMessage && (
-              <>
-                {pendingCount > 0 ? (
-                  <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3 mb-6 space-y-1">
-                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider block">⚠️ Alerta Crítico</span>
-                    <p className="text-[11px] text-red-300 font-light leading-relaxed">
-                      Este projeto possui <span className="font-bold">{pendingCount} publicação(ões) pendente(s)</span> na fila de envio do JackIn. Se você excluí-lo agora, o upload desses vídeos falhará!
-                    </p>
-                  </div>
-                ) : postedCount > 0 ? (
-                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3 mb-6 space-y-1">
-                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">✅ Seguro para Excluir</span>
-                    <p className="text-[11px] text-emerald-300/90 font-light leading-relaxed">
-                      Todos os <span className="font-bold">{postedCount} cortes publicados/agendados</span> já foram enviados ao YouTube de forma definitiva.
-                    </p>
-                  </div>
-                ) : cutsCount > 0 ? (
-                  <div className="bg-zinc-800/40 border border-zinc-800 rounded-lg p-3 mb-6 space-y-1">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">ℹ️ Nota</span>
-                    <p className="text-[11px] text-zinc-400 font-light leading-relaxed">
-                      Nenhum dos <span className="font-bold">{cutsCount} cortes gerados</span> foi publicado ou agendado ainda.
-                    </p>
-                  </div>
-                ) : null}
-              </>
-            )}
             <div className="flex items-center justify-end gap-3">
               <motion.button
                 onClick={onCancel}

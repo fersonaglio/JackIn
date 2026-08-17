@@ -201,11 +201,10 @@ def main():
         print(f"📹 Arquivo de Vídeo: {final_video_path.name}")
         print(f"📐 Resolução & Orientação: {orientation_info.get('width')}x{orientation_info.get('height')} | Paisagem: {is_landscape_str}")
         print("-"*60)
-        print("💡 COMO PROCESSAR OS CORTES:")
+        print("💡 PRÓXIMOS PASSOS:")
         print("1. Inicie o JackIn (npm run dev:all)")
         print(f"2. Abra a interface web no navegador (geralmente http://localhost:3000)")
-        print(f"3. Seu projeto aparecerá na página inicial com status 'Pendente'.")
-        print(f"4. Clique em 'Iniciar' ou 'Re-analisar' para que a IA processe a transcrição e cortes!")
+        print(f"3. Seu projeto aparecerá na biblioteca com o arquivo importado.")
         print("="*60 + "\n")
         
     except Exception as e:
