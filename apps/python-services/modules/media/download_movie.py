@@ -222,6 +222,11 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
     """Tenta baixar UM magnet. Retorna True se um arquivo de vídeo real foi
     obtido. Candidate morto (seeders fantasmas, DL:0B persistente) é abortado
     após um warmup de peers e o próximo entra."""
+    # Cada candidate reporta seu próprio progresso do zero: sem isso, um
+    # "100%" falso de um candidate fantasma trava o clamp global _last_emitted_pct
+    # em 95 e o próximo candidate (que baixa de verdade) fica preso em 95%.
+    global _last_emitted_pct
+    _last_emitted_pct = 0
     emit_progress(5, f"Conectando aos Seeders BitTorrent P2P ({quality})...", 18.0)
     aria2_bin = ARIA2_BIN
 
@@ -302,7 +307,11 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                 if not line_str:
                     continue
 
-                if ("SEED" in line_str or "Download complete" in line_str) and not "[METADATA]" in line_str and not "[MEMORY]" in line_str:
+                # Conclusão REAL: o aria2 imprime "(100%)" na linha de progresso
+                # ou uma linha dedicada "Download complete". "SEED" sozinho NÃO
+                # é conclusão (seeders aparecem no status mesmo durante o
+                # download) — exigir o percentual para não travar o progresso.
+                if ("Download complete" in line_str or ("SEED" in line_str and "(100%)" in line_str)) and not "[METADATA]" in line_str and not "[MEMORY]" in line_str:
                     emit_progress(95, f"Download Torrent P2P Concluído (100%)", 50.0)
                     got_progress = True
                     download_done = True
