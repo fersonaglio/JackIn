@@ -7,6 +7,7 @@ const navItems = [
   { label: 'Início', path: '/media' },
   { label: 'Filmes', path: '/filmes' },
   { label: 'Séries', path: '/series' },
+  { label: 'Biblioteca', path: '/biblioteca' },
   { label: 'Buscar', path: '/search' },
 ];
 
