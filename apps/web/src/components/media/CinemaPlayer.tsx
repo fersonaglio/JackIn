@@ -22,6 +22,7 @@ interface AudioTrackInfo {
   language: string;
   codec: string;
   channels: number;
+  title?: string;
 }
 
 interface SubtitleTrackInfo {
@@ -1039,40 +1040,48 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                         )}
                       </div>
 
-                      {!tracksLoaded ? (
-                        <p className="text-xs text-zinc-500 py-3">Detectando faixas...</p>
-                      ) : audioTracks.length === 0 ? (
-                        <p className="text-xs text-zinc-500 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl px-3.5">
-                          Nenhuma faixa de áudio detectada neste arquivo.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {audioTracks.map((t, i) => (
-                            <button
-                              key={`${t.index}-${t.language}-${t.codec}-${i}`}
-                              type="button"
-                              onClick={() => { setAudioLanguage(t.language as 'pt-br' | 'en'); }}
-                              className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${audioLanguage === t.language
-                                  ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
-                                  : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                                }`}
-                            >
-                              <div className="min-w-0">
-                                <p className={`text-xs font-bold ${audioLanguage === t.language ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
-                                  {langLabel(t.language)}
-                                </p>
-                                <p className="text-[9px] font-mono text-[#6B6E76] mt-0.5 truncate">
-                                  #{t.index} · {audioCodecLabel(t.codec)}
-                                  {t.channels > 0 && <> · {t.channels} canais</>}
-                                </p>
-                              </div>
-                              {audioLanguage === t.language && (
-                                <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+      {!tracksLoaded ? (
+        <p className="text-xs text-zinc-500 py-3">Detectando faixas...</p>
+      ) : audioTracks.length === 0 ? (
+        <p className="text-xs text-zinc-500 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl px-3.5">
+          Nenhuma faixa de áudio detectada neste arquivo.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {audioTracks.map((t, i) => (
+            <button
+              key={`${t.index}-${t.language}-${t.codec}-${i}`}
+              type="button"
+              onClick={() => { setAudioLanguage(t.language as 'pt-br' | 'en'); }}
+              className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${audioLanguage === t.language
+                  ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
+                  : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                }`}
+            >
+              <div className="min-w-0">
+                <p className={`text-xs font-bold ${audioLanguage === t.language ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
+                  {langLabel(t.language)}
+                </p>
+                <p className="text-[9px] font-mono text-[#6B6E76] mt-0.5 truncate">
+                  {[t.title, `#${t.index}`, audioCodecLabel(t.codec), t.channels > 0 ? `${t.channels} canais` : ''].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+              {audioLanguage === t.language && (
+                <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tracksLoaded && audioTracks.length > 0 && !audioTracks.some((t) => t.language === 'pt-br' || t.language === 'pt') && (
+        <div className="mt-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-2.5">
+          <p className="text-[10px] text-amber-200/90 leading-snug">
+            Este episódio não possui faixa de áudio em <strong>português</strong> (só {audioTracks.map((t) => langLabel(t.language)).join(' e ')}).
+            Para assistir dublado, baixe a versão <strong>Dual Áudio / Dublado</strong> do título.
+          </p>
+        </div>
+      )}
                     </div>
 
                     {/* Subtitles section */}

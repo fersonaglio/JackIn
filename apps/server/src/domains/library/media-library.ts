@@ -501,25 +501,43 @@ router.get('/:id/video', (req: Request, res: Response) => {
 
 // Unified tracks detection — returns both audio and subtitle streams.
 // Lê do cache media_info (probe na ingestão) — zero ffprobe por request.
+// ÁUDIO: uma entrada por idioma. O mesmo arquivo costuma ter vários streams do
+// mesmo idioma (AAC stereo + AC3 5.1, FORÇADA + completa) — sem dedupe o menu
+// do player mostra "Inglês" várias vezes. Fica a faixa de mais canais, com o
+// title do stream ("Original"/"Dublado"/"5.1 Ch") para diferenciar variantes.
 router.get('/:id/tracks', (req: Request, res: Response) => {
   const projectId = String(req.params.id);
   const pm = getProjectMedia(projectId);
 
   const info = pm?.mediaInfo;
-  const audio = (info?.audio || []).map((s) => ({
-    index: s.index,
-    language: codeToLang[s.language || ''] || s.language || 'und',
-    codec: s.codec,
-    channels: s.channels || 0,
-  }));
+  const audioByLang = new Map<string, any>();
+  for (const s of info?.audio || []) {
+    const friendly = codeToLang[s.language || ''] || s.language || 'und';
+    const cur = audioByLang.get(friendly);
+    if (!cur || (s.channels || 0) > (cur.channels || 0)) {
+      audioByLang.set(friendly, {
+        index: s.index,
+        language: friendly,
+        codec: s.codec,
+        channels: s.channels || 0,
+        title: s.title || '',
+      });
+    }
+  }
 
-  let subtitles = (info?.subtitles || [])
-    .filter((s) => TEXT_SUBTITLE_CODECS.has(s.codec))
-    .map((s) => ({
-      index: s.index,
-      language: codeToLang[s.language || ''] || s.language || 'und',
-      codec: s.codec,
-    }));
+  const subtitlesByLang = new Map<string, any>();
+  for (const s of (info?.subtitles || []).filter((x) => TEXT_SUBTITLE_CODECS.has(x.codec))) {
+    const friendly = codeToLang[s.language || ''] || s.language || 'und';
+    if (!subtitlesByLang.has(friendly)) {
+      subtitlesByLang.set(friendly, {
+        index: s.index,
+        language: friendly,
+        codec: s.codec,
+      });
+    }
+  }
+
+  let subtitles = [...subtitlesByLang.values()];
 
   // Variantes de áudio e legendas extraídas na ingestão aparecem no menu.
   // Converte a chave crua do ffprobe (por/eng) para o rótulo amigável
@@ -528,10 +546,11 @@ router.get('/:id/tracks', (req: Request, res: Response) => {
   const variantLangs = Object.keys(pm?.artifacts?.audio || {});
   for (const lang of variantLangs) {
     const friendly = codeToLang[lang] || lang;
-    if (!audio.some((a) => a.language === friendly)) {
-      audio.push({ index: -1, language: friendly, codec: 'variant', channels: 0 });
+    if (!audioByLang.has(friendly)) {
+      audioByLang.set(friendly, { index: -1, language: friendly, codec: 'variant', channels: 0, title: '' });
     }
   }
+  const audio = [...audioByLang.values()];
 
   // External PT-BR subtitle downloaded by the subtitle service. Quando existe,
   // substitui a embutida do mesmo idioma (que costuma ser só FORÇADA) para o

@@ -251,6 +251,37 @@ describe('GET /api/media-library/:id/tracks', () => {
     expect(Array.isArray(body.audio)).toBe(true);
     expect(Array.isArray(body.subtitles)).toBe(true);
   });
+
+  it('deduplica streams do mesmo idioma (uma faixa de áudio por idioma)', async () => {
+    const row = insertProject();
+    // media_info com DOIS streams de áudio em inglês (AAC stereo + AC3 5.1) e
+    // legendas en/ukr duplicadas — o menu não pode listar "Inglês" 3x.
+    getDb().run(
+      'UPDATE projects SET media_info = ? WHERE id = ?',
+      [
+        JSON.stringify({
+          audio: [
+            { index: 1, language: 'eng', codec: 'aac', channels: 2 },
+            { index: 2, language: 'eng', codec: 'ac3', channels: 6, title: 'Original' },
+          ],
+          subtitles: [
+            { index: 3, language: 'eng', codec: 'subrip' },
+            { index: 4, language: 'eng', codec: 'subrip' },
+            { index: 5, language: 'ukr', codec: 'subrip' },
+            { index: 6, language: 'ukr', codec: 'subrip' },
+          ],
+        }),
+        row.id,
+      ]
+    );
+    persist();
+
+    const res = await fetch(`${base}/${row.id}/tracks`);
+    const body = await res.json();
+    expect(body.audio).toHaveLength(1);
+    expect(body.audio[0]).toMatchObject({ language: 'en', codec: 'ac3', channels: 6, title: 'Original' });
+    expect(body.subtitles.map((s: any) => s.language).sort()).toEqual(['en', 'ukr']);
+  });
 });
 
 describe('GET /api/media-library/:id/video', () => {
