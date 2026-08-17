@@ -94,9 +94,19 @@ async function reconcileStuckDownloads() {
 async function start() {
   await initDb();
   await reconcileStuckDownloads();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`[JackIn] 🚀 Server running on http://localhost:${PORT}`);
   });
+
+  const cleanup = () => {
+    server.close(() => {
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 1000).unref();
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 }
 
 start();
