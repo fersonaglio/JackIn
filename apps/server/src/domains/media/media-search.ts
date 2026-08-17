@@ -723,11 +723,14 @@ router.post('/download', (req: Request, res: Response) => {
   const id = uuid();
   const db = getDb();
 
-  const isSeries = seasonNumber != null && episodeNumber != null;
+  const isSeries = seasonNumber != null || (episodeNumber != null);
   const projectType = isSeries ? 'series' : 'movie';
-  const formattedTitle = isSeries && episodeTitle
-    ? `${episodeTitle}`
-    : `${title} (${quality || '4K'})`;
+  // Temporada inteira: "Série (T2)"; episódio específico: usa o título do ep.
+  const formattedTitle = isSeries && seasonNumber != null && episodeNumber == null
+    ? `${title} (T${seasonNumber})`
+    : isSeries && episodeTitle
+      ? `${episodeTitle}`
+      : `${title} (${quality || '4K'})`;
 
   let seriesId: string | null = null;
   if (isSeries && seriesTitle) {
