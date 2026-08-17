@@ -24,18 +24,20 @@ const pauseRequested = new Set<string>();
 
 // Auto-retry de downloads: tenta novamente (com backoff) até finalizar, mas de
 // forma LIMITADA para não re-tentar infinitamente uma fonte morta/rejeitada.
-const MAX_AUTO_RETRIES = 3;
-const RETRY_BACKOFF_MS = [10_000, 30_000, 90_000];
+// Retorna true se um retry foi agendado (status deve permanecer 'downloading'
+// para o frontend não exigir clique manual) e false quando o limite esgotou.
+const MAX_AUTO_RETRIES = 5;
+const RETRY_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000, 300_000];
 const autoRetryState = new Map<string, { attempts: number; timer?: NodeJS.Timeout }>();
 
-function scheduleAutoRetry(id: string, opts: DownloadOptions): void {
+function scheduleAutoRetry(id: string, opts: DownloadOptions): boolean {
   const state = autoRetryState.get(id);
   const attempts = state?.attempts ?? 0;
   if (attempts >= MAX_AUTO_RETRIES) {
     autoRetryState.delete(id);
-    return;
+    return false;
   }
-  if (state?.timer) return; // já há um retry agendado
+  if (state?.timer) return true; // já há um retry agendado
 
   const delay = RETRY_BACKOFF_MS[Math.min(attempts, RETRY_BACKOFF_MS.length - 1)];
   const timer = setTimeout(() => {
@@ -58,7 +60,23 @@ function scheduleAutoRetry(id: string, opts: DownloadOptions): void {
         ['downloading', `Tentando novamente (${attempts + 1}/${MAX_AUTO_RETRIES})...`, id]
       );
       persist();
-      startMovieDownload(id, opts);
+      // Busca novas alternativas em cada tentativa: a fonte morta não vai
+      // "acordar" sozinha, mas indexadores reais podem ter novas opções agora.
+      findBetterDownloadOptions(opts.title, 4)
+        .then((altOpts) => {
+          const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts.sourceUrl);
+          const mergedAlts = [...new Set([...(opts.altSourceUrls || []), ...alts])];
+          const retryOpts = mergedAlts.length > 0 ? { ...opts, altSourceUrls: mergedAlts } : opts;
+          try {
+            getDb().run(
+              'UPDATE projects SET faceless_config = ? WHERE id = ?',
+              [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: mergedAlts }), id]
+            );
+            persist();
+          } catch {}
+          startMovieDownload(id, retryOpts);
+        })
+        .catch(() => startMovieDownload(id, opts));
     } catch (e) {
       console.error(`[JackIn Media] Auto-retry de ${id} falhou ao reagendar:`, (e as Error).message);
       autoRetryState.delete(id);
@@ -66,6 +84,7 @@ function scheduleAutoRetry(id: string, opts: DownloadOptions): void {
   }, delay);
   autoRetryState.set(id, { attempts, timer });
   timer.unref?.();
+  return true;
 }
 
 // Learned per-release knowledge: does this infohash actually contain PT audio?
@@ -351,23 +370,90 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
       } catch {
         // keep default
       }
-      try {
-        db.run(
-          'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
-          ['error', errorMessage, id]
-        );
-        persist();
-      } catch (dbErr) {
-        console.error('[JackIn Media] Erro ao atualizar status de erro do banco:', dbErr);
-      }
-      progressEvents.emit(id, { stage: 'error', progress: 0, status: errorMessage });
 
-      // Rejeição definitiva (escudo anti-vírus/conteúdo inválido) NÃO é
-      // re-tentada; falhas transitórias (sem seeders/rede) tentam de novo até
-      // o limite, para o download finalizar sem intervenção manual.
-      const definitive = /ESCUDO|quarentena|reprovad|rejeit/i.test(errorMessage);
-      if (!definitive) {
-        scheduleAutoRetry(id, opts);
+      // Rejeição definitiva (conteúdo MALICIOSO: extensão bloqueada, malware,
+      // executável) NÃO é re-tentada. Corrupção de vídeo, seeders fantasmas ou
+      // falha de rede são TRANSITÓRIAS: outro seed/magnet pode vir íntegro, então
+      // tenta de novo até o limite, para o download finalizar sem clique manual.
+      const malicious = /extens[aã]o.*proibid|malware|trojan|backdoor|execut[aá]vel|v[ií]rus/i.test(errorMessage);
+      const corrupted = /corrompid|sem faixas|ffprobe|indecodific[aá]vel/i.test(errorMessage);
+      const definitive = malicious || (corrupted && /quarentena|reprovad|rejeit/i.test(errorMessage));
+      if (definitive && !corrupted) {
+        try {
+          db.run(
+            'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
+            ['error', errorMessage, id]
+          );
+          persist();
+        } catch (dbErr) {
+          console.error('[JackIn Media] Erro ao atualizar status de erro do banco:', dbErr);
+        }
+        progressEvents.emit(id, { stage: 'error', progress: 0, status: errorMessage });
+      } else if (definitive) {
+        // Arquivo corrompido colocado em quarentena — limpa o lixo e agenda
+        // retry: a próxima tentativa busca novas fontes e tenta de novo.
+        try {
+          const projectDir = path.join(DATA_DIR, 'projects', id);
+          if (fs.existsSync(projectDir)) {
+            for (const f of fs.readdirSync(projectDir)) {
+              if (f.endsWith('.quarantine')) {
+                try { fs.unlinkSync(path.join(projectDir, f)); } catch {}
+              }
+            }
+          }
+        } catch {}
+        if (scheduleAutoRetry(id, opts)) {
+          const lastRow = db.exec('SELECT progress_pct FROM projects WHERE id = ?', [id]);
+          const lastPct = Math.max(0, Number(lastRow[0]?.values[0]?.[0]) || 0);
+          try {
+            db.run(
+              'UPDATE projects SET status = ?, progress_status = ?, progress_pct = ?, error_message = NULL WHERE id = ?',
+              ['downloading', 'Download corrompido — tentando nova fonte automaticamente...', lastPct, id]
+            );
+            persist();
+          } catch (dbErr) {
+            console.error('[JackIn Media] Erro ao atualizar status de retry:', dbErr);
+          }
+          progressEvents.emit(id, { stage: 'downloading', progress: lastPct, status: 'Download corrompido — nova tentativa automática...' });
+        } else {
+          try {
+            db.run(
+              'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
+              ['error', errorMessage, id]
+            );
+            persist();
+          } catch (dbErr) {
+            console.error('[JackIn Media] Erro ao atualizar status de erro do banco:', dbErr);
+          }
+          progressEvents.emit(id, { stage: 'error', progress: 0, status: errorMessage });
+        }
+      } else if (scheduleAutoRetry(id, opts)) {
+        // Retry automático agendado: NÃO derrubar para 'error' (que mostraria o
+        // botão "Tentar novamente" no frontend). Mantém 'downloading' com aviso
+        // claro de que outra tentativa virá sozinha.
+        const lastRow = db.exec('SELECT progress_pct FROM projects WHERE id = ?', [id]);
+        const lastPct = Math.max(0, Number(lastRow[0]?.values[0]?.[0]) || 0);
+        try {
+          db.run(
+            'UPDATE projects SET status = ?, progress_status = ?, progress_pct = ? WHERE id = ?',
+            ['downloading', `Falha transitória — nova tentativa automática em instantes...`, lastPct, id]
+          );
+          persist();
+        } catch (dbErr) {
+          console.error('[JackIn Media] Erro ao atualizar status de retry:', dbErr);
+        }
+        progressEvents.emit(id, { stage: 'downloading', progress: lastPct, status: 'Falha transitória — nova tentativa automática...' });
+      } else {
+        try {
+          db.run(
+            'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
+            ['error', errorMessage, id]
+          );
+          persist();
+        } catch (dbErr) {
+          console.error('[JackIn Media] Erro ao atualizar status de erro do banco:', dbErr);
+        }
+        progressEvents.emit(id, { stage: 'error', progress: 0, status: errorMessage });
       }
     }
   });
@@ -591,11 +677,16 @@ router.get('/enhanced', async (req: Request, res: Response) => {
 
 // POST /api/media-search/download
 router.post('/download', (req: Request, res: Response) => {
-  const { title, quality, sourceUrl, posterUrl, seriesTitle, seasonNumber, episodeNumber, episodeTitle } = req.body;
+  const { title, quality, sourceUrl, posterUrl, altSourceUrls, seriesTitle, seasonNumber, episodeNumber, episodeTitle } = req.body;
   if (!title || !sourceUrl) {
     res.status(400).json({ error: 'Title and sourceUrl are required' });
     return;
   }
+  // Alternativas reais fornecidas pela busca (frontend) — usadas em cascata
+  // quando o magnet primário está morto (seeders fantasmas). Filtra duplicatas.
+  const alts = Array.isArray(altSourceUrls)
+    ? [...new Set((altSourceUrls as string[]).filter((u) => u && u !== sourceUrl))]
+    : [];
 
   const id = uuid();
   const db = getDb();
@@ -617,7 +708,7 @@ router.post('/download', (req: Request, res: Response) => {
     seriesId = (existing[0]?.values[0]?.[0] as string) || id;
   }
 
-  const config = JSON.stringify({ sourceUrl, quality: quality || '4K', posterUrl: posterUrl || '' });
+  const config = JSON.stringify({ sourceUrl, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts });
   console.log(`[JackIn Media] Criando projeto de mídia ${id} para: ${formattedTitle}`);
 
   if (isSeries) {
@@ -635,20 +726,21 @@ router.post('/download', (req: Request, res: Response) => {
 
   // Já dispara com alternatives: se o magnet escolhido estiver morto (seeders
   // fantasmas, DL:0B), o worker tenta os próximos automaticamente em cascata.
-  startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '' });
+  startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts });
   findBetterDownloadOptions(title, 4)
     .then((altOpts) => {
-      const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== sourceUrl);
-      if (alts.length > 0) {
+      const altsFromSearch = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== sourceUrl);
+      const mergedAlts = [...new Set([...alts, ...altsFromSearch])];
+      if (mergedAlts.length > 0) {
         try {
-          db.run('UPDATE projects SET faceless_config = ? WHERE id = ?', [JSON.stringify({ sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts }), id]);
+          db.run('UPDATE projects SET faceless_config = ? WHERE id = ?', [JSON.stringify({ sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: mergedAlts }), id]);
           persist();
         } catch {}
         // Se o worker primário já terminou (muito rápido ou falhou), refaz com alternativas.
         if (!runningDownloads.has(id)) {
           const st = db.exec('SELECT status FROM projects WHERE id = ?', [id])[0]?.values[0]?.[0];
           if (st === 'error') {
-            startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts });
+            startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: mergedAlts });
           }
         }
       }

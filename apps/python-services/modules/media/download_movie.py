@@ -75,6 +75,40 @@ def emit_progress(progress: int, status: str, speed_mbps: float = 0.0):
     }), file=sys.stderr)
     sys.stderr.flush()
 
+# aria2 reports DL/CN/SD inline like "DL:834KiB ETA:40m" or "DL:0B" (sem ETA,
+# então split() capturaria "0B]"). Extrai apenas o valor limpo.
+def _extract_token(line: str, key: str) -> str:
+    if key not in line:
+        return "0"
+    token = line.split(key)[1].split()[0].strip().rstrip("]")
+    return token if token else "0"
+
+# Converte a velocidade bruta do aria2 ("834KiB", "1.2MiB", "0B") para "MB/s"
+# legível, ex.: "0.8 MB/s". Queda para "-" se impossível parsear.
+def _format_speed_mbs(raw: str) -> str:
+    try:
+        m = re.match(r"([\d.]+)\s*([KMGT]?)(i)?B", raw.strip())
+        if not m:
+            return "-"
+        val = float(m.group(1))
+        unit = m.group(2)
+        if unit == "K":
+            val *= 1024
+        elif unit == "M":
+            val *= 1024 * 1024
+        elif unit == "G":
+            val *= 1024 * 1024 * 1024
+        elif unit == "T":
+            val *= 1024 * 1024 * 1024 * 1024
+        if val <= 0:
+            return "0.0"
+        mb = val / (1024 * 1024)
+        if mb >= 100:
+            return f"{mb:.0f} MB/s"
+        return f"{mb:.1f} MB/s"
+    except Exception:
+        return "-"
+
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
     if ext in BLOCKED_EXTENSIONS:
@@ -171,7 +205,7 @@ def _cleanup_dir(output_dir: Path):
             for name in files:
                 p = Path(root) / name
                 try:
-                    if name.endswith(".aria2") or name.endswith(".torrent") or name == "whisper_audio.wav":
+                    if name.endswith(".aria2") or name.endswith(".torrent") or name.endswith(".quarantine") or name == "whisper_audio.wav":
                         p.unlink()
                 except OSError:
                     pass
@@ -279,16 +313,11 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                         pct_part = line_str.split("(")[1].split("%)")[0]
                         pct_val = float(pct_part)
                         mapped_pct = min(95, int(8 + (pct_val / 100.0) * 87))
-                        speed_part = "35.0MiB"
-                        if "DL:" in line_str:
-                            speed_part = line_str.split("DL:")[1].split()[0].strip()
-                        cn_val = "0"
-                        if "CN:" in line_str:
-                            cn_val = line_str.split("CN:")[1].split()[0].strip()
-                        sd_val = "0"
-                        if "SD:" in line_str:
-                            sd_val = line_str.split("SD:")[1].split()[0].strip()
-                        emit_progress(mapped_pct, f"Baixando {quality} - {pct_val:.1f}% (⚡ {speed_part}/s) [SD:{sd_val} CN:{cn_val}]", 45.0)
+                        speed_raw = _extract_token(line_str, "DL:")
+                        speed_disp = _format_speed_mbs(speed_raw)
+                        cn_val = _extract_token(line_str, "CN:")
+                        sd_val = _extract_token(line_str, "SD:")
+                        emit_progress(mapped_pct, f"Baixando {quality} - {pct_val:.1f}% (⚡ {speed_disp}) [SD:{sd_val} CN:{cn_val}]", 45.0)
                         got_progress = True
                         dl_now = parse_dl(line_str)
                         if dl_now > last_downloaded:
@@ -304,9 +333,7 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                         last_byte_advance = now_t
                     if now_t - last_emit_t >= 1.5:
                         last_emit_t = now_t
-                        peers_part = "0"
-                        if "CN:" in line_str:
-                            peers_part = line_str.split("CN:")[1].split()[0].strip()
+                        peers_part = _extract_token(line_str, "CN:")
                         emit_progress(8, f"Conectado a {peers_part} seeders P2P. Baixando metadados do filme...", 12.0)
     finally:
         try:

@@ -204,11 +204,12 @@ export async function downloadMediaMovie(
   title: string,
   quality: string,
   sourceUrl: string,
-  posterUrl?: string
+  posterUrl?: string,
+  altSourceUrls?: string[]
 ): Promise<{ id: string; title: string; status: string; quality: string }> {
   return fetchApi('/media-search/download', {
     method: 'POST',
-    body: JSON.stringify({ title, quality, sourceUrl, posterUrl })
+    body: JSON.stringify({ title, quality, sourceUrl, posterUrl, altSourceUrls })
   });
 }
 

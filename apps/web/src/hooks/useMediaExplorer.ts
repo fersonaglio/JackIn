@@ -185,7 +185,10 @@ export function useMediaExplorer() {
       setDownloadingItems((prev) => ({ ...prev, [key]: true }));
       try {
         const finalPosterUrl = posterUrl || selectedMovie?.posterUrl;
-        await downloadMediaMovie(movieTitle, option.quality, option.sourceUrl, finalPosterUrl);
+        const altSourceUrls = (selectedMovie?.options ?? [])
+          .map((o) => o.sourceUrl)
+          .filter((u: string): u is string => !!u && u !== option.sourceUrl);
+        await downloadMediaMovie(movieTitle, option.quality, option.sourceUrl, finalPosterUrl, altSourceUrls);
         pollActiveProjects();
         setStartedItems((prev) => ({ ...prev, [key]: true }));
         setTimeout(() => {
