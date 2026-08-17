@@ -1,3 +1,5 @@
+import type { CatalogItem } from '@/types/media';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 90000;
@@ -175,6 +177,22 @@ export async function searchMediaSources(
   }
   if (ptTitle) params.set('ptTitle', ptTitle);
   return fetchApi(`/media-search/search?${params.toString()}`, undefined, 180000);
+}
+
+export interface CatalogDiscoverResult {
+  source: 'tmdb' | 'itunes';
+  items: CatalogItem[];
+  totalResults: number;
+}
+
+// Catálogo paginável (TMDB discover) servido pela API do JackIn.
+export async function discoverCatalog(
+  type: 'movie' | 'tv',
+  genreKey?: string
+): Promise<CatalogDiscoverResult> {
+  const params = new URLSearchParams({ type });
+  if (genreKey) params.set('genre', genreKey);
+  return fetchApi(`/catalog/discover?${params.toString()}`, undefined, 30000);
 }
 
 export async function downloadMediaMovie(

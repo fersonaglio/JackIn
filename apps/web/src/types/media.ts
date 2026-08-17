@@ -12,6 +12,8 @@ export interface CatalogItem {
   type: 'movie' | 'tv';
   /** Download options when this row came from the torrent engine (PT/TMDB). */
   options?: { id: string; sourceUrl: string; quality?: string }[];
+  /** Popularidade TMDB — desempate de relevância dentro do mesmo ano. */
+  popularity?: number;
 }
 
 export interface CatalogData {

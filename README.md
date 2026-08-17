@@ -43,6 +43,12 @@ Nada de conta, nada de nuvem, nada de assinatura: o JackIn não hospeda conteúd
 - Preferência de áudio (dublado/dual), ranking por seeders, qualidade e disponibilidade PT-BR; opções organizadas em tiers (4K/1080p/720p).
 - Enriquecimento de metadados via **TMDB** (pôster/backdrop/sinopse, com fallback para o iTunes) e merge com o catálogo da Wikipedia.
 
+### 📚 Catálogo paginado (Filmes / Séries)
+- Páginas de **Filmes** (`/filmes`) e **Séries** (`/series`) com **15 títulos por página**, ordenados por **relevância e ano** — mais recentes primeiro, clássicos nas últimas páginas.
+- **Pré-carregamento**: lote de títulos buscado uma vez (cacheado no servidor) e paginado no cliente — troca de página instantânea, sem novo request; posters da próxima página são pré-carregados.
+- Paginação **janelada** (5 páginas antes + 5 depois, com primeira/última e reticências) sincronizada com a URL (`?page=2&genre=scifi`).
+- Fonte: **TMDB Discover** (relevância/popularidade de todas as eras), com fallback para o feed iTunes sem chave TMDB. Filtros por gênero (Ação, Ficção Científica, Animação) e Lançamentos.
+
 ### 📥 Download seguro (Media Shield em 3 camadas)
 1. **Whitelist/blacklist de extensões** — apenas contêineres de vídeo conhecidos; `.exe`, `.scr`, `.zip`, `.iso` etc. são bloqueados.
 2. **Inspeção fail-closed via ffprobe** — o arquivo precisa ter vídeo + áudio (≥ estéreo) decodificáveis; qualquer falha de parse é rejeição.
@@ -302,6 +308,7 @@ Base: `http://localhost:3001/api` (configurável via `NEXT_PUBLIC_API_URL`). Tod
 | `/api/projects/:id/cast` | GET | Resolução do arquivo compatível com Cast (H.264 + áudio seguro: aac/mp3/ac3/eac3) |
 | `/api/projects/:id/subtitles` | GET | Legenda WebVTT (`?lang=pt-br` etc.) — usada pelo player e pelo Cast |
 | `/api/projects/:id/thumbnail` | GET | Pôster/miniatura do projeto |
+| `/api/catalog/discover` | GET | Catálogo paginável via TMDB Discover (`?type=movie\|tv&genre=action\|scifi\|animation&batch=8`), fallback iTunes |
 
 ### Rede
 

@@ -6,6 +6,7 @@ import path from 'path';
 import { initDb, getDb } from './db/schema.js';
 import mediaSearchRouter, { reconcileMovieStatus } from './domains/media/media-search.js';
 import mediaLibraryRouter from './domains/library/media-library.js';
+import catalogRouter from './domains/library/catalog.js';
 import { reconcileProjectMedia } from './services/media-service.js';
 import { getPrimaryLanIp } from './services/network.js';
 
@@ -60,6 +61,7 @@ app.use('/api/media-library', mediaLibraryRouter);
 // da biblioteca, faixas, cast, legendas, progresso, séries, histórico). O mesmo
 // router também é exposto em /api/media-library para a API documentada.
 app.use('/api/projects', mediaLibraryRouter);
+app.use('/api/catalog', catalogRouter);
 
 // After a restart, projects stuck in downloading/preparing are reconciled and
 // missing playback artifacts are regenerated — media-only, same as the source monorepo.

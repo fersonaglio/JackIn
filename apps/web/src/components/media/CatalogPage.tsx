@@ -1,21 +1,19 @@
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { CatalogItem } from '@/types/media';
-import {
-  useExpandedCatalog,
-  filterByGenreKey,
-  type ExpandedGenreKey,
-} from '@/hooks/useExpandedCatalog';
+import { buildPosterUrl } from '@/data/media';
+import { usePaginatedCatalog, CATALOG_PER_PAGE } from '@/hooks/usePaginatedCatalog';
 import { useMediaExplorer } from '@/hooks/useMediaExplorer';
 import MediaCard from './MediaCard';
+import Pagination from './Pagination';
 import MediaExplorerOverlays from './MediaExplorerOverlays';
 
 interface CatalogPageProps {
   type: 'movie' | 'tv';
 }
 
-const MOVIE_TABS: { key: ExpandedGenreKey; label: string }[] = [
+const MOVIE_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'Todos' },
   { key: 'action', label: 'Ação' },
   { key: 'scifi', label: 'Ficção Científica' },
@@ -23,12 +21,16 @@ const MOVIE_TABS: { key: ExpandedGenreKey; label: string }[] = [
   { key: 'recent', label: 'Lançamentos' },
 ];
 
-const SERIES_TABS: { key: ExpandedGenreKey; label: string }[] = [
+const SERIES_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'Todos' },
   { key: 'recent', label: 'Lançamentos' },
 ];
 
-function parseGenreParam(value: string | null, tabs: { key: ExpandedGenreKey; label: string }[]): ExpandedGenreKey {
+const GENRE_KEYS = new Set(['action', 'scifi', 'animation']);
+const MOVIE_RECENT_YEAR = 2024;
+const SERIES_RECENT_YEAR = 2023;
+
+function parseGenreParam(value: string | null, tabs: { key: string; label: string }[]): string {
   if (!value) return 'all';
   const match = tabs.find((t) => t.key === value);
   return match ? match.key : 'all';
@@ -37,17 +39,63 @@ function parseGenreParam(value: string | null, tabs: { key: ExpandedGenreKey; la
 export default function CatalogPage({ type }: CatalogPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const data = useExpandedCatalog(type);
   const explorer = useMediaExplorer();
 
   const tabs = type === 'movie' ? MOVIE_TABS : SERIES_TABS;
   const activeTab = parseGenreParam(searchParams.get('genre'), tabs);
+  const pageParam = searchParams.get('page');
 
-  const items = useMemo(() => filterByGenreKey(data, activeTab, type), [data, activeTab, type]);
+  const genreKey = GENRE_KEYS.has(activeTab) ? activeTab : '';
+  const recentFilter = useMemo(() => {
+    if (activeTab !== 'recent') return undefined;
+    const minYear = type === 'movie' ? MOVIE_RECENT_YEAR : SERIES_RECENT_YEAR;
+    return (it: CatalogItem) => it.year !== null && it.year >= minYear;
+  }, [activeTab, type]);
 
-  const handleTab = (key: ExpandedGenreKey) => {
+  const catalog = usePaginatedCatalog(type, genreKey, recentFilter);
+  const { page, totalPages, items, loading, error, setPage } = catalog;
+
+  // Aplica o ?page=N vindo da URL assim que os dados carregam.
+  const appliedUrlPageRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    const parsed = pageParam ? parseInt(pageParam, 10) : 1;
+    const target = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), totalPages) : 1;
+    if (appliedUrlPageRef.current !== pageParam) {
+      appliedUrlPageRef.current = pageParam;
+      if (target !== page) setPage(target);
+    }
+  }, [loading, pageParam, totalPages, page, setPage]);
+
+  // Prefetch dos posters da próxima página (dados já estão em memória para
+  // todas as páginas; só as imagens da página seguinte são aquecidas para a
+  // navegação ser instantânea sem sobrecarregar a rede).
+  useEffect(() => {
+    const nextStart = page * CATALOG_PER_PAGE;
+    const next = catalog.allItems.slice(nextStart, nextStart + CATALOG_PER_PAGE);
+    for (const it of next) {
+      const url = buildPosterUrl(it.posterPath, 'w500');
+      if (url) {
+        const img = new Image();
+        img.src = url;
+      }
+    }
+  }, [page, catalog.allItems]);
+
+  const handleTab = (key: string) => {
+    appliedUrlPageRef.current = null;
     const base = type === 'movie' ? '/filmes' : '/series';
     router.push(key === 'all' ? base : `${base}?genre=${key}`);
+  };
+
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    appliedUrlPageRef.current = String(p);
+    const base = type === 'movie' ? '/filmes' : '/series';
+    const qs = new URLSearchParams();
+    if (activeTab !== 'all') qs.set('genre', activeTab);
+    if (p > 1) qs.set('page', String(p));
+    router.replace(`${base}${qs.toString() ? `?${qs}` : ''}`);
   };
 
   const handleBack = () => router.push('/media');
@@ -70,6 +118,11 @@ export default function CatalogPage({ type }: CatalogPageProps) {
             <h1 className="text-xl md:text-2xl font-black uppercase tracking-wide text-zinc-100">
               <span className="text-[#E50914]">{type === 'movie' ? 'Filmes' : 'Séries'}</span>
             </h1>
+            {!loading && totalPages > 0 && (
+              <span className="text-[11px] font-mono text-zinc-500">
+                {totalPages} página{totalPages > 1 ? 's' : ''} · {items.length} título{items.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -105,11 +158,22 @@ export default function CatalogPage({ type }: CatalogPageProps) {
             </button>
           </div>
 
-          {data.loading ? (
+          {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
                 <div key={i} className="aspect-[2/3] rounded-lg bg-zinc-900 animate-pulse" />
               ))}
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+              <span className="text-4xl">⚠️</span>
+              <p className="text-zinc-300 font-bold text-sm">{error}</p>
+              <button
+                onClick={catalog.refresh}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs transition-colors"
+              >
+                Tentar novamente
+              </button>
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
@@ -118,11 +182,14 @@ export default function CatalogPage({ type }: CatalogPageProps) {
               <p className="text-zinc-500 text-xs">Tente outra aba ou volte ao catálogo.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {items.map((item) => (
-                <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType={type === 'movie' ? 'dublado' : 'lancamento'} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {items.map((item) => (
+                  <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType={type === 'movie' ? 'dublado' : 'lancamento'} />
+                ))}
+              </div>
+              <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />
+            </>
           )}
 
           <footer className="pt-10 pb-8 border-t border-zinc-800/80 mt-16 text-zinc-400 text-xs space-y-8 bg-[#09090b]/80 backdrop-blur-md rounded-2xl p-6 md:p-8">

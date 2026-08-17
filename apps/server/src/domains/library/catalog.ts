@@ -1,0 +1,145 @@
+import { Router, Request, Response } from 'express';
+
+const router = Router();
+
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_IMG = 'https://image.tmdb.org/t/p';
+const ITUNES_RSS_URL = 'https://itunes.apple.com/us/rss';
+const CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' };
+
+// Tabs do catálogo → IDs de gênero do TMDB.
+const GENRE_IDS: Record<string, string> = {
+  action: '28',
+  scifi: '878',
+  animation: '16',
+};
+
+const DEFAULT_BATCH_PAGES = 8;
+const TMDB_PER_PAGE = 20;
+const MAX_BATCH_PAGES = 20;
+
+export interface CatalogItem {
+  tmdbId: number;
+  title: string;
+  originalTitle?: string;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  year: number | null;
+  rating: number;
+  genres: string[];
+  type: 'movie' | 'tv';
+  popularity: number;
+}
+
+function resizeArt(url: string, size: string): string {
+  return url.replace(/\/\d+x\d+bb\.(png|jpg)$/, `/${size}.$1`);
+}
+
+function hashCode(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i += 1) {
+    h = (h << 5) - h + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+// Descobre o catálogo no TMDB: traz os títulos mais relevantes (popularidade
+// desc, todas as eras) já lançados e com votos; o cliente reordena por ano desc
+// (recentes primeiro → clássicos no fim). Lote = `batchPages` páginas de 20.
+async function fetchTmdbDiscover(type: 'movie' | 'tv', genreId: string, batchPages: number): Promise<CatalogItem[]> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return [];
+
+  const today = new Date().toISOString().slice(0, 10);
+  const items: CatalogItem[] = [];
+  for (let page = 1; page <= batchPages; page += 1) {
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      sort_by: 'popularity.desc',
+      vote_count_gte: '50',
+      include_adult: 'false',
+      page: String(page),
+    });
+    if (type === 'movie') params.set('primary_release_date.lte', today);
+    else params.set('first_air_date.lte', today);
+    if (genreId) params.set('with_genres', genreId);
+
+    const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) break;
+    const data = await res.json();
+    const rows: any[] = data.results || [];
+    if (rows.length === 0) break;
+
+    for (const r of rows) {
+      const releaseDate = type === 'movie' ? (r.release_date || '') : (r.first_air_date || '');
+      items.push({
+        tmdbId: r.id,
+        title: r.title || r.name || '',
+        originalTitle: r.original_title || r.original_name || r.title || r.name || '',
+        overview: r.overview || '',
+        posterPath: r.poster_path ? `${TMDB_IMG}/w500${r.poster_path}` : null,
+        backdropPath: r.backdrop_path ? `${TMDB_IMG}/w1280${r.backdrop_path}` : null,
+        year: releaseDate ? Number(releaseDate.slice(0, 4)) || null : null,
+        rating: r.vote_average || 0,
+        genres: (r.genre_ids || []).map((g: number) => String(g)),
+        type,
+        popularity: r.popularity || 0,
+      });
+    }
+  }
+  return items;
+}
+
+// Fallback sem chave TMDB (ou falha): feed iTunes RSS, mesmo shape.
+async function fetchItunes(type: 'movie' | 'tv', limit: number): Promise<CatalogItem[]> {
+  const feed = type === 'movie' ? 'topmovies' : 'toptvseasons';
+  const url = `${ITUNES_RSS_URL}/${feed}/limit=${Math.min(limit, 100)}/json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const entries: any[] = data.feed?.entry || [];
+  return entries.map((e) => {
+    const images = e['im:image'] || [];
+    const art = images[images.length - 1]?.label || '';
+    const date = e['im:releaseDate']?.label || '';
+    const href = e.link?.[0]?.attributes?.href || '';
+    const idMatch = href.match(/\/id(\d+)/);
+    return {
+      tmdbId: idMatch ? parseInt(idMatch[1], 10) : hashCode(e['im:name']?.label || art),
+      title: e['im:name']?.label || '',
+      overview: e.summary?.label || '',
+      posterPath: art ? resizeArt(art, '600x600bb') : null,
+      backdropPath: art ? resizeArt(art, '1000x1000bb') : null,
+      year: date ? Number(date.slice(0, 4)) || null : null,
+      rating: 8.5,
+      genres: [],
+      type,
+      popularity: 0,
+    };
+  });
+}
+
+// GET /api/catalog/discover?type=movie|tv&genre=action|scifi|animation&batch=8
+router.get('/discover', async (req: Request, res: Response) => {
+  const type = req.query.type === 'tv' ? 'tv' : 'movie';
+  const genreKey = String(req.query.genre || '');
+  const genreId = GENRE_IDS[genreKey] || '';
+  const batch = Math.min(Math.max(Number(req.query.batch) || DEFAULT_BATCH_PAGES, 1), MAX_BATCH_PAGES);
+
+  try {
+    let items = await fetchTmdbDiscover(type, genreId, batch);
+    let source = 'tmdb';
+    if (items.length === 0) {
+      items = await fetchItunes(type, 100);
+      source = 'itunes';
+    }
+    res.set(CACHE_HEADERS);
+    res.json({ source, items, totalResults: items.length });
+  } catch (err) {
+    res.status(500).json({ error: 'catalog_error', message: (err as Error).message });
+  }
+});
+
+export default router;
