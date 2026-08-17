@@ -17,8 +17,19 @@ interface LibraryGridProps {
   onOpenDetails?: (target: LibraryDetailTarget) => void;
 }
 
-function LibraryCard({
-  project,
+// Mostra um rótulo claro para o estado do download em vez de um percentual
+// enganoso quando o worker está entre tentativas (procurando seeders, retry).
+function statusLabel(progressStatus?: string | null): string | null {
+  if (!progressStatus) return null;
+  const lower = progressStatus.toLowerCase();
+  if (lower.includes('tentando') || lower.includes('falha transit')) return 'tentando novamente…';
+  if (lower.includes('seeders') || lower.includes('metadados') || lower.includes('conectando')) return 'procurando seeders…';
+  if (lower.includes('corrompido')) return 'corrompido — nova fonte…';
+  if (lower.includes('retomando')) return 'retomando…';
+  return null;
+}
+
+function LibraryCard({  project,
   onWatch,
   onDelete,
   onRetry,
@@ -34,9 +45,7 @@ function LibraryCard({
   const isDone = project.status === 'done';
   const isDownloading = project.status === 'downloading';
   const isWatched = project.watched === 1;
-  const hasProgress = !isWatched && (project.watchProgress || 0) > 0;
-
-  // Clean title & quality parsing
+  const hasProgress = !isWatched && (project.watchProgress || 0) > 0;  // Clean title & quality parsing
   const rawTitle = project.title || 'Mídia 4K';
   const match = rawTitle.match(/^(.*?)(?:\s*\((.*?)\))?$/);
   const cleanTitle = match ? match[1] : rawTitle;
@@ -101,7 +110,7 @@ function LibraryCard({
               />
             </div>
             <p className="text-[10px] text-[#EF9F27] font-mono text-center font-bold">
-              Baixando {project.progressPct || 0}%
+              {statusLabel(project.progressStatus) || `Baixando ${project.progressPct || 0}%`}
             </p>
           </div>
         ) : hasProgress ? (

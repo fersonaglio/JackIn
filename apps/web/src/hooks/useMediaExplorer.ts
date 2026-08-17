@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import type { CatalogItem } from '@/types/media';
 import { buildPosterUrl, buildBackdropUrl } from '@/data/media';
+import { groupSeriesSeasons } from '@/lib/seriesSeasons';
 
 const APPROX_MIN_SCORE = 0.5;
 
@@ -103,9 +104,12 @@ export function useMediaExplorer() {
         // so the modal never shows only the 4K MULTI while hiding the real dub.
         const ptResult = withOptions.find((r) => r.options.some((o) => o.ptConfirmed));
         const top = ptResult || withOptions[0] || null;
+        // Séries: agrupa TODAS as temporadas retornadas (a busca traz um
+        // resultado por temporada) em vez de mostrar só a primeira.
+        const seasons = groupSeriesSeasons(withOptions);
         if (top) {
           if (top.exactMatch) {
-            setSelectedMovie({ ...preview, options: top.options, ptUnavailable: top.ptUnavailable });
+            setSelectedMovie({ ...preview, options: top.options, ptUnavailable: top.ptUnavailable, seasons });
           } else if ((top.matchScore ?? 0) >= APPROX_MIN_SCORE) {
             setSelectedMovie({
               ...preview,
@@ -113,12 +117,13 @@ export function useMediaExplorer() {
               approximate: true,
               approximateTitle: top.title,
               ptUnavailable: top.ptUnavailable,
+              seasons,
             });
           } else {
-            setSelectedMovie({ ...preview, options: [], ptUnavailable: top.ptUnavailable });
+            setSelectedMovie({ ...preview, options: [], ptUnavailable: top.ptUnavailable, seasons });
           }
         } else {
-          setSelectedMovie({ ...preview, options: [] });
+          setSelectedMovie({ ...preview, options: [], seasons });
         }
       } catch {
         setSelectedMovie(preview);

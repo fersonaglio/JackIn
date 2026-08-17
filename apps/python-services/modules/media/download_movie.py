@@ -307,18 +307,14 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                 if not line_str:
                     continue
 
-                # Conclusão REAL: o aria2 imprime "(100%)" na linha de progresso
-                # quando o ARQUIVO de vídeo termina. Ignorar "Download complete"
-                # e "SEED" isolados: o aria2 também imprime essas frases quando
-                # baixa apenas o METADATA/torrent em memória (logo no início),
-                # o que travaria a barra em 95% prematuramente. Deixar o
-                # progresso real subir via mapped_pct até 95 e a verificação
-                # final de arquivos decidir se o candidate está completo.
-                if "(100%)" in line_str and not "[METADATA]" in line_str and not "[MEMORY]" in line_str:
-                    emit_progress(95, f"Download Torrent P2P Concluído (100%)", 50.0)
-                    got_progress = True
-                    download_done = True
-                    break
+                # Conclusão REAL do arquivo: o aria2 imprime "(100%)" na linha de
+                # progresso quando o ARQUIVO de vídeo termina. MAS também imprime
+                # "(100%)" ao baixar só o metadata/torrent em memória (início).
+                # Para não travar a barra em 95% prematuramente, NÃO emitimos 95
+                # aqui — deixamos o progresso real subir via mapped_pct (8→95) e
+                # a verificação final de arquivos decide se o candidate vive.
+                # O loop sai sozinho quando o processo aria2 termina.
+                pass
 
                 if "(" in line_str and "%)" in line_str:
                     try:

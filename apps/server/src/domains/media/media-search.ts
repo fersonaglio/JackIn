@@ -148,7 +148,6 @@ const CURATED_SITE_RE = /limontorrents|baixetorrents|mestredosfilmes|filmeshdtor
 // cascata: se um magnet estiver morto, o worker tenta o próximo automaticamente.
 async function findBetterDownloadOptions(title: string, maxOptions: number = 4): Promise<Partial<DownloadOptions>[]> {
   const { searchMediaEnhanced } = await import('./media-search-llm.js');
-  const out = await searchMediaEnhanced(title);
   const seen = new Set<string>();
   const results: Partial<DownloadOptions>[] = [];
   let posterUrl = '';
@@ -163,28 +162,57 @@ async function findBetterDownloadOptions(title: string, maxOptions: number = 4):
     });
   };
 
-  for (const r of out.results || []) {
-    if (!r.options || r.options.length === 0) continue;
-    if (!posterUrl && r.posterUrl) posterUrl = r.posterUrl;
+  // Tenta a busca com o título dado E com um fallback de título original
+  // (ex.: "FormiguinhaZ" → "Antz"), já que o título PT costuma só achar
+  // magnets curados (seeders fantasmas) enquanto o original acha indexadores
+  // reais com seeders de verdade.
+  const fallbacks = [title, expandTitleFallback(title)];
+  for (const t of fallbacks) {
+    let out: any = { results: [] };
+    try {
+      out = await searchMediaEnhanced(t);
+    } catch {}
+    for (const r of out.results || []) {
+      if (!r.options || r.options.length === 0) continue;
+      if (!posterUrl && r.posterUrl) posterUrl = r.posterUrl;
 
-    // Opções reais (indexadores com seeders reais) têm prioridade total.
-    const real = r.options.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl) && !o.sourceUrl.toLowerCase().includes('yts') && !(o as any).quality?.toLowerCase().includes('yts'));
-    // PT-confirmadas primeiro, depois qualidade/seeders (a busca já ordena).
-    const pt = real.filter((o) => o.ptConfirmed);
-    for (const o of [...pt, ...real]) {
-      if (results.length >= maxOptions) break;
-      push(o);
-    }
-    // Curadas (limontorrents etc.) só como último recurso, e só se nada real.
-    if (results.length === 0) {
-      for (const o of r.options) {
+      // Opções reais (indexadores com seeders reais) têm prioridade total.
+      const real = r.options.filter((o: any) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl) && !o.sourceUrl.toLowerCase().includes('yts') && !(o as any).quality?.toLowerCase().includes('yts'));
+      // PT-confirmadas primeiro, depois qualidade/seeders (a busca já ordena).
+      const pt = real.filter((o: any) => o.ptConfirmed);
+      for (const o of [...pt, ...real]) {
         if (results.length >= maxOptions) break;
         push(o);
       }
+      // Curadas (limontorrents etc.) só como último recurso, e só se nada real.
+      if (results.length === 0) {
+        for (const o of r.options) {
+          if (results.length >= maxOptions) break;
+          push(o);
+        }
+      }
+      if (results.length >= maxOptions) break;
     }
     if (results.length >= maxOptions) break;
   }
   return results;
+}
+
+// Fallback de título original para buscas: expande títulos PT "colados"
+// (ex.: "formiguinhaz" → "Antz") espelhando o expandGluedQuery do frontend.
+const GLUED_TITLE_FALLBACK: Record<string, string> = {
+  formiguinhaz: 'Antz',
+  homemdasmascaradeferro: 'The Man in the Iron Mask',
+  ironmen: 'Iron Man',
+  ironmans: 'Iron Man',
+};
+
+function expandTitleFallback(title: string): string {
+  // O título pode vir com sufixo de qualidade ("FormiguinhaZ (1080p Full HD (Torrent))")
+  // — remove o parêntese antes de normalizar para o fallback casar.
+  const base = title.split(' (')[0];
+  const folded = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return GLUED_TITLE_FALLBACK[folded] || title;
 }
 
 // Compat: caminho antigo usado em alguns fluxos — retorna só o melhor ou null.
@@ -410,18 +438,16 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
           }
         } catch {}
         if (scheduleAutoRetry(id, opts)) {
-          const lastRow = db.exec('SELECT progress_pct FROM projects WHERE id = ?', [id]);
-          const lastPct = Math.max(0, Number(lastRow[0]?.values[0]?.[0]) || 0);
           try {
             db.run(
               'UPDATE projects SET status = ?, progress_status = ?, progress_pct = ?, error_message = NULL WHERE id = ?',
-              ['downloading', 'Download corrompido — tentando nova fonte automaticamente...', lastPct, id]
+              ['downloading', 'Download corrompido — tentando nova fonte automaticamente...', 5, id]
             );
             persist();
           } catch (dbErr) {
             console.error('[JackIn Media] Erro ao atualizar status de retry:', dbErr);
           }
-          progressEvents.emit(id, { stage: 'downloading', progress: lastPct, status: 'Download corrompido — nova tentativa automática...' });
+          progressEvents.emit(id, { stage: 'downloading', progress: 5, status: 'Download corrompido — nova tentativa automática...' });
         } else {
           try {
             db.run(
@@ -437,19 +463,18 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
       } else if (scheduleAutoRetry(id, opts)) {
         // Retry automático agendado: NÃO derrubar para 'error' (que mostraria o
         // botão "Tentar novamente" no frontend). Mantém 'downloading' com aviso
-        // claro de que outra tentativa virá sozinha.
-        const lastRow = db.exec('SELECT progress_pct FROM projects WHERE id = ?', [id]);
-        const lastPct = Math.max(0, Number(lastRow[0]?.values[0]?.[0]) || 0);
+        // claro de que outra tentativa virá sozinha. Zera o progresso (o
+        // candidate anterior foi limpo) para a barra não enganar com "95%".
         try {
           db.run(
             'UPDATE projects SET status = ?, progress_status = ?, progress_pct = ? WHERE id = ?',
-            ['downloading', `Falha transitória — nova tentativa automática em instantes...`, lastPct, id]
+            ['downloading', `Falha transitória — nova tentativa automática em instantes...`, 5, id]
           );
           persist();
         } catch (dbErr) {
           console.error('[JackIn Media] Erro ao atualizar status de retry:', dbErr);
         }
-        progressEvents.emit(id, { stage: 'downloading', progress: lastPct, status: 'Falha transitória — nova tentativa automática...' });
+        progressEvents.emit(id, { stage: 'downloading', progress: 5, status: 'Falha transitória — nova tentativa automática...' });
       } else {
         try {
           db.run(

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import type { MovieSearchResult, MediaOption } from '@/lib/api';
+import type { MovieSearchResult, MediaOption, SeriesSeason } from '@/lib/api';
 import TorrentOptionRow from './TorrentOptionRow';
 
 interface MediaDetailModalProps {
@@ -58,10 +58,17 @@ export default function MediaDetailModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const [confirmedApprox, setConfirmedApprox] = useState(false);
   const [audioFilter, setAudioFilter] = useState(initialAudioFilter);
+  const [activeSeason, setActiveSeason] = useState<number>(1);
+
+  const seasons = movie?.seasons && movie.seasons.length > 0 ? movie.seasons : undefined;
+  const activeSeasonData: SeriesSeason | undefined = seasons?.find((s) => s.seasonNumber === activeSeason) ?? seasons?.[0];
 
   useEffect(() => {
     setConfirmedApprox(false);
     setAudioFilter(initialAudioFilter);
+    // Reset do seletor de temporada ao abrir um novo conteúdo.
+    const firstSeason = movie?.seasons?.[0]?.seasonNumber;
+    setActiveSeason(firstSeason ?? 1);
   }, [movie, initialAudioFilter]);
 
   useEffect(() => {
@@ -86,8 +93,11 @@ export default function MediaDetailModal({
     onDownload(movie.title, option, movie.posterUrl);
   };
 
+  // Séries: filtra as opções da temporada ativa. Filmes: todas as opções.
+  const seasonOptions = activeSeasonData?.options ?? movie?.options ?? [];
+
   const filteredOptions = movie
-    ? movie.options.filter((o) =>
+    ? seasonOptions.filter((o) =>
         audioFilter === 'any'
           ? true
           : movie.ptUnavailable
@@ -104,7 +114,7 @@ export default function MediaDetailModal({
 
   const hasMatchingAudio = audioFilter === 'any' || filteredOptions.length > 0;
   const showAudioNotice =
-    !!movie && audioFilter !== 'any' && movie.options.length > 0 && filteredOptions.length === 0 && !isSearchingTorrents && !movie.ptUnavailable;
+    !!movie && audioFilter !== 'any' && seasonOptions.length > 0 && filteredOptions.length === 0 && !isSearchingTorrents && !movie.ptUnavailable;
 
   // "Só Dublado PT-BR" (ptStrictRequest) triggers the stronger amber notice;
   // a plain catalog search gets a subtle info box instead.
@@ -240,6 +250,46 @@ export default function MediaDetailModal({
                   Opções de Download
                 </h3>
 
+                {seasons && seasons.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                        {seasons.length > 1 ? `Temporadas disponíveis (${seasons.length})` : 'Temporada disponível'}
+                      </span>
+                    </div>
+                    {seasons.length > 1 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {seasons.map((s) => (
+                          <button
+                            key={s.seasonNumber}
+                            type="button"
+                            onClick={() => setActiveSeason(s.seasonNumber)}
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                              activeSeasonData?.seasonNumber === s.seasonNumber
+                                ? 'bg-[#EF9F27] text-zinc-950 border-[#EF9F27]'
+                                : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500'
+                            }`}
+                          >
+                            T{s.seasonNumber}
+                            {s.episodeCount ? ` • ${s.episodeCount} eps` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-500">
+                        {activeSeasonData?.episodeCount ? `~${activeSeasonData.episodeCount} episódios` : '1 temporada'}
+                      </p>
+                    )}
+                    {activeSeasonData && (
+                      <p className="text-[11px] text-zinc-500">
+                        {activeSeasonData.episodeCount
+                          ? `Até ${activeSeasonData.episodeCount} episódios detectados. Baixe a temporada ou episódios individuais abaixo.`
+                          : 'Episódios não detectados — baixe os arquivos abaixo.'}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {showAudioNotice && (
                   <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl px-4 py-3">
                     <p className="text-xs text-sky-300">
@@ -303,7 +353,7 @@ export default function MediaDetailModal({
                     <div className="w-5 h-5 border-2 border-[#EF9F27] border-t-transparent rounded-full animate-spin" />
                     <p className="text-sm text-zinc-400">Buscando torrents na rede P2P...</p>
                   </div>
-                ) : movie.options.length === 0 ? (
+                ) : seasonOptions.length === 0 ? (
                   <div className="flex flex-col items-center gap-3 py-6 text-center">
                     <span className="text-3xl">🔍</span>
                     <div>

@@ -30,6 +30,7 @@ function parseSpeed(progressStatus: string | null | undefined): string {
   if (lower.includes('verificando') || lower.includes('validand')) return 'verificando';
   if (lower.includes('extraindo')) return 'extraindo';
   if (lower.includes('metadados') || lower.includes('seeders') || lower.includes('conectando')) return 'procurando seeders';
+  if (lower.includes('tentando') || lower.includes('retomando') || lower.includes('falha transit')) return 'tentando novamente';
   if (lower.includes('conclu')) return 'concluído';
 
   return '0.0 MB/s';

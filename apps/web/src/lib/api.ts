@@ -152,6 +152,16 @@ export interface MovieSearchResult {
   approximate?: boolean;
   approximateTitle?: string;
   ptUnavailable?: boolean;
+  /** Séries: temporadas disponíveis (agrupadas da busca). Filmes: undefined. */
+  seasons?: SeriesSeason[];
+}
+
+export interface SeriesSeason {
+  seasonNumber: number;
+  title: string;
+  options: MediaOption[];
+  /** Estimativa de episódios únicos detectados nos magnets, se conhecível. */
+  episodeCount?: number;
 }
 
 export interface MediaSearchMeta {
