@@ -11,7 +11,8 @@ import { searchMediaEnhanced } from './media-search-llm.js';
 const router = Router();
 
 const SCRIPTS_DIR = path.resolve(import.meta.dirname, '../../../../../apps/python-services');
-const VENV_PYTHON = process.env.PYTHON_BIN || path.resolve(import.meta.dirname, '../../../../../.venv/bin/python3');
+const defaultVenv = path.resolve(import.meta.dirname, '../../../../../.venv/bin/python3');
+const VENV_PYTHON = process.env.PYTHON_BIN || (fs.existsSync(defaultVenv) ? defaultVenv : 'python3');
 
 // Projects with an active movie download (prevents duplicate/retry races)
 const runningDownloads = new Set<string>();

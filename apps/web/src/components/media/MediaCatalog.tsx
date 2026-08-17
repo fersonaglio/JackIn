@@ -79,9 +79,9 @@ export default function MediaCatalog({
   };
 
   return (
-    <div className="space-y-10 text-zinc-100 bg-[#0d0d0d] min-h-screen -mx-6 md:-mx-10 -mt-8 px-4 md:px-12 pt-4 pb-16 font-sans">
+    <div className="space-y-10 text-zinc-100 min-h-screen pt-8 pb-16 font-sans">
       {/* Search Bar Row below top navbar */}
-      <div className="w-full max-w-3xl mx-auto pt-2 pb-4">
+      <div className="w-full max-w-3xl mx-auto pb-4">
         <SearchBar />
       </div>
 

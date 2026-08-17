@@ -1,9 +1,12 @@
 import { spawn } from 'child_process';
 import path from 'path';
 
+import fs from 'fs';
+
 // ─── Engine runner (mirrors the /search route) ───
 const SCRIPTS_DIR = path.resolve(import.meta.dirname, '../../../../../apps/python-services');
-const VENV_PYTHON = process.env.PYTHON_BIN || path.resolve(import.meta.dirname, '../../../../../.venv/bin/python3');
+const defaultVenv = path.resolve(import.meta.dirname, '../../../../../.venv/bin/python3');
+const VENV_PYTHON = process.env.PYTHON_BIN || (fs.existsSync(defaultVenv) ? defaultVenv : 'python3');
 
 // ─── Types shared with the engine / frontend ───
 export interface MediaOption {

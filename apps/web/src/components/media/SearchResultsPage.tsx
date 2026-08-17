@@ -47,9 +47,9 @@ export default function SearchResultsPage({ query }: { query: string }) {
         <div className="absolute top-[-100px] left-1/3 w-[600px] h-[600px] rounded-full bg-[#EF9F27]/15 blur-[140px]" />
       </div>
 
-      <div className="relative z-10 px-4 md:px-8 pt-20 pb-40 max-w-[1920px] mx-auto">
+      <div className="relative z-10 px-4 md:px-8 pt-8 pb-40 max-w-[1920px] mx-auto">
         <div className="space-y-6">
-          <div className="flex items-center gap-3 justify-center">
+          <div className="w-full max-w-3xl mx-auto">
             <SearchBar />
           </div>
           {results === null ? (
