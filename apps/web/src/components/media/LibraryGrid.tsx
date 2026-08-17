@@ -4,6 +4,8 @@ import type { Project, WatchHistoryItem } from '@/lib/api';
 import { getSeriesEpisodes, getWatchHistory, deleteWatchHistoryItem, deleteSeries } from '@/lib/api';
 import DeleteDialog from '@/components/ui/DeleteDialog';
 import LibraryDetailModal, { type LibraryDetailTarget } from './LibraryDetailModal';
+import { breakdownSeries } from '@/lib/seriesProjects';
+import { seriesBaseTitle } from '@/lib/seriesSeasons';
 
 interface LibraryGridProps {
   projects: Project[];
@@ -194,12 +196,25 @@ function SeriesCard({
   const [imageError, setImageError] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-  const ready = series.episodes.filter((e) => e.status === 'done');
-  const watchedCount = series.episodes.filter((e) => e.watched === 1).length;
-  const total = series.episodes.length;
+  const b = breakdownSeries(series.episodes);
+  const ready = b.episodes.filter((e) => e.status === 'done');
+  const watchedCount = b.watchedCount;
   const posterId = ready[0]?.id || series.episodes[0]?.id;
   const thumbnailUrl = posterId ? `${apiBase}/projects/${posterId}/thumbnail` : '';
   const firstPlay = ready.find((e) => e.watched !== 1) || ready[0];
+
+  const badge =
+    b.allDone
+      ? { text: '✓ Pronto', cls: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' }
+      : b.anyDownloading
+        ? { text: b.anyPreparing && !series.episodes.some((e) => e.status === 'downloading') ? 'Preparando' : 'Baixando', cls: 'bg-[#EF9F27]/20 border-[#EF9F27]/50 text-[#EF9F27] animate-pulse' }
+        : b.anyPaused
+          ? { text: 'Pausado', cls: 'bg-sky-500/20 border-sky-500/50 text-sky-300' }
+          : { text: '📺 Série', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' };
+
+  const footerLine = b.hasEpisodes
+    ? `${b.episodes.length} episódio${b.episodes.length !== 1 ? 's' : ''}${b.totalSeasons > 1 ? ` · ${b.totalSeasons} temporadas` : ''}${watchedCount > 0 ? ` · ${watchedCount} assistido${watchedCount !== 1 ? 's' : ''}` : ''}`
+    : `${b.totalSeasons} temporada${b.totalSeasons !== 1 ? 's' : ''}${b.readySeasons > 0 && !b.allDone ? ` · ${b.readySeasons}/${b.totalSeasons} prontas` : ''}`;
 
   const play = () => {
     if (!firstPlay) return;
@@ -239,10 +254,27 @@ function SeriesCard({
 
         {/* Top-Right Badge */}
         <div className="absolute top-2.5 right-2.5 z-20">
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-md border bg-purple-500/30 border-purple-500/60 text-purple-300">
-            📺 Série
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-md border ${badge.cls}`}>
+            {badge.text}
           </span>
         </div>
+
+        {/* Download progress overlay while seasons are being fetched */}
+        {b.anyDownloading && !b.allDone && (
+          <div className="absolute bottom-0 inset-x-0 bg-zinc-950/90 p-2.5 backdrop-blur-md border-t border-zinc-800/80 space-y-1.5 z-20">
+            <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-[#EF9F27] h-full rounded-full transition-all duration-300"
+                style={{ width: `${Math.max(5, b.currentPercent)}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-[#EF9F27] font-mono text-center font-bold">
+              {b.hasEpisodes
+                ? `${b.doneUnits}/${b.totalUnits} episódios prontos`
+                : `${b.readySeasons}/${b.totalSeasons} temporadas prontas`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Footer Info & Actions */}
@@ -252,8 +284,7 @@ function SeriesCard({
             {series.title}
           </h4>
           <p className="text-[10px] text-zinc-500 font-mono font-semibold truncate">
-            {total} episódio{total !== 1 ? 's' : ''}
-            {watchedCount > 0 && ` · ${watchedCount} assistido${watchedCount !== 1 ? 's' : ''}`}
+            {footerLine}
           </p>
         </div>
 
@@ -364,7 +395,7 @@ export default function LibraryGrid({
       if (p.seriesId) {
         const key = p.seriesId;
         if (!seriesMap.has(key)) {
-          const name = (p.title || '').replace(/\s*S\d{2}E\d{2}.*$/i, '').replace(/\s*-\s*Season\s+\d+.*$/i, '').trim();
+          const name = seriesBaseTitle(p.title || '');
           seriesMap.set(key, { title: name || 'Série', episodes: [], seriesId: key });
         }
         seriesMap.get(key)!.episodes.push(p);
@@ -401,7 +432,7 @@ export default function LibraryGrid({
           >
             <span>🍿 Baixados</span>
             <span className="px-2 py-0.5 rounded-full bg-black/20 text-[10px] font-mono">
-              {projects.length}
+              {groupedProjects.singles.length + groupedProjects.series.length}
             </span>
           </button>
 

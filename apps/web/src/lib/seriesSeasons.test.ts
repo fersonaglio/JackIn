@@ -44,6 +44,9 @@ describe('seriesBaseTitle', () => {
   it('remove S01E01 mantendo a base', () => {
     expect(seriesBaseTitle('Love Death and Robots S01E01')).toBe('Love Death and Robots');
   });
+  it('remove o sufixo (T4) de pack de temporada', () => {
+    expect(seriesBaseTitle('Love, Death & Robots (T4)')).toBe('Love, Death & Robots');
+  });
 });
 
 describe('seasonInfoFromSource', () => {

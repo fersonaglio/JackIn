@@ -547,14 +547,100 @@ export function cancelMovieDownload(projectId: string): boolean {
 // Cobre TODOS os tipos (filme, série, upload): se um arquivo de vídeo completo
 // existe (sem .aria2 vivo), marca done e dispara o prepare; senão RETOMA o
 // download automaticamente (aria2 continua do .aria2) até finalizar.
+// Indexa os episódios de um pack de temporada concluído a partir do diretório
+// (recuperação pós-restart — o worker pode ter sido morto antes de indexar).
+// Dedup por (series_id, season_number, episode_number): se dois packs (ex.:
+// mesmo torrent completo baixado por temporada) têm os mesmos episódios, só o
+// primeiro vira projeto; o resto é ignorado.
+export function indexPackEpisodesFromDisk(parentId: string): void {
+  const db = getDb();
+  const row = db.exec(
+    'SELECT series_id, season_number, title FROM projects WHERE id = ? AND project_type = ? AND episode_number IS NULL',
+    [parentId, 'series']
+  )[0]?.values[0];
+  if (!row) return;
+  const parentSeriesId = (row[0] as string) || parentId;
+  const parentTitle = (row[2] as string) || 'Série';
+
+  const projectDir = path.join(DATA_DIR, 'projects', parentId);
+  if (!fs.existsSync(projectDir)) return;
+
+  const candidates: { path: string; season: number; episode: number }[] = [];
+  const seen = new Set<string>();
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        walk(p);
+      } else if (/\.(mp4|mkv|webm|avi|mov|m4v|ts|m2ts)$/i.test(e.name)) {
+        const m = e.name.match(/\bS(\d{1,3})[Ee](\d{1,3})\b/) || e.name.match(/\b(\d{1,3})x(\d{1,3})\b/);
+        if (!m) continue;
+        const season = parseInt(m[1], 10);
+        const episode = parseInt(m[2], 10);
+        const key = `${season}-${episode}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({ path: p, season, episode });
+      }
+    }
+  };
+  walk(projectDir);
+  if (candidates.length === 0) return;
+
+  let created = 0;
+  for (const ep of candidates) {
+    if (!ep.path || !fs.existsSync(ep.path)) continue;
+    // O aria2 PRÉ-ALOCA arquivos com zeros: um download interrompido deixa
+    // placeholders "completos" que o ffprobe rejeita. Só indexa arquivo real
+    // (EBML/MP4 mágico) — senão o episódio ficaria preso em 'preparing'.
+    let real = false;
+    try {
+      const fh = fs.openSync(ep.path, 'r');
+      const head = Buffer.alloc(16);
+      fs.readSync(fh, head, 0, 16, 0);
+      fs.closeSync(fh);
+      real = (head[0] === 0x1a && head[1] === 0x45) || head.subarray(4, 8).toString() === 'ftyp';
+    } catch {}
+    if (!real) continue;
+    const existing = db.exec(
+      'SELECT id FROM projects WHERE series_id = ? AND season_number = ? AND episode_number = ? LIMIT 1',
+      [parentSeriesId, ep.season, ep.episode]
+    )[0]?.values[0];
+    if (existing) continue;
+    const epId = uuid();
+    const epTitle = `${parentTitle.replace(/\s*\(T\d+\)\s*$/i, '').trim()} S${String(ep.season).padStart(2, '0')}E${String(ep.episode).padStart(2, '0')}`;
+    db.run(
+      'INSERT INTO projects (id, youtube_url, title, status, project_type, video_path, series_id, season_number, episode_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [epId, '', epTitle, 'preparing', 'series', ep.path, parentSeriesId, ep.season, ep.episode]
+    );
+    persist();
+    progressEvents.emit(epId, { stage: 'preparing', progress: 1, status: 'Preparando episódio...' });
+    prepareProject(epId).catch((e: any) => {
+      console.error(`[JackIn Media] Prepare do episódio ${epId} falhou:`, e);
+      db.run('UPDATE projects SET status = ?, error_message = ? WHERE id = ?', ['error', `Falha ao preparar episódio: ${e.message}`, epId]);
+      persist();
+    });
+    created++;
+  }
+  if (created > 0) {
+    console.log(`[JackIn Media] Pack ${parentId}: indexados ${created} episódios (recuperação)`);
+  }
+}
+
 export function reconcileMovieStatus(projectId: string): void {  const db = getDb();
   const row = db.exec(
-    'SELECT id, status, video_path, faceless_config, title FROM projects WHERE id = ?',
+    'SELECT id, status, video_path, faceless_config, title, project_type, episode_number FROM projects WHERE id = ?',
     [projectId]
   )[0]?.values[0];
   if (!row) return;
 
-  const [id, status, videoPath, facelessConfigRaw, rawTitle] = row as [string, string, string | null, string | null, string | null];
+  const [id, status, videoPath, facelessConfigRaw, rawTitle, projectType, episodeNumber] = row as [string, string, string | null, string | null, string | null, string, number | null];
   if (status !== 'downloading' && status !== 'preparing') return;
   if (runningDownloads.has(id)) return;
   if (isPreparing(id)) return;
@@ -596,6 +682,11 @@ export function reconcileMovieStatus(projectId: string): void {  const db = getD
       ['preparing', 'Concluído (recuperado)', videoFile, id]
     );
     persist();
+    // Pack de temporada completo: indexa os episódios do diretório (se o
+    // worker foi morto no meio antes de indexar), com dedup por episódio.
+    if (projectType === 'series' && episodeNumber == null) {
+      indexPackEpisodesFromDisk(id);
+    }
     reconcileProjectMedia(id);
   } else if (status === 'downloading') {
     // Download interrompido no meio (servidor reiniciou) → retoma sozinho.

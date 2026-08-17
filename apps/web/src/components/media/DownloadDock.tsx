@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@/lib/api';
 import { pauseMediaDownload, resumeMediaDownload } from '@/lib/api';
+import { breakdownSeries, seasonChips } from '@/lib/seriesProjects';
 
 interface DownloadDockProps {
   projects: Project[];
@@ -108,32 +109,31 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
       }
     }
     const seriesGroups = Array.from(seriesMap.values()).map((eps) => {
-      const sorted = [...eps].sort((a, b) => (a.seasonNumber ?? 0) - (b.seasonNumber ?? 0));
-      const statuses = new Set(sorted.map((e) => e.status));
-      const isDone = sorted.length > 0 && sorted.every((e) => e.status === 'done');
-      const isDownloading = statuses.has('downloading') || statuses.has('preparing');
-      const isPaused = !isDownloading && statuses.has('paused');
-      // Progresso agregado: média das temporadas (ou do item mais avançado).
-      const avgPct = sorted.length > 0
-        ? Math.round(sorted.reduce((acc, e) => acc + (e.progressPct || 0), 0) / sorted.length)
-        : 0;
-      const doneCount = sorted.filter((e) => e.status === 'done').length;
-      const title = (sorted[0]?.title || 'Série').replace(/\s*\(T\d+\)\s*$/i, '').trim();
-      return {
-        id: `series-${sorted[0]?.seriesId || ''}`,
-        title: `${title} (${doneCount}/${sorted.length} temp.)`,
-        status: isDone ? 'done' : isDownloading ? 'downloading' : isPaused ? 'paused' : 'error',
-        progressPct: avgPct,
-        progressStatus: isDownloading
-          ? `Baixando ${doneCount + 1}/${sorted.length} temporadas`
-          : isDone ? 'Concluído' : 'Falha',
-        episodeCount: sorted.length,
-        episodes: sorted,
-        baseTitle: title,
-      };
-    });
-    return { singles, series: seriesGroups };
-  }, [visibleDownloads]);
+    const b = breakdownSeries(eps);
+    const statuses = new Set(eps.map((e) => e.status));
+    const isDone = b.allDone;
+    const isDownloading = b.anyDownloading;
+    const isPaused = !isDownloading && statuses.has('paused');
+    const status = isDone ? 'done' : isDownloading ? 'downloading' : isPaused ? 'paused' : 'error';
+    return {
+      id: `series-${eps[0]?.seriesId || ''}`,
+      title: b.baseTitle,
+      countLabel: b.hasEpisodes
+        ? `${b.doneUnits}/${b.totalUnits} episódios`
+        : `${b.readySeasons}/${b.totalSeasons} temporadas`,
+      chips: b.totalSeasons > 1 ? seasonChips(b.seasons) : '',
+      status,
+      progressPct: b.currentPercent,
+      progressStatus: b.activeDownload?.progressStatus ?? null,
+      hasActiveDownload: eps.some((e) => e.status === 'downloading'),
+      hasPreparing: eps.some((e) => e.status === 'preparing'),
+      breakdown: b,
+      episodes: eps,
+      baseTitle: b.baseTitle,
+    };
+  });
+  return { singles, series: seriesGroups };
+}, [visibleDownloads]);
 
   const hasActiveDownloads = downloadingItems.length > 0;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -197,6 +197,15 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
               const isDownloading = p.status === 'downloading';
               const isPreparing = p.status === 'preparing';
               const isPaused = p.status === 'paused';
+              const isSeriesGroup = !!p.breakdown;
+              // Grupo de série: label "Preparando" quando só há preparação ativa.
+              const activeLabel = isSeriesGroup
+                ? p.hasActiveDownload
+                  ? `${p.progressPct || 0}%`
+                  : p.hasPreparing
+                    ? 'Preparando'
+                    : `${p.progressPct || 0}%`
+                : null;
               const speed = parseSpeed(p.progressStatus);
 
               return (
@@ -217,7 +226,7 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                             : 'bg-red-500/10 border-red-500/30 text-red-400'
                   }`}
                 >
-                  <div className="space-y-0.5 max-w-[150px]">
+                  <div className={`space-y-0.5 ${isSeriesGroup ? 'max-w-[210px]' : 'max-w-[150px]'}`}>
                     <p className="text-xs font-extrabold text-zinc-100 truncate" title={p.title || ''}>
                       {p.title || 'Mídia'}
                     </p>
@@ -231,9 +240,25 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                         </div>
                       )}
                       <span className="text-[10px] font-mono font-bold">
-                        {isDone ? 'Concluído' : isPaused ? 'Pausado' : isPreparing ? 'Preparando' : isDownloading ? `${p.progressPct || 0}%` : 'Erro'}
+                        {isDone ? 'Concluído' : isPaused ? 'Pausado' : isSeriesGroup ? activeLabel : isPreparing ? 'Preparando' : isDownloading ? `${p.progressPct || 0}%` : 'Erro'}
                       </span>
                     </div>
+                    {isSeriesGroup && (
+                      <div className="space-y-0.5 min-w-0">
+                        <p className="text-[9px] font-mono text-zinc-500 truncate">
+                          {isDone
+                            ? p.breakdown.hasEpisodes
+                              ? `${p.breakdown.episodes.length} episódios`
+                              : p.countLabel
+                            : p.countLabel}
+                        </p>
+                        {(isDownloading || isPreparing) && p.chips && (
+                          <p className="text-[9px] font-mono text-zinc-500 truncate" title={p.chips}>
+                            {p.chips}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {isDone ? (
@@ -251,9 +276,11 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                     </button>
                   ) : isDownloading || isPreparing ? (
                     <>
-                      <span className="text-[9px] font-mono text-zinc-500 shrink-0">
-                        ⚡ {speed}
-                      </span>
+                      {(!isSeriesGroup || p.hasActiveDownload) && (
+                        <span className="text-[9px] font-mono text-zinc-500 shrink-0">
+                          ⚡ {speed}
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => {

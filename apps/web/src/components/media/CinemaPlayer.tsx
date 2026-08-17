@@ -705,7 +705,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
           exit={{ opacity: 0 }}
           onMouseMove={handleMouseMove}
           onClick={handleMouseMove}
-          className={`fixed inset-0 z-50 bg-black overflow-hidden select-none ${
+          className={`fixed inset-0 z-[150] bg-black overflow-hidden select-none ${
             !showControls ? 'cursor-none' : ''
           }`}
         >

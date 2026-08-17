@@ -63,6 +63,44 @@ afterAll(async () => {
   server?.close();
 });
 
+describe('GET /api/media-library', () => {
+  it('heals a downloading project stuck at 95% using the real % from progress_status', async () => {
+    const row = insertProject({
+      title: 'Love, Death & Robots (T4)',
+      status: 'downloading',
+      project_type: 'series',
+      season_number: 4,
+    });
+    getDb().run(
+      'UPDATE projects SET progress_pct = ?, progress_status = ? WHERE id = ?',
+      [95, 'Baixando 1080p Full HD (Torrent) - 36.0% (⚡ 3.9 MB/s) [SD:1 CN:11]', row.id]
+    );
+    persist();
+
+    const res = await fetch(`${base}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const proj = body.find((p: any) => p.id === row.id);
+    expect(proj).toBeDefined();
+    expect(proj.progressPct).toBe(36);
+    expect(proj.status).toBe('downloading');
+  });
+
+  it('keeps progressPct for a real 100% (done) project unchanged', async () => {
+    const row = insertProject({ title: 'Finished Movie' });
+    getDb().run(
+      'UPDATE projects SET progress_pct = ?, progress_status = ? WHERE id = ?',
+      [100, 'Concluído e Validado (Seguro)', row.id]
+    );
+    persist();
+
+    const res = await fetch(`${base}`);
+    const body = await res.json();
+    const proj = body.find((p: any) => p.id === row.id);
+    expect(proj.progressPct).toBe(100);
+  });
+});
+
 describe('GET /api/media-library/:id', () => {
   it('returns only media fields for an existing project', async () => {
     const row = insertProject({ title: 'Interstellar (2014)' });

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@/lib/api';
+import { breakdownSeries } from '@/lib/seriesProjects';
 
 export type LibraryDetailTarget =
   | { kind: 'movie'; project: Project }
@@ -98,29 +99,23 @@ export default function LibraryDetailModal({
     };
   }, [target, onClose]);
 
-  const seasons = useMemo(() => {
-    if (!target || target.kind !== 'series') return [];
-    const map = new Map<number, Project[]>();
-    for (const ep of target.episodes) {
-      const s = ep.seasonNumber ?? 1;
-      if (!map.has(s)) map.set(s, []);
-      map.get(s)!.push(ep);
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([num, eps]) => ({
-        num,
-        eps: eps.sort((a, b) => (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0)),
-      }));
+  // Progresso da série: separa packs de temporada (episodeNumber null) dos
+  // episódios indexados e calcula temporadas prontas/disponíveis/assistidas.
+  const seriesBreakdown = useMemo(() => {
+    if (!target || target.kind !== 'series') return null;
+    return breakdownSeries(target.episodes);
   }, [target]);
 
-  const seriesStats = useMemo(() => {
-    if (!target || target.kind !== 'series') return { total: 0, watched: 0, done: 0 };
-    const total = target.episodes.length;
-    const watched = target.episodes.filter((e) => e.watched === 1).length;
-    const done = target.episodes.filter((e) => e.status === 'done').length;
-    return { total, watched, done };
-  }, [target]);
+  // Rótulo de status de download para linhas (pack ou episódio).
+  const statusBadge = (ep: Project) => {
+    if (ep.status === 'done') return null;
+    if (ep.status === 'downloading')
+      return { text: `${ep.progressPct ?? 0}%`, cls: 'text-[#EF9F27] bg-[#EF9F27]/10 border border-[#EF9F27]/20' };
+    if (ep.status === 'preparing') return { text: 'Preparando…', cls: 'text-[#EF9F27] bg-[#EF9F27]/10 border border-[#EF9F27]/20' };
+    if (ep.status === 'paused') return { text: 'Pausado', cls: 'text-sky-400 bg-sky-500/10 border border-sky-500/20' };
+    if (ep.status === 'error') return { text: 'Erro', cls: 'text-red-400 bg-red-500/10 border border-red-500/20' };
+    return { text: 'Pendente', cls: 'text-zinc-600 bg-zinc-800/40 border border-zinc-800' };
+  };
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
   const thumb = (id: string) => `${apiBase}/projects/${id}/thumbnail`;
@@ -145,7 +140,8 @@ export default function LibraryDetailModal({
   const torrentInfo = parseMagnet(sourceMagnet);
   const sizeBytes = target?.kind === 'movie' ? movie?.sizeBytes : undefined;
   const downloadDate = target?.kind === 'movie' ? movie?.createdAt : undefined;
-  const qualityLabel = (target?.kind === 'movie' ? movie?.facelessConfig?.quality : undefined) || quality;
+  // Série não tem "qualidade" única — oculta o badge para não mostrar "T1" etc.
+  const qualityLabel = target?.kind === 'movie' ? ((movie?.facelessConfig?.quality) || quality) : undefined;
   const posterExternal = target?.kind === 'movie' ? movie?.facelessConfig?.posterUrl : undefined;
   const posterId = target?.kind === 'movie' ? movie!.id : target?.episodes?.[0]?.id || '';
 
@@ -178,9 +174,11 @@ export default function LibraryDetailModal({
                   </p>
                   <h3 className="text-base md:text-xl font-black text-white truncate">{cleanName}</h3>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-red-400 font-black uppercase tracking-wider text-[10px] shrink-0 hidden sm:inline-flex">
-                  {qualityLabel}
-                </span>
+                {qualityLabel && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#E50914]/15 border border-[#E50914]/40 text-red-400 font-black uppercase tracking-wider text-[10px] shrink-0 hidden sm:inline-flex">
+                    {qualityLabel}
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -213,20 +211,22 @@ export default function LibraryDetailModal({
                 </div>
 
                 {/* Série: navegação por temporada */}
-                {target.kind === 'series' && seasons.length > 1 && (
+                {target.kind === 'series' && seriesBreakdown && seriesBreakdown.seasons.length > 1 && (
                   <div className="mt-4 space-y-1.5">
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Temporadas</p>
-                    {seasons.map((season) => (
+                    {seriesBreakdown.seasons.map((season) => (
                       <button
-                        key={season.num}
+                        key={season.seasonNumber}
                         type="button"
                         onClick={() => {
-                          document.querySelector(`[data-season-scroll="${season.num}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          document.querySelector(`[data-season-scroll="${season.seasonNumber}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }}
                         className="w-full px-3 py-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 text-zinc-300 hover:border-[#EF9F27]/60 hover:text-[#EF9F27] text-xs font-bold transition-all text-left flex items-center justify-between"
                       >
-                        <span>Temporada {season.num}</span>
-                        <span className="text-[10px] text-zinc-500 font-mono">({season.eps.length} eps)</span>
+                        <span>Temporada {season.seasonNumber}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                          {season.episodes.length > 0 ? `(${season.episodes.length} eps)` : season.pack ? (season.ready ? 'pronto' : `${season.percent}%`) : ''}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -238,19 +238,19 @@ export default function LibraryDetailModal({
                 <div className="p-4 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                   {/* Stats row */}
                   <div className="grid grid-cols-3 gap-3">
-                    {target.kind === 'series' ? (
+                    {target.kind === 'series' && seriesBreakdown ? (
                       <>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
-                          <p className="text-2xl font-black text-zinc-100 tabular-nums">{seriesStats.total}</p>
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Episódios</p>
+                          <p className="text-2xl font-black text-zinc-100 tabular-nums">{seriesBreakdown.totalSeasons}</p>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Temporadas</p>
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
-                          <p className="text-2xl font-black text-purple-400 tabular-nums">{seriesStats.watched}</p>
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Assistidos</p>
-                        </div>
-                        <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
-                          <p className="text-2xl font-black text-emerald-400 tabular-nums">{seriesStats.done}</p>
+                          <p className="text-2xl font-black text-emerald-400 tabular-nums">{seriesBreakdown.availableCount}</p>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Disponíveis</p>
+                        </div>
+                        <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
+                          <p className="text-2xl font-black text-purple-400 tabular-nums">{seriesBreakdown.watchedCount}</p>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Assistidos</p>
                         </div>
                       </>
                     ) : (
@@ -296,15 +296,32 @@ export default function LibraryDetailModal({
                     </div>
                   )}
 
-                  {/* Series overall progress */}
-                  {target.kind === 'series' && seriesStats.total > 0 && (
+                  {/* Series download progress */}
+                  {target.kind === 'series' && seriesBreakdown && !seriesBreakdown.allDone && seriesBreakdown.totalSeasons > 0 && (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                        <span>{seriesStats.watched} de {seriesStats.total} episódios assistidos</span>
-                        <span>{Math.round((seriesStats.watched / seriesStats.total) * 100)}%</span>
+                        <span>
+                          {seriesBreakdown.hasEpisodes
+                            ? `${seriesBreakdown.doneUnits} de ${seriesBreakdown.totalUnits} episódios prontos`
+                            : `${seriesBreakdown.readySeasons} de ${seriesBreakdown.totalSeasons} temporadas prontas`}
+                        </span>
+                        <span>{seriesBreakdown.currentPercent}%</span>
                       </div>
                       <div className="w-full h-2 bg-[#1A1B20] rounded-full overflow-hidden">
-                        <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(seriesStats.watched / seriesStats.total) * 100}%` }} />
+                        <div className="h-full bg-[#EF9F27] rounded-full" style={{ width: `${Math.min(100, Math.max(4, seriesBreakdown.currentPercent))}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Series watched progress (episodes only) */}
+                  {target.kind === 'series' && seriesBreakdown && seriesBreakdown.episodes.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                        <span>{seriesBreakdown.watchedCount} de {seriesBreakdown.episodes.length} episódios assistidos</span>
+                        <span>{Math.round((seriesBreakdown.watchedCount / seriesBreakdown.episodes.length) * 100)}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-[#1A1B20] rounded-full overflow-hidden">
+                        <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(seriesBreakdown.watchedCount / seriesBreakdown.episodes.length) * 100}%` }} />
                       </div>
                     </div>
                   )}
@@ -406,7 +423,10 @@ export default function LibraryDetailModal({
                       {isMovieDone ? (
                         <button
                           type="button"
-                          onClick={() => onWatch(movie!)}
+                          onClick={() => {
+                            onWatch(movie!);
+                            onClose();
+                          }}
                           className="flex-1 min-w-[180px] py-3.5 bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-[#EF9F27]/10 flex items-center justify-center gap-2 active:scale-98"
                         >
                           <span>{movieWatched ? 'Rever' : movieProgress > 0 ? 'Continuar Assistindo' : 'Assistir'}</span>
@@ -446,9 +466,9 @@ export default function LibraryDetailModal({
                   )}
 
                   {/* Series primary actions */}
-                  {target.kind === 'series' && (
+                  {target.kind === 'series' && seriesBreakdown && (
                     <div className="flex items-center gap-3 flex-wrap pt-2">
-                      {seriesStats.done > 0 && (
+                      {seriesBreakdown.availableCount > 0 && (
                         <button
                           type="button"
                           onClick={() => {
@@ -462,11 +482,12 @@ export default function LibraryDetailModal({
                             if (next) {
                               const episodeList = buildEpisodeList(target.episodes);
                               onWatch(next, episodeList);
+                              onClose();
                             }
                           }}
                           className="flex-1 min-w-[180px] py-3.5 bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-[#EF9F27]/10 flex items-center justify-center gap-2 active:scale-98"
                         >
-                          <span>{seriesStats.watched > 0 ? 'Continuar Série' : 'Começar Série'}</span>
+                          <span>{seriesBreakdown.watchedCount > 0 ? 'Continuar Série' : 'Começar Série'}</span>
                           <span>▶</span>
                         </button>
                       )}
@@ -495,30 +516,96 @@ export default function LibraryDetailModal({
                   )}
 
                   {/* Series seasons */}
-                  {target.kind === 'series' && (
+                  {target.kind === 'series' && seriesBreakdown && (
                     <div className="space-y-6 pt-2">
-                      {seasons.length === 0 ? (
+                      {seriesBreakdown.seasons.length === 0 ? (
                         <p className="text-xs text-zinc-500">Nenhum episódio disponível nesta série.</p>
                       ) : (
-                        seasons.map((season) => {
-                          const watched = season.eps.filter((e) => e.watched === 1).length;
+                        seriesBreakdown.seasons.map((season) => {
+                          const seasonWatched = season.episodes.filter((e) => e.watched === 1).length;
+                          const pack = season.pack;
                           return (
-                            <div key={season.num} data-season-scroll={season.num} className="space-y-2">
+                            <div key={season.seasonNumber} data-season-scroll={season.seasonNumber} className="space-y-2">
                               <div className="flex items-center justify-between pb-1 border-b border-zinc-800/60">
                                 <h4 className="text-xs font-black text-zinc-200 uppercase tracking-wider">
-                                  Temporada {season.num}
+                                  Temporada {season.seasonNumber}
                                 </h4>
                                 <span className="text-[10px] text-zinc-500 font-mono">
-                                  {watched}/{season.eps.length} assistidos
+                                  {season.episodes.length > 0
+                                    ? `${seasonWatched}/${season.episodes.length} assistidos`
+                                    : pack
+                                      ? pack.status === 'done'
+                                        ? 'pronto'
+                                        : pack.status === 'downloading'
+                                          ? `baixando ${pack.progressPct ?? 0}%`
+                                          : pack.status === 'preparing'
+                                            ? 'preparando…'
+                                            : pack.status === 'paused'
+                                              ? 'pausado'
+                                              : 'erro'
+                                      : ''}
                                 </span>
                               </div>
 
                               <div className="space-y-2">
-                                {season.eps.map((ep) => {
+                                {/* Pack da temporada (ex.: "Love, Death & Robots (T1)") */}
+                                {pack && (
+                                  <div className="flex items-center gap-3 bg-[#15161B] border border-[#EF9F27]/15 rounded-xl p-3">
+                                    <span className="text-[10px] font-bold text-zinc-400 w-12 text-right tabular-nums shrink-0 font-mono">
+                                      S{String(pack.seasonNumber ?? 1).padStart(2, '0')}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-zinc-300 font-medium truncate">
+                                        Temporada {pack.seasonNumber} (completa)
+                                      </p>
+                                      {pack.status === 'downloading' && (
+                                        <div className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
+                                          <div className="h-full bg-[#EF9F27] rounded-full" style={{ width: `${Math.min(100, Math.max(4, pack.progressPct || 0))}%` }} />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {pack.status === 'done' ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const episodeList = buildEpisodeList(season.episodes);
+                                            onWatch(pack, episodeList);
+                                            onClose();
+                                          }}
+                                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-[#EF9F27] text-black hover:bg-[#ffb04d] shadow-sm"
+                                        >
+                                          Assistir
+                                        </button>
+                                      ) : pack.status === 'error' && onRetry ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => onRetry(pack)}
+                                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+                                        >
+                                          Tentar novamente
+                                        </button>
+                                      ) : (
+                                        (() => {
+                                          const sb = statusBadge(pack);
+                                          return sb ? (
+                                            <span className={`text-[10px] px-2.5 py-1 rounded-lg font-mono ${sb.cls}`}>
+                                              {sb.text}
+                                            </span>
+                                          ) : null;
+                                        })()
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Episódios indexados */}
+                                {season.episodes.map((ep) => {
                                   const epWatched = ep.watched === 1;
                                   const epProgress = ep.watchProgress || 0;
                                   const epTitle = ep.title || `Episódio ${ep.episodeNumber || '?'}`;
                                   const epDone = ep.status === 'done';
+                                  const sb = statusBadge(ep);
 
                                   return (
                                     <div
@@ -552,8 +639,9 @@ export default function LibraryDetailModal({
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const episodeList = buildEpisodeList(season.eps);
+                                              const episodeList = buildEpisodeList(season.episodes);
                                               onWatch(ep, episodeList);
+                                              onClose();
                                             }}
                                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
                                               epWatched
@@ -563,10 +651,6 @@ export default function LibraryDetailModal({
                                           >
                                             {epWatched ? 'Rever' : epProgress > 0 ? 'Continuar' : 'Assistir'}
                                           </button>
-                                        ) : ep.status === 'downloading' ? (
-                                          <span className="text-[10px] text-zinc-400 px-2.5 py-1 bg-zinc-800 rounded-lg font-mono">
-                                            {ep.progressPct || 0}%
-                                          </span>
                                         ) : ep.status === 'error' && onRetry ? (
                                           <button
                                             type="button"
@@ -575,9 +659,11 @@ export default function LibraryDetailModal({
                                           >
                                             Tentar novamente
                                           </button>
-                                        ) : (
-                                          <span className="text-[10px] text-zinc-600">Pendente</span>
-                                        )}
+                                        ) : sb ? (
+                                          <span className={`text-[10px] px-2.5 py-1 rounded-lg font-mono ${sb.cls}`}>
+                                            {sb.text}
+                                          </span>
+                                        ) : null}
 
                                         <button
                                           type="button"

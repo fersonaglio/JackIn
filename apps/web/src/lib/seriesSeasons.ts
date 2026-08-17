@@ -17,6 +17,7 @@ export function seriesBaseTitle(title: string): string {
   return title
     .replace(/\b(?:season|temporada)\s*\d{1,3}\b/gi, ' ')
     .replace(/\b[Ss]\d{1,3}([Ee]\d{1,3})?\b/g, ' ')
+    .replace(/\s*\(T\d+\)\s*$/i, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

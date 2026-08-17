@@ -80,11 +80,27 @@ router.get('/', (req: Request, res: Response) => {
           facelessConfig = typeof r[8] === 'string' ? JSON.parse(r[8] as string) : r[8];
         } catch {}
       }
+      const status = String(r[3] || '');
+      const progressStatus = (r[15] as string | null) || null;
+      let progressPct = r[14] as number | null;
+      // Heal: um download em andamento nunca fica preso em 95% por linha de
+      // metadados do aria2 (que prendeu o clamp em 95 cedo). Se o banco ainda
+      // tem 95+ mas o status mostra o % real, devolve o valor real (máx. 94) —
+      // a UI não engana a barra de progresso.
+      if (status === 'downloading' && progressPct != null && progressPct >= 95 && progressStatus) {
+        const m = progressStatus.match(/- ([\d.]+)%/);
+        if (m) {
+          const real = parseFloat(m[1]);
+          if (Number.isFinite(real) && real < 95) {
+            progressPct = Math.max(0, Math.min(94, Math.round(real)));
+          }
+        }
+      }
       return {
         id: r[0],
         youtubeUrl: r[1],
         title: r[2],
-        status: r[3],
+        status,
         errorMessage: r[4],
         createdAt: r[5],
         videoPath: r[6],
@@ -95,8 +111,8 @@ router.get('/', (req: Request, res: Response) => {
         episodeNumber: r[11] as number | null,
         watchProgress: r[12] as number | null,
         watched: r[13] as number | null,
-        progressPct: r[14] as number | null,
-        progressStatus: r[15] as string | null,
+        progressPct,
+        progressStatus,
       };
     })
   );

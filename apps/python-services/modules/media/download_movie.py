@@ -275,6 +275,22 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             val *= 1024 * 1024 * 1024
         return int(val)
 
+    def total_bytes(line: str) -> int:
+        # "512MiB/1.0GiB" -> total em bytes. A linha de metadados do magnet
+        # ("0B/0B") retorna 0 e não é progresso real de arquivo.
+        m = re.search(r"/([\d.]+)([KMGT]?i?B)", line)
+        if not m:
+            return 0
+        val = float(m.group(1))
+        unit = m.group(2)
+        if unit == "KiB":
+            val *= 1024
+        elif unit == "MiB":
+            val *= 1024 * 1024
+        elif unit == "GiB":
+            val *= 1024 * 1024 * 1024
+        return int(val)
+
     try:
         while not download_done:
             events = sel.select(timeout=2.0) if proc.stdout else []
@@ -318,6 +334,11 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
 
                 if "(" in line_str and "%)" in line_str:
                     try:
+                        # Linha de metadados ("0B/0B") não é progresso real de
+                        # arquivo — ignorá-la evita o clamp prender a barra em
+                        # 95% antes mesmo do download começar.
+                        if total_bytes(line_str) <= 0:
+                            continue
                         pct_part = line_str.split("(")[1].split("%)")[0]
                         pct_val = float(pct_part)
                         mapped_pct = min(95, int(8 + (pct_val / 100.0) * 87))

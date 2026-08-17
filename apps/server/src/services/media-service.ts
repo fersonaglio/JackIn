@@ -397,6 +397,20 @@ function updatePrepState(projectId: string, state: PrepState, extra?: { error?: 
   persist();
 }
 
+// Prepare falhou: além do prep_state='failed', o projeto NÃO pode ficar
+// eternamente em 'preparing' — marca 'error' para a UI oferecer "Tentar
+// novamente" e o usuário ver de verdade o que falhou.
+function markPrepFailed(projectId: string, error: string, artifacts?: Artifacts) {
+  updatePrepState(projectId, 'failed', { error, artifacts });
+  const db = getDb();
+  const cur = db.exec('SELECT status FROM projects WHERE id = ?', [projectId])[0]?.values[0]?.[0];
+  if (cur === 'preparing' || cur === 'pending') {
+    db.run('UPDATE projects SET status = ?, error_message = ? WHERE id = ?', ['error', error, projectId]);
+    persist();
+    progressEvents.emit(projectId, { stage: 'error', progress: 0, status: `Erro ao preparar: ${error}` });
+  }
+}
+
 function emitPrep(projectId: string, progress: number, status: string) {
   progressEvents.emit(projectId, { stage: 'preparing', progress: Math.min(100, Math.round(progress)), status });
 }
@@ -590,11 +604,38 @@ export function isPreparing(projectId: string): boolean {
   return !!proc;
 }
 
+// Filas de preparação com concorrência limitada: um pack de temporada com
+// dezenas de episódios dispara N prepareProject de uma vez (reconcile/índex).
+// Sem trava, dezenas de ffmpeg rodam simultâneos e nada termina. Com limite,
+// os episódios ficam prontos um a um — dá para assistir enquanto o resto
+// prepara.
+const PREP_CONCURRENCY = 3;
+const prepQueue: Array<() => Promise<void>> = [];
+let prepActive = 0;
+
+function pumpPrep(): void {
+  while (prepActive < PREP_CONCURRENCY && prepQueue.length > 0) {
+    const run = prepQueue.shift()!;
+    prepActive++;
+    run().finally(() => {
+      prepActive--;
+      pumpPrep();
+    });
+  }
+}
+
+function enqueuePrep(fn: () => Promise<void>): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    prepQueue.push(() => fn().then(resolve, reject));
+    pumpPrep();
+  });
+}
+
 export function prepareProject(projectId: string): Promise<void> {
   const existing = runningPrep.get(projectId);
   if (existing) return existing;
 
-  const proc = doPrepare(projectId).finally(() => {
+  const proc = enqueuePrep(() => doPrepare(projectId)).finally(() => {
     runningPrep.delete(projectId);
   });
   runningPrep.set(projectId, proc);
@@ -612,11 +653,15 @@ async function doPrepare(projectId: string): Promise<void> {
   if (!row) return;
 
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
+  // Episódios indexados de um pack NÃO têm diretório próprio (o arquivo fica
+  // na pasta do pack) — sem isso o ffmpeg falha ao gravar master/playable e o
+  // prepare fica eternamente em "Preparando".
+  fs.mkdirSync(projectDir, { recursive: true });
   const master = getProjectMedia(projectId)?.videoPath && fs.existsSync(getProjectMedia(projectId)!.videoPath!)
     ? getProjectMedia(projectId)!.videoPath!
     : findMasterFile(projectDir);
   if (!master) {
-    updatePrepState(projectId, 'failed', { error: 'Nenhum arquivo de vídeo master encontrado' });
+    markPrepFailed(projectId, 'Nenhum arquivo de vídeo master encontrado');
     return;
   }
 
@@ -626,7 +671,7 @@ async function doPrepare(projectId: string): Promise<void> {
     info = await probeMedia(master);
   } catch (e: any) {
     if (isAborted()) return;
-    updatePrepState(projectId, 'failed', { error: e.message });
+    markPrepFailed(projectId, e.message);
     return;
   }
 
@@ -660,7 +705,7 @@ async function doPrepare(projectId: string): Promise<void> {
   const tmpSuffix = `.tmp-${process.pid}`;
   const fail = (e: any) => {
     if (isAborted()) return;
-    updatePrepState(projectId, 'failed', { error: e.message || String(e), artifacts });
+    markPrepFailed(projectId, e.message || String(e), artifacts);
   };
 
   // 1) master.mp4 (Safari) — só se o master original não for direct para Safari
