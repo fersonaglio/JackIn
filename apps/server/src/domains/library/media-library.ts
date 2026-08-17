@@ -917,9 +917,14 @@ router.put('/:id/watched', (req: Request, res: Response) => {
     return;
   }
   const db = getDb();
-  db.run('UPDATE projects SET watched = ? WHERE id = ?', [watched ? 1 : 0, id]);
-  persist();
-  recordWatchHistory(id);
+  // Idempotente: se o valor já é o mesmo, não re-escreve o DB nem churn do
+  // histórico (o player costumava enviar watched=false a cada tick).
+  const cur = db.exec('SELECT watched FROM projects WHERE id = ?', [id])[0]?.values[0]?.[0];
+  if ((cur === 1) !== watched) {
+    db.run('UPDATE projects SET watched = ? WHERE id = ?', [watched ? 1 : 0, id]);
+    persist();
+    recordWatchHistory(id);
+  }
   res.json({ ok: true });
 });
 

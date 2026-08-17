@@ -7,6 +7,17 @@ import LibraryDetailModal, { type LibraryDetailTarget } from './LibraryDetailMod
 import { breakdownSeries } from '@/lib/seriesProjects';
 import { seriesBaseTitle } from '@/lib/seriesSeasons';
 
+function formatHistoryDate(dateStr?: string | null): string {
+  if (!dateStr) return 'Recentemente';
+  return new Date(dateStr).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 interface LibraryGridProps {
   projects: Project[];
   filter: string;
@@ -17,6 +28,7 @@ interface LibraryGridProps {
   onRetry?: (project: Project) => void;
   onRedownload?: (title: string) => void;
   onOpenDetails?: (target: LibraryDetailTarget) => void;
+  onToggleWatched?: (project: Project) => void;
 }
 
 // Mostra um rótulo claro para o estado do download em vez de um percentual
@@ -336,6 +348,7 @@ export default function LibraryGrid({
   onRetry,
   onRedownload,
   onOpenDetails,
+  onToggleWatched,
 }: LibraryGridProps) {
   const [subTab, setSubTab] = useState<'downloads' | 'history'>('downloads');
   const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
@@ -343,6 +356,17 @@ export default function LibraryGrid({
   const [historyItemToDelete, setHistoryItemToDelete] = useState<WatchHistoryItem | null>(null);
   const [seriesToDelete, setSeriesToDelete] = useState<{ title: string; seriesId: string; episodes: Project[] } | null>(null);
   const [detailTarget, setDetailTarget] = useState<LibraryDetailTarget | null>(null);
+  // Séries expandidas no histórico (mostram os episódios individuais).
+  const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
+
+  const toggleSeriesExpand = (key: string) => {
+    setExpandedSeries((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (subTab === 'history') {
@@ -386,6 +410,45 @@ export default function LibraryGrid({
   const filteredHistory = historyItems.filter((h) =>
     (h.title || '').toLowerCase().includes(filter.toLowerCase())
   );
+
+  // Histórico agrupado: episódios de série viram UMA entrada da série (com a
+  // lista de episódios expandível); filmes permanecem como entradas únicas.
+  const historyGroups = useMemo(() => {
+    const movies: WatchHistoryItem[] = [];
+    const seriesMap = new Map<string, { key: string; title: string; items: WatchHistoryItem[] }>();
+    for (const h of filteredHistory) {
+      const isSeries = !!h.seriesId || h.seasonNumber != null;
+      if (!isSeries) {
+        movies.push(h);
+        continue;
+      }
+      const key = h.seriesId || `hist-${seriesBaseTitle(h.title)}-${h.seasonNumber ?? 0}`;
+      let group = seriesMap.get(key);
+      if (!group) {
+        group = { key, title: seriesBaseTitle(h.title) || h.title || 'Série', items: [] };
+        seriesMap.set(key, group);
+      }
+      group.items.push(h);
+    }
+    const series = [...seriesMap.values()].map((g) => ({
+      ...g,
+      items: g.items.sort(
+        (a, b) => new Date(b.watchedAt || 0).getTime() - new Date(a.watchedAt || 0).getTime()
+      ),
+    }));
+    // Séries ordenadas pela última vez assistida (decrescente), depois filmes.
+    const all = [
+      ...series.map((s) => ({ kind: 'series' as const, group: s })),
+      ...movies.map((m) => ({ kind: 'movie' as const, item: m })),
+    ].sort((a, b) => {
+      const ta =
+        a.kind === 'series' ? a.group.items[0]?.watchedAt : a.item.watchedAt;
+      const tb =
+        b.kind === 'series' ? b.group.items[0]?.watchedAt : b.item.watchedAt;
+      return new Date(tb || 0).getTime() - new Date(ta || 0).getTime();
+    });
+    return all;
+  }, [filteredHistory]);
 
   const groupedProjects = useMemo(() => {
     const singles: Project[] = [];
@@ -480,7 +543,7 @@ export default function LibraryGrid({
             <div className="flex items-center justify-center py-20 text-zinc-500 text-xs font-mono">
               Carregando histórico de assistidos...
             </div>
-          ) : filteredHistory.length === 0 ? (
+          ) : historyGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 space-y-4 text-center bg-zinc-950/40 border border-dashed border-zinc-800/60 rounded-3xl">
               <span className="text-5xl">📜</span>
               <div className="space-y-1">
@@ -494,90 +557,175 @@ export default function LibraryGrid({
             </div>
           ) : (
             <div className="space-y-2.5">
-              {filteredHistory.map((item) => {
-                const formattedDate = item.watchedAt
-                  ? new Date(item.watchedAt).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : 'Recentemente';
+              {historyGroups.map((entry) => {
+                if (entry.kind === 'movie') {
+                  const item = entry.item;
+                  const formattedDate = formatHistoryDate(item.watchedAt);
+                  const matchedProject = projects.find(p => p.id === item.projectId || p.title === item.title);
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-4 bg-[#0A0B0D] border border-[#202226] hover:border-purple-500/30 rounded-2xl p-4 transition-all"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-lg shrink-0">
+                          🎬
+                        </div>
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-sm font-bold text-zinc-100 truncate">{item.title}</p>
+                          <p className="text-[11px] text-zinc-500 font-mono">Assistido em {formattedDate}</p>
+                        </div>
+                      </div>
 
-                const matchedProject = projects.find(p => p.id === item.projectId || p.title === item.title);
+                      <div className="flex items-center gap-3 shrink-0">
+                        {item.isDownloaded || matchedProject ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+                              ✓ No HD
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (matchedProject) onWatch(matchedProject);
+                              }}
+                              className="px-3.5 py-1.5 rounded-xl bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 text-xs font-bold transition-all shadow-md"
+                            >
+                              Assistir ▶
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
+                              🗑️ Arquivo Excluído
+                            </span>
+                            {onRedownload && (
+                              <button
+                                type="button"
+                                onClick={() => onRedownload(item.title)}
+                                className="px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold transition-all flex items-center gap-1.5"
+                                title="Buscar torrent para baixar novamente"
+                              >
+                                <span>Baixar de novo</span>
+                                <span>🔍</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setHistoryItemToDelete(item)}
+                          className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
+                          title="Remover do histórico"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Série agrupada: uma entrada para a série inteira, com a lista
+                // de episódios expandível.
+                const g = entry.group;
+                const last = g.items[0];
+                const expanded = expandedSeries.has(g.key);
+                const matchedLast = projects.find(p => p.id === last.projectId || p.title === last.title);
 
                 return (
                   <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 bg-[#0A0B0D] border border-[#202226] hover:border-purple-500/30 rounded-2xl p-4 transition-all"
+                    key={g.key}
+                    className="bg-[#0A0B0D] border border-[#202226] hover:border-purple-500/30 rounded-2xl overflow-hidden transition-all"
                   >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-lg shrink-0">
-                        {item.seriesId || item.seasonNumber ? '📺' : '🎬'}
+                    <button
+                      type="button"
+                      onClick={() => toggleSeriesExpand(g.key)}
+                      className="w-full flex items-center justify-between gap-4 p-4 text-left"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-lg shrink-0">
+                          📺
+                        </div>
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-sm font-bold text-zinc-100 truncate">{g.title}</p>
+                          <p className="text-[11px] text-zinc-500 font-mono">
+                            {g.items.length} episódio{g.items.length !== 1 ? 's' : ''} · Última vez {formatHistoryDate(last.watchedAt)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-sm font-bold text-zinc-100 truncate">
-                          {item.title}
-                          {item.seasonNumber != null && (
-                            <span className="text-xs text-purple-400 font-mono ml-2">
-                              S{String(item.seasonNumber).padStart(2, '0')}
-                              {item.episodeNumber != null && `E${String(item.episodeNumber).padStart(2, '0')}`}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-[11px] text-zinc-500 font-mono">
-                          Assistido em {formattedDate}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      {item.isDownloaded || matchedProject ? (
-                        <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                            ✓ No HD
-                          </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {matchedLast && (
                           <button
                             type="button"
-                            onClick={() => {
-                              if (matchedProject) onWatch(matchedProject);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onWatch(matchedLast);
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 text-xs font-bold transition-all shadow-md"
                           >
                             Assistir ▶
                           </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
-                            🗑️ Arquivo Excluído
-                          </span>
-                          {onRedownload && (
-                            <button
-                              type="button"
-                              onClick={() => onRedownload(item.title)}
-                              className="px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold transition-all flex items-center gap-1.5"
-                              title="Buscar torrent para baixar novamente"
-                            >
-                              <span>Baixar de novo</span>
-                              <span>🔍</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                        )}
+                        <span className={`text-zinc-500 text-sm shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}>
+                          ▾
+                        </span>
+                      </div>
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setHistoryItemToDelete(item)}
-                        className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
-                        title="Remover do histórico"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
+                    {expanded && (
+                      <div className="border-t border-[#202226]/70 divide-y divide-[#202226]/50">
+                        {g.items.map((item) => {
+                          const epDate = formatHistoryDate(item.watchedAt);
+                          const matchedProject = projects.find(p => p.id === item.projectId || p.title === item.title);
+                          return (
+                            <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-[10px] text-purple-400 font-mono shrink-0 w-16 text-right">
+                                  S{String(item.seasonNumber ?? 0).padStart(2, '0')}E{String(item.episodeNumber ?? 0).padStart(2, '0')}
+                                </span>
+                                <p className="text-xs text-zinc-300 truncate">{item.title}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[9px] text-zinc-600 font-mono">{epDate}</span>
+                                {item.isDownloaded || matchedProject ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (matchedProject) onWatch(matchedProject);
+                                    }}
+                                    className="px-3 py-1 rounded-lg bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 text-[10px] font-bold transition-all"
+                                  >
+                                    Assistir ▶
+                                  </button>
+                                ) : onRedownload ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onRedownload(item.title)}
+                                    className="px-3 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-[10px] font-bold transition-all"
+                                  >
+                                    Baixar de novo 🔍
+                                  </button>
+                                ) : (
+                                  <span className="text-[9px] text-zinc-600">🗑️ Excluído</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setHistoryItemToDelete(item)}
+                                  className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
+                                  title="Remover do histórico"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -669,6 +817,7 @@ export default function LibraryGrid({
         onDelete={onDelete}
         onDeleteSeries={(s) => (onDeleteSeries ? onDeleteSeries(s) : setSeriesToDelete(s))}
         onRetry={onRetry}
+        onToggleWatched={onToggleWatched}
       />
     </div>
   );

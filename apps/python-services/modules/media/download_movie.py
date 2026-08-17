@@ -218,7 +218,7 @@ def _cleanup_dir(output_dir: Path):
         pass
 
 
-def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout: int = 90) -> bool:
+def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout: int = 300) -> bool:
     """Tenta baixar UM magnet. Retorna True se um arquivo de vídeo real foi
     obtido. Candidate morto (seeders fantasmas, DL:0B persistente) é abortado
     após um warmup de peers e o próximo entra."""
@@ -256,6 +256,9 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
     last_emit_t = 0
     last_downloaded = 0
     last_byte_advance = time.time()
+    # Maior % observado no candidate: usado para dar paciência extra perto do
+    # fim (seeder que some na última peça volta intermitentemente).
+    peak_pct = 0
     sel = selectors.DefaultSelector()
     if proc.stdout:
         sel.register(proc.stdout, selectors.EVENT_READ)
@@ -305,7 +308,13 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                         emit_progress(5, f"Procurando seeders P2P (DHT/trackers)... {int(time.time() - start_t)}s", 0)
                 # Candidate morto: após warmup de 30s, se NENHUM byte avançou
                 # nos últimos 45s, aborta e o próximo magnet da cascata entra.
-                if (time.time() - start_t) > 30 and (now_t - last_byte_advance) > 45:
+                # PERTO DO FIM (>=80%) a paciência é muito maior: seeders de
+                # conteúdo obscuro somem na última peça e voltam em minutos —
+                # abortar nessa hora zera o download inteiro (já perdemos 93%
+                # e 99% duas vezes).
+                no_advance = now_t - last_byte_advance
+                grace = 240 if peak_pct >= 80 else 45
+                if (time.time() - start_t) > 30 and no_advance > grace:
                     print("Rede BitTorrent sem dados (candidate morto). Abortando.", file=sys.stderr)
                     proc.kill()
                     break
@@ -342,6 +351,8 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                         pct_part = line_str.split("(")[1].split("%)")[0]
                         pct_val = float(pct_part)
                         mapped_pct = min(95, int(8 + (pct_val / 100.0) * 87))
+                        if mapped_pct > peak_pct:
+                            peak_pct = mapped_pct
                         speed_raw = _extract_token(line_str, "DL:")
                         speed_disp = _format_speed_mbs(speed_raw)
                         cn_val = _extract_token(line_str, "CN:")

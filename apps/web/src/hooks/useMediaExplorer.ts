@@ -7,6 +7,7 @@ import {
   searchMediaSources,
   downloadMediaMovie,
   retryMediaDownload,
+  markWatched,
   type MovieSearchResult,
   type MediaOption,
   type Project,
@@ -300,6 +301,19 @@ export function useMediaExplorer() {
     [pollActiveProjects]
   );
 
+  // Marca/desmarca um filme ou episódio como assistido manualmente.
+  const handleToggleWatched = useCallback(
+    async (project: Project) => {
+      try {
+        await markWatched(project.id, project.watched !== 1);
+        pollActiveProjects();
+      } catch (e) {
+        console.error('Failed to toggle watched:', e);
+      }
+    },
+    [pollActiveProjects]
+  );
+
   const handleRetry = useCallback(
     async (project: Project) => {
       if (retryInFlightRef.current === project.id) return;
@@ -373,6 +387,7 @@ export function useMediaExplorer() {
     handleDownloadAllSeasons,
     handleDeleteItem,
     handleDeleteSeries,
+    handleToggleWatched,
     handleRetry,
     handleWatch,
     setModalOpen,

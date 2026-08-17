@@ -689,6 +689,17 @@ async function doPrepare(projectId: string): Promise<void> {
   // na pasta do pack) — sem isso o ffmpeg falha ao gravar master/playable e o
   // prepare fica eternamente em "Preparando".
   fs.mkdirSync(projectDir, { recursive: true });
+  // Limpa tmp órfãos de prepares mortos por restart (playable.mp4.tmp-<pid>):
+  // o tmp usa o pid do SERVIDOR, então um processo novo nunca reaproveita o
+  // arquivo antigo e ele fica ocupando disco para sempre. Um prepare por
+  // projeto (runningPrep dedupa), então remover *.tmp-* aqui é seguro.
+  try {
+    for (const f of fs.readdirSync(projectDir)) {
+      if (f.includes('.tmp-')) {
+        try { fs.unlinkSync(path.join(projectDir, f)); } catch {}
+      }
+    }
+  } catch {}
   const master = getProjectMedia(projectId)?.videoPath && fs.existsSync(getProjectMedia(projectId)!.videoPath!)
     ? getProjectMedia(projectId)!.videoPath!
     : findMasterFile(projectDir);
@@ -1010,7 +1021,14 @@ export function reconcileProjectMedia(projectId: string): void {
   }
   // 'running' sem worker ativo = prepare morto por crash/restart no meio do
   // ffmpeg. Re-dispara; o doPrepare já limpa tmp órfãos antes de escrever.
-  if (pm.prepState === 'none' || pm.prepState === 'failed' || (pm.prepState === 'running' && !isPreparing(projectId))) {
+  // 'partial' (master gerado, playable/áudio não) também entra: sem isso um
+  // restart no meio do transcode deixava o episódio eternamente em 'preparing'.
+  if (
+    pm.prepState === 'none' ||
+    pm.prepState === 'failed' ||
+    pm.prepState === 'partial' ||
+    (pm.prepState === 'running' && !isPreparing(projectId))
+  ) {
     const projectDir = path.join(DATA_DIR, 'projects', projectId);
     // Torrents costumam extrair para um subdiretório (ex.: "... (2000) [2160p].../").
     // A coluna video_path já aponta para o master real descoberto pelo reconcile

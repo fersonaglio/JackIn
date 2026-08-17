@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { fetchPtBrSubtitles, saveWatchProgress, getWatchProgress, markWatched } from '@/lib/api';
 import { pickCastAudioTrackId, type CastAudioTrack } from '@/lib/cast';
 import { useCast } from '@/hooks/useCast';
+import { nextWatchedState } from '@/lib/watchState';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -121,6 +122,15 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   const nextCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const progressSaveRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef(true);
+  // Auto-continuar o próximo episódio (só nesta sessão). Desligado via
+  // engrenagem ou "Não perguntar de novo" no overlay.
+  const [autoNext, setAutoNext] = useState(true);
+  // Contagem regressiva do próximo episódio (segundos restantes).
+  const [countdownLeft, setCountdownLeft] = useState(10);
+  const NEXT_EPISODE_COUNTDOWN_SECONDS = 10;
+  // Refs espelham o estado para callbacks sem stale closure.
+  const autoNextRef = useRef<boolean>(true);
+  const nextEpisodeRef = useRef<{ id: string; title: string } | null>(null);
 
   const {
     castSupported,
@@ -178,6 +188,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   const lastSavedPosRef = useRef<number>(0);
   const seekDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastTimeUpdateSaveRef = useRef<number>(0);
+  // Estado local de "assistido" — só chama markWatched quando muda de fato
+  // (transição ≥90% / <80%), evitando spam de PUT e o "desmarca ao rever".
+  const watchedRef = useRef<boolean>(false);
 
   const saveProgressNow = useCallback((customPos?: number, force = false) => {
     const el = videoRef.current;
@@ -193,11 +206,10 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     saveWatchProgress(projectId, pos).catch(() => {});
 
     if (el.duration > 0) {
-      const ratio = pos / el.duration;
-      if (ratio >= 0.92) {
-        markWatched(projectId, true).catch(() => {});
-      } else if (ratio < 0.85) {
-        markWatched(projectId, false).catch(() => {});
+      const next = nextWatchedState(pos / el.duration, watchedRef.current);
+      if (next !== null) {
+        watchedRef.current = next;
+        markWatched(projectId, next).catch(() => {});
       }
     }
   }, [projectId]);
@@ -205,6 +217,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   useEffect(() => {
     if (!isOpen || !projectId) return;
     getWatchProgress(projectId).then(({ position, watched }) => {
+      watchedRef.current = watched;
       if (!position || position < 60) return;
       setResumePosition(position);
       setShowResumePrompt(true);
@@ -250,28 +263,94 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     };
   }, [projectId]);
 
+  const cancelNextEpisode = useCallback(() => {
+    if (nextCountdownRef.current) {
+      clearInterval(nextCountdownRef.current);
+      nextCountdownRef.current = null;
+    }
+    nextEpisodeRef.current = null;
+    setNextEpisode(null);
+    setShowNextEpisode(false);
+  }, []);
+
+  const goToNextEpisode = useCallback(() => {
+    const next = nextEpisodeRef.current;
+    cancelNextEpisode();
+    if (next && onEpisodeChange) {
+      onEpisodeChange(next.id);
+    }
+  }, [cancelNextEpisode, onEpisodeChange]);
+
+  // Mostra o aviso do próximo episódio. Só inicia a contagem regressiva (10s)
+  // quando auto-next está ligado; desligado, o aviso fica parado aguardando o
+  // usuário — estilo Netflix com auto-play off.
+  const promptNextEpisode = useCallback(
+    (nextEp: { id: string; title: string }) => {
+      nextEpisodeRef.current = nextEp;
+      setNextEpisode(nextEp);
+      setShowNextEpisode(true);
+      // Sempre reseta a contagem (evita que um 0 de um ciclo anterior dispare
+      // o próximo na hora quando o auto-next está desligado).
+      setCountdownLeft(NEXT_EPISODE_COUNTDOWN_SECONDS);
+      if (!autoNextRef.current) return;
+      if (nextCountdownRef.current) clearInterval(nextCountdownRef.current);
+      nextCountdownRef.current = setInterval(() => {
+        setCountdownLeft((c) => Math.max(0, c - 1));
+      }, 1000);
+    },
+    []
+  );
+
+  // Contagem chega a 0 → auto-continua para o próximo episódio.
+  useEffect(() => {
+    if (!showNextEpisode || countdownLeft > 0) return;
+    goToNextEpisode();
+  }, [countdownLeft, showNextEpisode, goToNextEpisode]);
+
+  // "Não perguntar de novo": desliga o auto-next na hora (sessão) e para a
+  // contagem atual — o aviso continua visível, mas sem auto-start.
+  const disableAutoNext = useCallback(() => {
+    autoNextRef.current = false;
+    setAutoNext(false);
+    if (nextCountdownRef.current) {
+      clearInterval(nextCountdownRef.current);
+      nextCountdownRef.current = null;
+    }
+  }, []);
+
+  // Liga/desliga o auto-next (ref + estado). Ao religar com um aviso ativo,
+  // retoma a contagem regressiva do episódio atual.
+  const setAutoNextBoth = useCallback(
+    (v: boolean) => {
+      autoNextRef.current = v;
+      setAutoNext(v);
+      if (v && showNextEpisode && nextEpisode) {
+        setCountdownLeft(NEXT_EPISODE_COUNTDOWN_SECONDS);
+        if (nextCountdownRef.current) clearInterval(nextCountdownRef.current);
+        nextCountdownRef.current = setInterval(() => {
+          setCountdownLeft((c) => Math.max(0, c - 1));
+        }, 1000);
+      }
+    },
+    [showNextEpisode, nextEpisode]
+  );
+
   const handleVideoEnded = useCallback(() => {
     setIsPlaying(false);
+    const el = videoRef.current;
+    // Salva a posição final (100%) antes de marcar assistido — senão o
+    // watch_progress fica no último tick (alguns segundos antes do fim).
+    if (el && projectId && el.duration > 0 && !isNaN(el.duration)) {
+      saveWatchProgress(projectId, el.duration).catch(() => {});
+    }
+    watchedRef.current = true;
     markWatched(projectId, true).catch(() => {});
     if (!episodeList || episodeList.length === 0) return;
     const currentIdx = episodeList.findIndex(ep => ep.id === projectId);
     if (currentIdx >= 0 && currentIdx < episodeList.length - 1) {
-      setNextEpisode(episodeList[currentIdx + 1]);
-      setShowNextEpisode(true);
-      nextCountdownRef.current = setTimeout(() => {
-        goToNextEpisode();
-      }, 8000);
+      promptNextEpisode(episodeList[currentIdx + 1]);
     }
-  }, [projectId, episodeList]);
-
-  const goToNextEpisode = useCallback(() => {
-    if (nextCountdownRef.current) clearTimeout(nextCountdownRef.current);
-    setShowNextEpisode(false);
-    setNextEpisode(null);
-    if (nextEpisode && onEpisodeChange) {
-      onEpisodeChange(nextEpisode.id);
-    }
-  }, [nextEpisode, onEpisodeChange]);
+  }, [projectId, episodeList, promptNextEpisode]);
 
   const handleResumePlay = useCallback(() => {
     setShowResumePrompt(false);
@@ -671,7 +750,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
-      if (nextCountdownRef.current) clearTimeout(nextCountdownRef.current);
+      if (nextCountdownRef.current) clearInterval(nextCountdownRef.current);
       if (progressSaveRef.current) clearInterval(progressSaveRef.current);
     };
   }, [isOpen, showResumePrompt, showSettingsModal, handleClose, handleResumePlay, handleStartFromBeginning, togglePlay, togglePictureInPicture, toggleFullscreen, toggleMute, seekRelative]);
@@ -1029,6 +1108,34 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                   </div>
 
                   <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    {/* Reprodução — auto-continuar próximo episódio */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                          <span>⏭️</span> Reprodução
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAutoNextBoth(!autoNext)}
+                        className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 transition-colors"
+                      >
+                        <span className="text-xs font-bold text-zinc-200">Reproduzir próximo automaticamente</span>
+                        <span
+                          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${autoNext ? 'bg-[#EF9F27]' : 'bg-zinc-700'}`}
+                        >
+                          <span
+                            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${autoNext ? 'left-[18px]' : 'left-0.5'}`}
+                          />
+                        </span>
+                      </button>
+                      <p className="text-[9px] text-zinc-500 mt-1.5 leading-snug">
+                        {autoNext
+                          ? 'Ao terminar um episódio, o próximo entra automaticamente após 10s.'
+                          : 'Ao terminar um episódio, você escolhe se quer continuar.'}
+                      </p>
+                    </div>
+
                     {/* Audio section */}
                     <div>
                       <div className="flex items-center justify-between mb-2.5">
@@ -1221,32 +1328,75 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 50 }}
-              className="absolute bottom-24 right-8 z-50 bg-zinc-900/95 border border-zinc-700 rounded-2xl p-5 shadow-2xl max-w-sm"
+              className="absolute bottom-24 right-8 z-50 w-80 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Próximo episódio</p>
-              <p className="text-sm font-bold text-white mb-1">{nextEpisode.title}</p>
-              <div className="flex items-center gap-3 mt-4">
+              <div className="relative p-5">
+                {/* X para cancelar (só este episódio) */}
                 <button
-                  onClick={goToNextEpisode}
-                  className="px-4 py-2 bg-[#EF9F27] text-black font-bold rounded-lg text-xs hover:bg-[#ffb04d] transition-colors"
+                  type="button"
+                  onClick={cancelNextEpisode}
+                  className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-zinc-400 hover:text-white transition-colors text-xs font-bold"
+                  title="Cancelar (não continuar agora)"
                 >
-                  Assistir agora
+                  ✕
                 </button>
-                <button
-                  onClick={() => { if (nextCountdownRef.current) clearTimeout(nextCountdownRef.current); setShowNextEpisode(false); }}
-                  className="px-4 py-2 text-zinc-400 text-xs hover:text-white transition-colors"
-                >
-                  Fechar
-                </button>
+
+                <p className="text-[11px] text-[#EF9F27] font-black uppercase tracking-wider">
+                  Próximo episódio
+                  {autoNext && countdownLeft > 0 && (
+                    <span className="ml-2 text-zinc-400 font-mono">em {countdownLeft}s</span>
+                  )}
+                </p>
+                <p className="text-sm font-bold text-white mt-1.5 pr-6 leading-snug line-clamp-2">
+                  {nextEpisode.title}
+                </p>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={goToNextEpisode}
+                    className="flex-1 px-4 py-2.5 bg-[#EF9F27] hover:bg-[#ffb04d] text-black font-black rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95"
+                  >
+                    ▶ Assistir agora
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelNextEpisode}
+                    className="px-3 py-2.5 text-zinc-400 hover:text-white text-[11px] font-bold transition-colors"
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                {!autoNext && (
+                  <button
+                    type="button"
+                    onClick={() => setAutoNextBoth(true)}
+                    className="mt-3 w-full text-left text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    ⏭️ Auto-continuar está desligado — ativar de novo
+                  </button>
+                )}
               </div>
-              <div className="mt-3 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: '100%' }}
-                  animate={{ width: '0%' }}
-                  transition={{ duration: 8, ease: 'linear' }}
-                  className="h-full bg-[#EF9F27]"
-                />
-              </div>
+
+              {/* Barra de contagem — só quando auto-next está ligado */}
+              {autoNext && (
+                <div className="h-1.5 bg-zinc-800 overflow-hidden">
+                  <motion.div
+                    animate={{ width: `${(countdownLeft / NEXT_EPISODE_COUNTDOWN_SECONDS) * 100}%` }}
+                    className="h-full bg-[#EF9F27]"
+                  />
+                </div>
+              )}
+
+              {/* "Não perguntar de novo" — desliga o auto-next nesta sessão */}
+              <button
+                type="button"
+                onClick={disableAutoNext}
+                className="w-full px-4 py-2 border-t border-zinc-800 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors text-left"
+              >
+                Não perguntar de novo (desativar auto-continuar)
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

@@ -16,6 +16,7 @@ interface LibraryDetailModalProps {
   onDelete: (project: Project) => void;
   onDeleteSeries?: (series: { kind: 'series'; seriesId: string; title: string; episodes: Project[] }) => void;
   onRetry?: (project: Project) => void;
+  onToggleWatched?: (project: Project) => void;
 }
 
 function cleanTitle(raw: string): { title: string; quality: string } {
@@ -77,6 +78,7 @@ export default function LibraryDetailModal({
   onDelete,
   onDeleteSeries,
   onRetry,
+  onToggleWatched,
 }: LibraryDetailModalProps) {
   const [mounted, setMounted] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -448,6 +450,22 @@ export default function LibraryDetailModal({
                         </button>
                       ) : null}
 
+                      {movie && onToggleWatched && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleWatched(movie)}
+                          className={`px-5 py-3.5 rounded-xl border transition-colors text-xs font-bold flex items-center gap-2 ${
+                            movieWatched
+                              ? 'bg-purple-500/15 hover:bg-purple-500/25 border-purple-500/40 text-purple-300'
+                              : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-purple-300 hover:border-purple-500/40'
+                          }`}
+                          title={movieWatched ? 'Marcar como não visto' : 'Marcar como visto'}
+                        >
+                          <span>{movieWatched ? '✓' : '○'}</span>
+                          {movieWatched ? 'Visto' : 'Marcar visto'}
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -664,6 +682,23 @@ export default function LibraryDetailModal({
                                             {sb.text}
                                           </span>
                                         ) : null}
+
+                                        {onToggleWatched && (
+                                          <button
+                                            type="button"
+                                            onClick={() => onToggleWatched(ep)}
+                                            className={`p-1.5 rounded-lg border transition-colors ${
+                                              epWatched
+                                                ? 'bg-purple-500/15 border-purple-500/40 text-purple-300 hover:bg-purple-500/25'
+                                                : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-500 hover:text-purple-300 hover:border-purple-500/40'
+                                            }`}
+                                            title={epWatched ? 'Marcar como não visto' : 'Marcar como visto'}
+                                          >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                          </button>
+                                        )}
 
                                         <button
                                           type="button"

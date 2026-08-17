@@ -42,6 +42,7 @@ export default function BibliotecaPage() {
             })
           }
           onRetry={explorer.handleRetry}
+          onToggleWatched={explorer.handleToggleWatched}
           onRedownload={(title) =>
             explorer.handleOpenModal({
               tmdbId: 0 as any,
