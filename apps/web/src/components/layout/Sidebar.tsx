@@ -96,7 +96,6 @@ export default function Sidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <img src="/logo.png" className="w-6 h-6 object-contain" alt="JackIn Logo" />
             <span className="text-sm font-bold tracking-wider uppercase">
               <span className="text-[#E50914]">Jack</span>
               <span className="text-white">In</span>
@@ -109,7 +108,10 @@ export default function Sidebar({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <img src="/logo.png" className="w-6 h-6 object-contain" alt="JackIn Logo" />
+            <span className="text-sm font-black tracking-wider uppercase">
+              <span className="text-[#E50914]">J</span>
+              <span className="text-white">I</span>
+            </span>
           </motion.button>
         )}
       </div>

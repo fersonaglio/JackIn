@@ -66,28 +66,39 @@ router.get('/', (req: Request, res: Response) => {
   const result = db.exec(
     `SELECT id, youtube_url, title, status, error_message, created_at, video_path,
             COALESCE(project_type,'movie') as project_type, faceless_config,
-            series_id, season_number, episode_number, watch_progress, watched
+            series_id, season_number, episode_number, watch_progress, watched,
+            progress_pct, progress_status
      FROM projects ${where} ORDER BY created_at DESC`,
     params
   );
   const rows = result[0]?.values || [];
   res.json(
-    rows.map((r: any[]) => ({
-      id: r[0],
-      youtubeUrl: r[1],
-      title: r[2],
-      status: r[3],
-      errorMessage: r[4],
-      createdAt: r[5],
-      videoPath: r[6],
-      projectType: r[7],
-      facelessConfig: r[8] ? JSON.parse(r[8] as string) : null,
-      seriesId: r[9] as string | null,
-      seasonNumber: r[10] as number | null,
-      episodeNumber: r[11] as number | null,
-      watchProgress: r[12] as number | null,
-      watched: r[13] as number | null,
-    }))
+    rows.map((r: any[]) => {
+      let facelessConfig: any = null;
+      if (r[8]) {
+        try {
+          facelessConfig = typeof r[8] === 'string' ? JSON.parse(r[8] as string) : r[8];
+        } catch {}
+      }
+      return {
+        id: r[0],
+        youtubeUrl: r[1],
+        title: r[2],
+        status: r[3],
+        errorMessage: r[4],
+        createdAt: r[5],
+        videoPath: r[6],
+        projectType: r[7],
+        facelessConfig,
+        seriesId: r[9] as string | null,
+        seasonNumber: r[10] as number | null,
+        episodeNumber: r[11] as number | null,
+        watchProgress: r[12] as number | null,
+        watched: r[13] as number | null,
+        progressPct: r[14] as number | null,
+        progressStatus: r[15] as string | null,
+      };
+    })
   );
 });
 
