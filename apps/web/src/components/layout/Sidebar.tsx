@@ -87,16 +87,16 @@ export default function Sidebar({
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 px-4 border-b border-zinc-800/60 shrink-0">
+      <div className="flex items-center justify-center h-14 px-4 border-b border-zinc-800/60 shrink-0">
         {!collapsed ? (
           <motion.button
             onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-zinc-100 hover:text-white transition-colors"
+            className="flex items-center justify-center text-zinc-100 hover:text-white transition-transform hover:scale-105"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <span className="text-sm font-bold tracking-wider uppercase">
+            <span className="text-lg font-black tracking-wider uppercase">
               <span className="text-[#E50914]">Jack</span>
               <span className="text-white">In</span>
             </span>
@@ -104,11 +104,11 @@ export default function Sidebar({
         ) : (
           <motion.button
             onClick={() => router.push('/')}
-            className="flex items-center text-zinc-100 hover:text-white transition-colors mx-auto"
+            className="flex items-center justify-center text-zinc-100 hover:text-white transition-transform hover:scale-105 mx-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <span className="text-sm font-black tracking-wider uppercase">
+            <span className="text-base font-black tracking-wider uppercase">
               <span className="text-[#E50914]">J</span>
               <span className="text-white">I</span>
             </span>
