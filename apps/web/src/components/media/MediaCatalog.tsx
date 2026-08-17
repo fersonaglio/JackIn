@@ -26,10 +26,7 @@ export default function MediaCatalog({
   onWatchProject,
   children,
 }: MediaCatalogProps) {
-  const { data, loading, error } = useCatalog();
-  const [activeTab, setActiveTab] = useState<'home' | 'movies' | 'series' | 'library'>('home');
-
-  const currentTab = error ? 'library' : activeTab;
+  const { data, loading } = useCatalog();
 
   if (loading) {
     return (
@@ -83,98 +80,14 @@ export default function MediaCatalog({
 
   return (
     <div className="space-y-10 text-zinc-100 bg-[#0d0d0d] min-h-screen -mx-6 md:-mx-10 -mt-8 px-4 md:px-12 pt-4 pb-16 font-sans">
-      {/* Pobreflix Style Single Unified Top Header Bar */}
-      <header className="sticky top-0 z-30 bg-[#0d0d0d]/90 backdrop-blur-md flex items-center justify-between py-3.5 border-b border-zinc-800/80 mb-8 flex-wrap lg:flex-nowrap gap-4 -mx-4 md:-mx-12 px-4 md:px-12">
-        <div className="flex items-center gap-6 md:gap-8">
-          <div className="flex items-center gap-1.5 cursor-pointer shrink-0" onClick={() => setActiveTab('home')}>
-            <span className="text-2xl font-black tracking-tight text-[#E50914] uppercase">JACK</span>
-            <span className="text-2xl font-black tracking-tight text-white uppercase">IN</span>
-            <span className="text-xl leading-none">🍿</span>
-          </div>
+      {/* Search Bar Row below top navbar */}
+      <div className="w-full max-w-3xl mx-auto pt-2 pb-4">
+        <SearchBar />
+      </div>
 
-          <nav className="flex items-center gap-4 md:gap-6 text-xs font-bold uppercase tracking-wider text-zinc-300 overflow-x-auto scrollbar-none py-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab('home')}
-              className={`hover:text-white transition-colors shrink-0 ${currentTab === 'home' ? 'text-[#E50914] font-black' : ''}`}
-            >
-              Início
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('movies')}
-              className={`hover:text-white transition-colors shrink-0 ${currentTab === 'movies' ? 'text-[#E50914] font-black' : ''}`}
-            >
-              Filmes
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('series')}
-              className={`hover:text-white transition-colors shrink-0 ${currentTab === 'series' ? 'text-[#E50914] font-black' : ''}`}
-            >
-              Séries
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('library')}
-              className={`hover:text-white transition-colors shrink-0 ${currentTab === 'library' ? 'text-[#E50914] font-black' : ''}`}
-            >
-              Minha Biblioteca ({libraryCount})
-            </button>
-          </nav>
-        </div>
-
-        <div className="w-full sm:w-72 md:w-80 lg:w-96 ml-auto">
-          <SearchBar />
-        </div>
-      </header>
-
-      {currentTab === 'library' ? (
-        children
-      ) : currentTab === 'movies' ? (
-        <div className="space-y-12">
-          {data.scifi && data.scifi.length > 0 && (
-            <CategoryRow
-              title="Ficção Científica &amp; Fantasia"
-              items={data.scifi}
-              onSelect={onSelectItem}
-              badgeType="dublado"
-              viewAllHref="/filmes?genre=scifi"
-            />
-          )}
-
-          {data.action && data.action.length > 0 && (
-            <CategoryRow
-              title="Ação &amp; Aventura em 4K"
-              items={data.action}
-              onSelect={onSelectItem}
-              badgeType="legendado"
-              viewAllHref="/filmes?genre=action"
-            />
-          )}
-
-          {data.animation && data.animation.length > 0 && (
-            <CategoryRow
-              title="Animações &amp; Família"
-              items={data.animation}
-              onSelect={onSelectItem}
-              badgeType="dublado"
-              viewAllHref="/filmes?genre=animation"
-            />
-          )}
-        </div>
-      ) : currentTab === 'series' ? (
-        <div className="space-y-12">
-          <CategoryRow
-            title="Lançamentos de Séries"
-            items={series}
-            onSelect={onSelectItem}
-            badgeType="lancamento"
-            viewAllHref="/series"
-          />
-        </div>
-      ) : (
-        <div className="space-y-12">
+      <div className="space-y-12">
+        {/* User's local media library */}
+        {children}
 
           {/* Section 0: Em Português — filmes que têm release dublado PT-BR */}
           {filmes.length > 0 && (
@@ -237,7 +150,6 @@ export default function MediaCatalog({
             viewAllHref="/series"
           />
         </div>
-      )}
 
       {/* Rodapé Fixo Exclusivo do JackIn */}
       <footer className="pt-10 pb-8 border-t border-zinc-800/80 mt-16 text-zinc-400 text-xs space-y-8 bg-[#09090b]/80 backdrop-blur-md rounded-2xl p-6 md:p-8">
