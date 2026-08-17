@@ -29,7 +29,7 @@ function parseSpeed(progressStatus: string | null | undefined): string {
   if (lower.includes('remux')) return 'processando';
   if (lower.includes('verificando') || lower.includes('validand')) return 'verificando';
   if (lower.includes('extraindo')) return 'extraindo';
-  if (lower.includes('metadados')) return 'metadados';
+  if (lower.includes('metadados') || lower.includes('seeders') || lower.includes('conectando')) return 'procurando seeders';
   if (lower.includes('conclu')) return 'concluído';
 
   return '0.0 MB/s';

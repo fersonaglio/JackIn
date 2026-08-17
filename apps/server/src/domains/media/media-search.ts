@@ -22,21 +22,18 @@ const runningDownloads = new Set<string>();
 const runningProcesses = new Map<string, ReturnType<typeof spawn>>();
 const pauseRequested = new Set<string>();
 
-// Auto-retry de downloads: tenta novamente (com backoff) até finalizar, mas de
-// forma LIMITADA para não re-tentar infinitamente uma fonte morta/rejeitada.
-// Retorna true se um retry foi agendado (status deve permanecer 'downloading'
-// para o frontend não exigir clique manual) e false quando o limite esgotou.
-const MAX_AUTO_RETRIES = 5;
-const RETRY_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000, 300_000];
+// Auto-retry de downloads: falhas TRANSITÓRIAS (sem seeders, rede, arquivo
+// corrompido) são re-tentadas continuamente com backoff crescente capado, e o
+// status permanece 'downloading' — o usuário NUNCA precisa clicar "Tentar
+// novamente" para uma fonte que pode voltar. Rejeições definitivas (conteúdo
+// malicioso) NÃO passam por aqui (tratadas no caller com status 'error').
+// Retorna true se um retry foi agendado.
+const RETRY_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
 const autoRetryState = new Map<string, { attempts: number; timer?: NodeJS.Timeout }>();
 
 function scheduleAutoRetry(id: string, opts: DownloadOptions): boolean {
   const state = autoRetryState.get(id);
   const attempts = state?.attempts ?? 0;
-  if (attempts >= MAX_AUTO_RETRIES) {
-    autoRetryState.delete(id);
-    return false;
-  }
   if (state?.timer) return true; // já há um retry agendado
 
   const delay = RETRY_BACKOFF_MS[Math.min(attempts, RETRY_BACKOFF_MS.length - 1)];
@@ -54,23 +51,33 @@ function scheduleAutoRetry(id: string, opts: DownloadOptions): boolean {
         autoRetryState.delete(id);
         return;
       }
-      console.log(`[JackIn Media] Auto-retry (${attempts + 1}/${MAX_AUTO_RETRIES}) do download ${id}`);
+      console.log(`[JackIn Media] Auto-retry (${attempts + 1}) do download ${id}`);
       getDb().run(
         'UPDATE projects SET status = ?, progress_status = ? WHERE id = ?',
-        ['downloading', `Tentando novamente (${attempts + 1}/${MAX_AUTO_RETRIES})...`, id]
+        ['downloading', `Tentando novamente (${attempts + 1})...`, id]
       );
       persist();
       // Busca novas alternativas em cada tentativa: a fonte morta não vai
       // "acordar" sozinha, mas indexadores reais podem ter novas opções agora.
       findBetterDownloadOptions(opts.title, 4)
         .then((altOpts) => {
+          const real = altOpts.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl));
           const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts.sourceUrl);
           const mergedAlts = [...new Set([...(opts.altSourceUrls || []), ...alts])];
-          const retryOpts = mergedAlts.length > 0 ? { ...opts, altSourceUrls: mergedAlts } : opts;
+          let retryOpts = mergedAlts.length > 0 ? { ...opts, altSourceUrls: mergedAlts } : opts;
+          // Se a busca encontrou uma fonte REAL (indexador com seeders de
+          // verdade, ex. WOLVERDON), promove para primária: o magnet fantasma
+          // não vai "acordar", e tentá-lo primeiro só gasta o warmup morto.
+          if (real.length > 0 && opts.sourceUrl) {
+            const best = real[0].sourceUrl!;
+            const reordered = [...new Set([best, ...(mergedAlts.filter((u) => u !== best))])];
+            const keepCurated = !reordered.includes(opts.sourceUrl) ? [...reordered, opts.sourceUrl] : reordered;
+            retryOpts = { ...opts, sourceUrl: best, altSourceUrls: keepCurated };
+          }
           try {
             getDb().run(
               'UPDATE projects SET faceless_config = ? WHERE id = ?',
-              [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: mergedAlts }), id]
+              [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [] }), id]
             );
             persist();
           } catch {}
@@ -374,7 +381,7 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
       // Rejeição definitiva (conteúdo MALICIOSO: extensão bloqueada, malware,
       // executável) NÃO é re-tentada. Corrupção de vídeo, seeders fantasmas ou
       // falha de rede são TRANSITÓRIAS: outro seed/magnet pode vir íntegro, então
-      // tenta de novo até o limite, para o download finalizar sem clique manual.
+      // re-tentam sozinhas (com backoff capado) até o download finalizar.
       const malicious = /extens[aã]o.*proibid|malware|trojan|backdoor|execut[aá]vel|v[ií]rus/i.test(errorMessage);
       const corrupted = /corrompid|sem faixas|ffprobe|indecodific[aá]vel/i.test(errorMessage);
       const definitive = malicious || (corrupted && /quarentena|reprovad|rejeit/i.test(errorMessage));
@@ -913,12 +920,23 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
   // Async: seek better alternatives in cascade and attach them to project config
   findBetterDownloadOptions(opts.title, 4)
     .then((altOpts) => {
+      const real = altOpts.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl));
       const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts!.sourceUrl);
-      if (alts.length > 0) {
+      const mergedAlts = [...new Set([...(opts.altSourceUrls || []), ...alts])];
+      // Fonte real encontrada (indexador de verdade) vira primária — tentá-la
+      // primeiro evita o warmup morto no magnet fantasma a cada retry.
+      let retryOpts: DownloadOptions = { ...opts, altSourceUrls: mergedAlts };
+      if (real.length > 0 && opts.sourceUrl) {
+        const best = real[0].sourceUrl!;
+        const reordered = [...new Set([best, ...(mergedAlts.filter((u) => u !== best))])];
+        const keepCurated = !reordered.includes(opts.sourceUrl) ? [...reordered, opts.sourceUrl] : reordered;
+        retryOpts = { ...opts, sourceUrl: best, altSourceUrls: keepCurated };
+      }
+      if (mergedAlts.length > 0 || real.length > 0) {
         try {
           db.run(
             'UPDATE projects SET faceless_config = ? WHERE id = ?',
-            [JSON.stringify({ ...opts, altSourceUrls: alts }), projectId]
+            [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [] }), projectId]
           );
           persist();
         } catch {}
@@ -926,7 +944,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
         if (!runningDownloads.has(projectId)) {
           const st = db.exec('SELECT status FROM projects WHERE id = ?', [projectId])[0]?.values[0]?.[0];
           if (st === 'error') {
-            startMovieDownload(projectId, { ...opts, altSourceUrls: alts });
+            startMovieDownload(projectId, retryOpts);
           }
         }
       }

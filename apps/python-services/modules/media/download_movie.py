@@ -84,12 +84,12 @@ def _extract_token(line: str, key: str) -> str:
     return token if token else "0"
 
 # Converte a velocidade bruta do aria2 ("834KiB", "1.2MiB", "0B") para "MB/s"
-# legível, ex.: "0.8 MB/s". Queda para "-" se impossível parsear.
+# legível, ex.: "0.8 MB/s". Queda para "0.0 MB/s" se impossível parsear.
 def _format_speed_mbs(raw: str) -> str:
     try:
         m = re.match(r"([\d.]+)\s*([KMGT]?)(i)?B", raw.strip())
         if not m:
-            return "-"
+            return "0.0 MB/s"
         val = float(m.group(1))
         unit = m.group(2)
         if unit == "K":
@@ -101,13 +101,13 @@ def _format_speed_mbs(raw: str) -> str:
         elif unit == "T":
             val *= 1024 * 1024 * 1024 * 1024
         if val <= 0:
-            return "0.0"
+            return "0.0 MB/s"
         mb = val / (1024 * 1024)
         if mb >= 100:
             return f"{mb:.0f} MB/s"
         return f"{mb:.1f} MB/s"
     except Exception:
-        return "-"
+        return "0.0 MB/s"
 
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
@@ -308,10 +308,13 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                     continue
 
                 # Conclusão REAL: o aria2 imprime "(100%)" na linha de progresso
-                # ou uma linha dedicada "Download complete". "SEED" sozinho NÃO
-                # é conclusão (seeders aparecem no status mesmo durante o
-                # download) — exigir o percentual para não travar o progresso.
-                if ("Download complete" in line_str or ("SEED" in line_str and "(100%)" in line_str)) and not "[METADATA]" in line_str and not "[MEMORY]" in line_str:
+                # quando o ARQUIVO de vídeo termina. Ignorar "Download complete"
+                # e "SEED" isolados: o aria2 também imprime essas frases quando
+                # baixa apenas o METADATA/torrent em memória (logo no início),
+                # o que travaria a barra em 95% prematuramente. Deixar o
+                # progresso real subir via mapped_pct até 95 e a verificação
+                # final de arquivos decidir se o candidate está completo.
+                if "(100%)" in line_str and not "[METADATA]" in line_str and not "[MEMORY]" in line_str:
                     emit_progress(95, f"Download Torrent P2P Concluído (100%)", 50.0)
                     got_progress = True
                     download_done = True
@@ -360,6 +363,15 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             pass
 
     # Verificar se obteve um arquivo de vídeo real (candidate vivo).
+    # O aria2 PRÉ-ALOCA o arquivo inteiro antes de baixar — um .aria2 pendente
+    # no diretório significa download INCOMPLETO (arquivo parcial com zeros),
+    # que o escudo anti-vírus rejeitaria como "corrompido". Só conta como
+    # candidate vivo quando não há controle .aria2 pendente.
+    pending_aria2 = False
+    for root, dirs, files in os.walk(output_dir):
+        for file in files:
+            if file.endswith(".aria2"):
+                pending_aria2 = True
     for root, dirs, files in os.walk(output_dir):
         for file in files:
             ext = Path(file).suffix.lower()
@@ -367,7 +379,7 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             if ext in BLOCKED_EXTENSIONS:
                 try: full_f.unlink()
                 except: pass
-            elif ext in ALLOWED_EXTENSIONS:
+            elif ext in ALLOWED_EXTENSIONS and not pending_aria2:
                 return True
     return False
 

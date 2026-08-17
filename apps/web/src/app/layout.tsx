@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" suppressHydrationWarning>
       <head suppressHydrationWarning />
       <body className="antialiased min-h-screen bg-[#09090B]" suppressHydrationWarning>
-        <Script id="hydration-interceptor" src="/hydration-interceptor.js" strategy="afterInteractive" />
+        <Script id="hydration-interceptor" src="/hydration-interceptor.js" strategy="beforeInteractive" />
         <AppShell>{children}</AppShell>
       </body>
     </html>
