@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortByYearThenPopularity, CATALOG_PER_PAGE } from './usePaginatedCatalog';
+import { sortByYearThenPopularity, CATALOG_PER_PAGE, shouldPrefetchMore } from './usePaginatedCatalog';
 
 function item(partial: { title: string; year: number | null; popularity?: number }) {
   return {
@@ -53,5 +53,24 @@ describe('sortByYearThenPopularity', () => {
 describe('CATALOG_PER_PAGE', () => {
   it('é 15 por página', () => {
     expect(CATALOG_PER_PAGE).toBe(15);
+  });
+});
+
+describe('shouldPrefetchMore', () => {
+  it('dispara quando está a ≤5 páginas do fim com mais conteúdo', () => {
+    expect(shouldPrefetchMore(7, 11, true, false, false)).toBe(true);
+    expect(shouldPrefetchMore(11, 11, true, false, false)).toBe(true);
+    expect(shouldPrefetchMore(2, 11, true, false, false)).toBe(false);
+  });
+
+  it('não dispara sem mais conteúdo ou com fetch em andamento', () => {
+    expect(shouldPrefetchMore(10, 11, false, false, false)).toBe(false);
+    expect(shouldPrefetchMore(10, 11, true, true, false)).toBe(false);
+    expect(shouldPrefetchMore(10, 11, true, false, true)).toBe(false);
+  });
+
+  it('cresce mesmo em catálogo pequeno quando há mais conteúdo; sem mais → para', () => {
+    expect(shouldPrefetchMore(1, 2, true, false, false)).toBe(true); // perto do fim → busca mais
+    expect(shouldPrefetchMore(1, 2, false, false, false)).toBe(false); // sem mais no TMDB → não busca
   });
 });

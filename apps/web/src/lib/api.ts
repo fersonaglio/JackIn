@@ -182,17 +182,22 @@ export async function searchMediaSources(
 export interface CatalogDiscoverResult {
   source: 'tmdb' | 'itunes';
   items: CatalogItem[];
+  nextCursor: number;
+  hasMore: boolean;
   totalResults: number;
 }
 
-// Catálogo paginável (TMDB discover) servido pela API do JackIn.
+// Catálogo paginável (TMDB discover) servido pela API do JackIn. `cursor` é a
+// página do TMDB de onde continuar; `pages` quantas páginas por lote.
 export async function discoverCatalog(
   type: 'movie' | 'tv',
-  genreKey?: string
+  genreKey?: string,
+  cursor = 1,
+  pages = 8
 ): Promise<CatalogDiscoverResult> {
-  const params = new URLSearchParams({ type });
+  const params = new URLSearchParams({ type, cursor: String(cursor), pages: String(pages) });
   if (genreKey) params.set('genre', genreKey);
-  return fetchApi(`/catalog/discover?${params.toString()}`, undefined, 30000);
+  return fetchApi(`/catalog/discover?${params}`, undefined, 30000);
 }
 
 export async function downloadMediaMovie(

@@ -53,7 +53,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
   }, [activeTab, type]);
 
   const catalog = usePaginatedCatalog(type, genreKey, recentFilter);
-  const { page, totalPages, items, loading, error, setPage } = catalog;
+  const { page, totalPages, items, loading, loadingMore, error, setPage } = catalog;
 
   // Aplica o ?page=N vindo da URL assim que os dados carregam.
   const appliedUrlPageRef = useRef<string | null>(null);
@@ -189,6 +189,12 @@ export default function CatalogPage({ type }: CatalogPageProps) {
                 ))}
               </div>
               <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />
+              {loadingMore && (
+                <div className="flex items-center justify-center gap-2 mt-4 text-zinc-400 text-xs">
+                  <span className="w-4 h-4 border-2 border-[#EF9F27] border-t-transparent rounded-full animate-spin" />
+                  Carregando mais títulos…
+                </div>
+              )}
             </>
           )}
 

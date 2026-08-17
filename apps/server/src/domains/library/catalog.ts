@@ -47,14 +47,25 @@ function hashCode(str: string): number {
 
 // Descobre o catálogo no TMDB: traz os títulos mais relevantes (popularidade
 // desc, todas as eras) já lançados e com votos; o cliente reordena por ano desc
-// (recentes primeiro → clássicos no fim). Lote = `batchPages` páginas de 20.
-async function fetchTmdbDiscover(type: 'movie' | 'tv', genreId: string, batchPages: number): Promise<CatalogItem[]> {
+// (recentes primeiro → clássicos no fim). Cursor-based: `startPage` é a página
+// do TMDB onde começar e `pages` quantas páginas de 20 buscar por lote.
+// Retorna `nextCursor` (próxima página do TMDB) e `hasMore`.
+async function fetchTmdbDiscover(
+  type: 'movie' | 'tv',
+  genreId: string,
+  startPage: number,
+  pages: number
+): Promise<{ items: CatalogItem[]; nextCursor: number; hasMore: boolean }> {
   const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return [];
+  if (!apiKey) return { items: [], nextCursor: startPage, hasMore: false };
 
   const today = new Date().toISOString().slice(0, 10);
   const items: CatalogItem[] = [];
-  for (let page = 1; page <= batchPages; page += 1) {
+  let lastLoadedPage = startPage - 1;
+  let totalPages = 0;
+  let failed = false;
+
+  for (let page = startPage; page < startPage + pages; page += 1) {
     const params = new URLSearchParams({
       api_key: apiKey,
       sort_by: 'popularity.desc',
@@ -67,8 +78,12 @@ async function fetchTmdbDiscover(type: 'movie' | 'tv', genreId: string, batchPag
     if (genreId) params.set('with_genres', genreId);
 
     const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`, { headers: { Accept: 'application/json' } });
-    if (!res.ok) break;
+    if (!res.ok) {
+      failed = true;
+      break;
+    }
     const data = await res.json();
+    totalPages = data.total_pages || 0;
     const rows: any[] = data.results || [];
     if (rows.length === 0) break;
 
@@ -88,8 +103,13 @@ async function fetchTmdbDiscover(type: 'movie' | 'tv', genreId: string, batchPag
         popularity: r.popularity || 0,
       });
     }
+    lastLoadedPage = page;
   }
-  return items;
+  return {
+    items,
+    nextCursor: lastLoadedPage + 1,
+    hasMore: !failed && lastLoadedPage < totalPages,
+  };
 }
 
 // Fallback sem chave TMDB (ou falha): feed iTunes RSS, mesmo shape.
@@ -121,22 +141,31 @@ async function fetchItunes(type: 'movie' | 'tv', limit: number): Promise<Catalog
   });
 }
 
-// GET /api/catalog/discover?type=movie|tv&genre=action|scifi|animation&batch=8
+// GET /api/catalog/discover?type=movie|tv&genre=action|scifi|animation&cursor=1&pages=8
 router.get('/discover', async (req: Request, res: Response) => {
   const type = req.query.type === 'tv' ? 'tv' : 'movie';
   const genreKey = String(req.query.genre || '');
   const genreId = GENRE_IDS[genreKey] || '';
-  const batch = Math.min(Math.max(Number(req.query.batch) || DEFAULT_BATCH_PAGES, 1), MAX_BATCH_PAGES);
+  const cursor = Math.max(Number(req.query.cursor) || 1, 1);
+  const pages = Math.min(Math.max(Number(req.query.pages) || DEFAULT_BATCH_PAGES, 1), MAX_BATCH_PAGES);
 
   try {
-    let items = await fetchTmdbDiscover(type, genreId, batch);
+    let result = await fetchTmdbDiscover(type, genreId, cursor, pages);
     let source = 'tmdb';
-    if (items.length === 0) {
-      items = await fetchItunes(type, 100);
+    // Sem chave TMDB (ou falha) no primeiro lote → fallback iTunes (catálogo único).
+    if (result.items.length === 0 && cursor <= 1) {
+      const items = await fetchItunes(type, 100);
+      result = { items, nextCursor: 2, hasMore: false };
       source = 'itunes';
     }
     res.set(CACHE_HEADERS);
-    res.json({ source, items, totalResults: items.length });
+    res.json({
+      source,
+      items: result.items,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
+      totalResults: result.items.length,
+    });
   } catch (err) {
     res.status(500).json({ error: 'catalog_error', message: (err as Error).message });
   }

@@ -45,7 +45,8 @@ Nada de conta, nada de nuvem, nada de assinatura: o JackIn não hospeda conteúd
 
 ### 📚 Catálogo paginado (Filmes / Séries)
 - Páginas de **Filmes** (`/filmes`) e **Séries** (`/series`) com **15 títulos por página**, ordenados por **relevância e ano** — mais recentes primeiro, clássicos nas últimas páginas.
-- **Pré-carregamento**: lote de títulos buscado uma vez (cacheado no servidor) e paginado no cliente — troca de página instantânea, sem novo request; posters da próxima página são pré-carregados.
+- **Carregamento progressivo**: o catálogo cresce conforme você avança — perto do fim do que já foi baixado (~5 páginas), o próximo lote de títulos é buscado automaticamente e os clássicos novos entram nas últimas páginas.
+- **Pré-carregamento**: lote a lote (160 títulos, cacheado no servidor), paginação no cliente — troca de página instantânea; posters da próxima página são pré-carregados.
 - Paginação **janelada** (5 páginas antes + 5 depois, com primeira/última e reticências) sincronizada com a URL (`?page=2&genre=scifi`).
 - Fonte: **TMDB Discover** (relevância/popularidade de todas as eras), com fallback para o feed iTunes sem chave TMDB. Filtros por gênero (Ação, Ficção Científica, Animação) e Lançamentos.
 
