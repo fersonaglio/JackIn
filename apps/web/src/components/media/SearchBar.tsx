@@ -109,9 +109,9 @@ export default function SearchBar() {
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={() => results.length > 0 && setIsOpen(true)}
-            placeholder="Buscar filmes e séries..."
+            placeholder="Buscar filmes, séries, animes..."
             maxLength={200}
-            className="w-full bg-zinc-900/80 border border-zinc-800 focus:border-[#EF9F27]/60 rounded-2xl py-3.5 pl-12 pr-24 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none transition-colors"
+            className="w-full bg-zinc-900/90 border border-zinc-800 focus:border-[#E50914] focus:ring-2 focus:ring-[#E50914]/20 rounded-2xl py-3.5 pl-12 pr-24 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none transition-all shadow-inner"
             aria-label="Buscar filmes e séries"
           />
 
@@ -124,7 +124,7 @@ export default function SearchBar() {
                 setIsOpen(false);
                 inputRef.current?.focus();
               }}
-              className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EF9F27] rounded"
+              className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] rounded"
               aria-label="Limpar busca"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -135,7 +135,7 @@ export default function SearchBar() {
 
           <button
             type="submit"
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-[#EF9F27] hover:bg-[#ffb04d] text-black flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-[#E50914] hover:bg-[#c90711] text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 shadow-md"
             aria-label="Pesquisar"
             title="Pesquisar"
           >

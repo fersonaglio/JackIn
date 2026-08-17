@@ -85,71 +85,123 @@ export default function MediaCatalog({
         <SearchBar />
       </div>
 
+      {/* Big Hero Banner with Top 10 Movies / Series of the moment */}
+      {data.trending && data.trending.length > 0 && (
+        <div className="w-full mb-6">
+          <HeroBanner
+            items={data.trending}
+            onPlay={handleHeroPlay}
+            onMoreInfo={onSelectItem}
+          />
+        </div>
+      )}
+
       <div className="space-y-12">
-        {/* User's local media library */}
-        {children}
-
-          {/* Section 0: Em Português — filmes que têm release dublado PT-BR */}
-          {filmes.length > 0 && (
-            <CategoryRow
-              title="Em Português (Dublado)"
-              items={filmes.slice(0, 12)}
-              onSelect={onSelectPt || onSelectItem}
-              badgeType="dublado"
-              viewAllHref="/filmes"
-            />
-          )}
-
-          {/* Section 1: Últimos Filmes */}
+        {/* Section: Top 10 do Momento & Lançamentos */}
+        {data.trending && data.trending.length > 0 && (
           <CategoryRow
-            title="Últimos Filmes"
-            items={filmes}
+            title="Top 10 do Momento &amp; Lançamentos"
+            items={data.trending}
             onSelect={onSelectItem}
+            badgeType="lancamento"
+            viewAllHref="/filmes"
+          />
+        )}
+
+        {/* Section 0: Em Português — filmes que têm release dublado PT-BR */}
+        {filmes.length > 0 && (
+          <CategoryRow
+            title="Em Português (Dublado)"
+            items={filmes.slice(0, 12)}
+            onSelect={onSelectPt || onSelectItem}
             badgeType="dublado"
             viewAllHref="/filmes"
           />
+        )}
 
-          {/* Section 2: Highlight Wide Banner Cards */}
-          {destaques.length >= 3 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
-              {destaques.map((item) => (
-                <div
-                  key={item.tmdbId}
-                  onClick={() => onSelectItem(item)}
-                  className="relative h-44 rounded-xl overflow-hidden cursor-pointer group border border-zinc-800/80 shadow-lg"
-                >
-                  <img
-                    src={buildBackdropUrl(item.backdropPath || item.posterPath, 'w780')}
-                    alt={item.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-between p-4">
-                    <div className="flex justify-end">
-                      <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-[#E50914] text-white">
-                        FILME
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-white group-hover:text-[#E50914] transition-colors line-clamp-1">
-                        {item.title}
-                      </h4>
-                      <p className="text-[11px] text-zinc-400 font-mono mt-0.5">{item.year || '2024'}</p>
-                    </div>
+        {/* Section 1: Últimos Filmes */}
+        <CategoryRow
+          title="Últimos Filmes"
+          items={filmes}
+          onSelect={onSelectItem}
+          badgeType="dublado"
+          viewAllHref="/filmes"
+        />
+
+        {/* Section 2: Highlight Wide Banner Cards */}
+        {destaques.length >= 3 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
+            {destaques.map((item) => (
+              <div
+                key={item.tmdbId}
+                onClick={() => onSelectItem(item)}
+                className="relative h-44 rounded-xl overflow-hidden cursor-pointer group border border-zinc-800/80 shadow-lg"
+              >
+                <img
+                  src={buildBackdropUrl(item.backdropPath || item.posterPath, 'w780')}
+                  alt={item.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-between p-4">
+                  <div className="flex justify-end">
+                    <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-[#E50914] text-white">
+                      FILME
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white group-hover:text-[#E50914] transition-colors line-clamp-1">
+                      {item.title}
+                    </h4>
+                    <p className="text-[11px] text-zinc-400 font-mono mt-0.5">{item.year || '2024'}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* Section 3: Últimas Séries */}
+        {/* Section 3: Últimas Séries */}
+        <CategoryRow
+          title="Últimas Séries"
+          items={series}
+          onSelect={onSelectItem}
+          badgeType="legendado"
+          viewAllHref="/series"
+        />
+
+        {/* Section 4: Ficção Científica & Fantasia */}
+        {data.scifi && data.scifi.length > 0 && (
           <CategoryRow
-            title="Últimas Séries"
-            items={series}
+            title="Ficção Científica &amp; Fantasia"
+            items={data.scifi}
+            onSelect={onSelectItem}
+            badgeType="dublado"
+            viewAllHref="/filmes?genre=scifi"
+          />
+        )}
+
+        {/* Section 5: Ação & Aventura em 4K */}
+        {data.action && data.action.length > 0 && (
+          <CategoryRow
+            title="Ação &amp; Aventura em 4K"
+            items={data.action}
             onSelect={onSelectItem}
             badgeType="legendado"
-            viewAllHref="/series"
+            viewAllHref="/filmes?genre=action"
           />
-        </div>
+        )}
+
+        {/* Section 6: Animações & Família */}
+        {data.animation && data.animation.length > 0 && (
+          <CategoryRow
+            title="Animações &amp; Família"
+            items={data.animation}
+            onSelect={onSelectItem}
+            badgeType="dublado"
+            viewAllHref="/filmes?genre=animation"
+          />
+        )}
+      </div>
 
       {/* Rodapé Fixo Exclusivo do JackIn */}
       <footer className="pt-10 pb-8 border-t border-zinc-800/80 mt-16 text-zinc-400 text-xs space-y-8 bg-[#09090b]/80 backdrop-blur-md rounded-2xl p-6 md:p-8">

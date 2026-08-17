@@ -70,13 +70,23 @@ export function useCatalog(): UseCatalogReturn {
         fetchSafe('topmovies', '4402'),
       ]);
 
+      const dedupedMovies = dedupByTitle(movies);
+      const dedupedSeries = dedupByTitle(series);
+
+      const top10Featured: CatalogItem[] = [];
+      const maxLen = Math.max(dedupedMovies.length, dedupedSeries.length);
+      for (let i = 0; i < maxLen && top10Featured.length < 10; i++) {
+        if (dedupedMovies[i]) top10Featured.push(dedupedMovies[i]);
+        if (dedupedSeries[i] && top10Featured.length < 10) top10Featured.push(dedupedSeries[i]);
+      }
+
       const nextData: CatalogData = {
-        trending: dedupByTitle(movies).filter((m) => m.year !== null && m.year >= MOVIE_RECENT_YEAR).slice(0, 8),
-        trendingTV: dedupByTitle(series).filter((s) => s.year !== null && s.year >= SERIES_RECENT_YEAR).slice(0, 8),
-        popularMovies: dedupByTitle(movies).slice(0, 12),
-        scifi: dedupByTitle(scifi).slice(0, 8),
-        action: dedupByTitle(action).slice(0, 8),
-        animation: dedupByTitle(animation).slice(0, 8),
+        trending: top10Featured.length > 0 ? top10Featured : dedupedMovies.slice(0, 10),
+        trendingTV: dedupedSeries.slice(0, 12),
+        popularMovies: dedupedMovies.slice(0, 15),
+        scifi: dedupByTitle(scifi).slice(0, 12),
+        action: dedupByTitle(action).slice(0, 12),
+        animation: dedupByTitle(animation).slice(0, 12),
       };
 
       setData(nextData);

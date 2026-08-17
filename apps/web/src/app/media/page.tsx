@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { MediaCatalog, LibraryGrid, MediaExplorerOverlays } from '@/components/media';
+import { MediaCatalog, MediaExplorerOverlays } from '@/components/media';
 import { useMediaExplorer } from '@/hooks/useMediaExplorer';
 
 export default function MediaExplorerPage() {
   const explorer = useMediaExplorer();
-  const [libraryFilter, setLibraryFilter] = useState('');
 
   return (
     <div className="relative min-h-screen">
@@ -22,38 +20,7 @@ export default function MediaExplorerPage() {
             explorer.handleOpenModal(item);
           }}
           libraryCount={explorer.libraryCount}
-        >
-          <LibraryGrid
-            projects={explorer.movieProjects}
-            filter={libraryFilter}
-            onFilterChange={setLibraryFilter}
-            onWatch={explorer.handleWatch}
-            onDelete={(p) => explorer.setItemToDelete({ id: p.id, title: p.title || 'Mídia' })}
-            onDeleteSeries={(s) =>
-              explorer.setItemToDelete({
-                id: s.seriesId,
-                title: s.title || 'Série',
-                isSeries: true,
-                seriesId: s.seriesId,
-                count: s.episodes.length,
-              })
-            }
-            onRetry={explorer.handleRetry}
-            onRedownload={(title) =>
-              explorer.handleOpenModal({
-                tmdbId: 0 as any,
-                title,
-                overview: '',
-                posterPath: '',
-                backdropPath: '',
-                year: 2024,
-                rating: 0,
-                genres: [],
-                type: 'movie',
-              })
-            }
-          />
-        </MediaCatalog>
+        />
       </div>
 
       <MediaExplorerOverlays
