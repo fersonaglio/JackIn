@@ -20,7 +20,7 @@ interface MediaExplorerOverlaysProps {
   onCloseModal: () => void;
   onCloseCinema: () => void;
   onDownload: (movieTitle: string, option: MediaOption, posterUrl?: string) => void;
-  onDownloadAll?: (seriesTitle: string, posterUrl: string | undefined, seasons: { seasonNumber: number; option: MediaOption }[]) => void;
+  onDownloadAll?: (seriesTitle: string, posterUrl: string | undefined, seasons: { seasonNumber: number; option: MediaOption }[]) => Promise<void> | void;
   onWatch: (project: Project, episodeList?: { id: string; title: string; videoUrl: string }[]) => void;
   onRetry: (project: Project) => void;
   onConfirmDelete: () => void;

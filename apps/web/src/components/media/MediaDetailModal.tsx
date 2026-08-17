@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { MovieSearchResult, MediaOption, SeriesSeason } from '@/lib/api';
 import TorrentOptionRow from './TorrentOptionRow';
-import { seasonLabelFromSource } from '@/lib/seriesSeasons';
+import { seasonLabelFromSource, seasonInfoFromSource } from '@/lib/seriesSeasons';
 
 interface MediaDetailModalProps {
   movie: MovieSearchResult | null;
@@ -12,7 +12,7 @@ interface MediaDetailModalProps {
   downloadingItems: Record<string, boolean>;
   startedItems?: Record<string, boolean>;
   onDownload: (movieTitle: string, option: MediaOption, posterUrl?: string) => void;
-  onDownloadAll?: (seriesTitle: string, posterUrl: string | undefined, seasons: { seasonNumber: number; option: MediaOption }[]) => void;
+  onDownloadAll?: (seriesTitle: string, posterUrl: string | undefined, seasons: { seasonNumber: number; option: MediaOption }[]) => Promise<void> | void;
   isSearchingTorrents?: boolean;
   initialAudioFilter?: string;
   ptStrictRequest?: boolean;
@@ -62,6 +62,8 @@ export default function MediaDetailModal({
   const [audioFilter, setAudioFilter] = useState(initialAudioFilter);
   // 0 = todas as temporadas; senão o número da temporada ativa.
   const [activeSeason, setActiveSeason] = useState<number>(0);
+  // Estado do "Baixar todas": true enquanto dispara os downloads em sequência.
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   const seasons = movie?.seasons && movie.seasons.length > 0 ? movie.seasons : undefined;
   const activeSeasonData: SeriesSeason | undefined = activeSeason > 0
@@ -105,21 +107,24 @@ export default function MediaDetailModal({
       ? seasons.flatMap((s) => s.options)
       : movie?.options ?? [];
 
-  const filteredOptions = movie
-    ? seasonOptions.filter((o) =>
-        audioFilter === 'any'
-          ? true
-          : movie.ptUnavailable
-            ? true
-            : audioFilter === 'dub'
-              ? !o.ptExcluded && (o.audioType === 'dub' || o.audioType === 'dual' || o.audioType === 'multi')
-              : audioFilter === 'original'
-                ? o.audioType === 'unknown' || o.audioType === 'original' || o.audioType === 'multi'
-                : audioFilter === 'legendado'
-                  ? !!o.hasSubtitles
-                  : true
-      )
-    : [];
+  // Filtro de áudio isolado, usado tanto na listagem quanto no "Baixar todas".
+  const matchesAudioFilter = (o: MediaOption): boolean => {
+    if (!movie) return true;
+    if (audioFilter === 'any') return true;
+    if (movie.ptUnavailable) return true; // sem versão PT confirmada — mostra todas
+    switch (audioFilter) {
+      case 'dub':
+        return !o.ptExcluded && (o.audioType === 'dub' || o.audioType === 'dual' || o.audioType === 'multi');
+      case 'original':
+        return o.audioType === 'unknown' || o.audioType === 'original' || o.audioType === 'multi';
+      case 'legendado':
+        return !!o.hasSubtitles;
+      default:
+        return true;
+    }
+  };
+
+  const filteredOptions = movie ? seasonOptions.filter(matchesAudioFilter) : [];
 
   const hasMatchingAudio = audioFilter === 'any' || filteredOptions.length > 0;
   const showAudioNotice =
@@ -127,10 +132,10 @@ export default function MediaDetailModal({
 
   // "Baixar todas": uma opção por temporada (a de maior qualidade/seeders),
   // respeitando o filtro de áudio ativo. Baixado EM SEQUÊNCIA pelo hook.
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (!movie || !seasons) return;
     const pickBest = (opts: MediaOption[]): MediaOption | null => {
-      const pool = audioFilter === 'any' ? opts : filteredOptions.filter((o) => opts.some((x) => x.id === o.id));
+      const pool = opts.filter(matchesAudioFilter);
       if (pool.length === 0) return null;
       return [...pool].sort((a, b) => {
         const q = (x: MediaOption) => {
@@ -148,8 +153,15 @@ export default function MediaDetailModal({
         return best ? { seasonNumber: s.seasonNumber, option: best } : null;
       })
       .filter((x): x is { seasonNumber: number; option: MediaOption } => x !== null);
-    if (list.length === 0) return;
-    onDownloadAll?.(movie.title, movie.posterUrl, list);
+    if (list.length === 0 || !onDownloadAll) return;
+    setDownloadingAll(true);
+    try {
+      await onDownloadAll(movie.title, movie.posterUrl, list);
+    } catch {
+      // silent — downloads individuais já tratam seus erros
+    } finally {
+      setDownloadingAll(false);
+    }
   };
 
   // "Só Dublado PT-BR" (ptStrictRequest) triggers the stronger amber notice;
@@ -331,11 +343,22 @@ export default function MediaDetailModal({
                       <button
                         type="button"
                         onClick={handleDownloadAll}
-                        disabled={isSearchingTorrents || filteredOptions.length === 0}
+                        disabled={isSearchingTorrents || downloadingAll || filteredOptions.length === 0}
                         className="w-full bg-[#EF9F27] hover:bg-[#EF9F27]/90 active:scale-[0.99] disabled:opacity-50 text-zinc-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md shadow-[#EF9F27]/15"
                       >
-                        <span>Baixar todas as temporadas ({seasons.length})</span>
-                        <span>📥</span>
+                        {downloadingAll ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                            <span>Iniciando downloads... ({seasons.length})</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              Baixar todas as temporadas ({seasons.length}){audioFilter !== 'any' ? ` — ${AUDIO_OPTIONS.find((a) => a.value === audioFilter)?.label || ''}` : ''}
+                            </span>
+                            <span>📥</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -416,22 +439,90 @@ export default function MediaDetailModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {filteredOptions.map((opt) => {
-                      const downloadKey = `${movie.title}-${opt.id}`;
-                      const isDownloading = downloadingItems[downloadKey];
-                      const started = !!startedItems[downloadKey];
-                      return (
-                        <TorrentOptionRow
-                          key={opt.id}
-                          option={opt}
-                          isDownloading={!!isDownloading}
-                          started={started}
-                          onDownload={handleDownload}
-                          seasonLabel={seasons ? seasonLabelFromSource(opt.sourceUrl) : undefined}
-                        />
-                      );
-                    })}
+                  <div className="space-y-4">
+                    {seasons && activeSeason === 0 ? (
+                      // Série, visão "Todas": UMA opção por temporada (a melhor,
+                      // respeitando o filtro de áudio), tudo junto. As variações
+                      // de qualidade/tamanho aparecem ao clicar na temporada.
+                      (() => {
+                        const bestFor = (opts: MediaOption[]): MediaOption | null => {
+                          const pool = opts.filter(matchesAudioFilter);
+                          if (pool.length === 0) return null;
+                          return [...pool].sort((a, b) => {
+                            const q = (x: MediaOption) => {
+                              if (x.quality.includes('4K')) return 4;
+                              if (x.quality.includes('1080')) return 3;
+                              if (x.quality.includes('720')) return 2;
+                              return 1;
+                            };
+                            return q(b) - q(a) || (b.seeders || 0) - (a.seeders || 0);
+                          })[0];
+                        };
+                        const allOpts = filteredOptions.filter((o) => seasonInfoFromSource(o.sourceUrl).all);
+                        const seasonBest = seasons
+                          .map((s) => {
+                            const sOptions = filteredOptions.filter((o) => {
+                              const info = seasonInfoFromSource(o.sourceUrl);
+                              return !info.all && info.seasons.includes(s.seasonNumber);
+                            });
+                            const best = bestFor(sOptions);
+                            return best ? { seasonNumber: s.seasonNumber, option: best } : null;
+                          })
+                          .filter((x): x is { seasonNumber: number; option: MediaOption } => x !== null);
+                        return (
+                          <div className="space-y-2">
+                            {allOpts.length > 0 && allOpts.map((opt) => {
+                              const downloadKey = `${movie.title}-${opt.id}`;
+                              const isDownloading = downloadingItems[downloadKey];
+                              const started = !!startedItems[downloadKey];
+                              return (
+                                <TorrentOptionRow
+                                  key={opt.id}
+                                  option={opt}
+                                  isDownloading={!!isDownloading}
+                                  started={started}
+                                  onDownload={handleDownload}
+                                  seasonLabel="Série completa"
+                                />
+                              );
+                            })}
+                            {seasonBest.map(({ seasonNumber, option }) => {
+                              const downloadKey = `${movie.title}-${option.id}`;
+                              const isDownloading = downloadingItems[downloadKey];
+                              const started = !!startedItems[downloadKey];
+                              return (
+                                <TorrentOptionRow
+                                  key={`s${seasonNumber}-${option.id}`}
+                                  option={option}
+                                  isDownloading={!!isDownloading}
+                                  started={started}
+                                  onDownload={handleDownload}
+                                  seasonLabel={`Temporada ${seasonNumber}`}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="space-y-2">
+                        {filteredOptions.map((opt) => {
+                          const downloadKey = `${movie.title}-${opt.id}`;
+                          const isDownloading = downloadingItems[downloadKey];
+                          const started = !!startedItems[downloadKey];
+                          return (
+                            <TorrentOptionRow
+                              key={opt.id}
+                              option={opt}
+                              isDownloading={!!isDownloading}
+                              started={started}
+                              onDownload={handleDownload}
+                              seasonLabel={seasons ? seasonLabelFromSource(opt.sourceUrl) : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -492,11 +492,26 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
 }
 
 // Reconcile a project stuck in "downloading" after a server restart.
+// Mata o worker Python de download de um projeto (se estiver rodando) e limpa
+// o estado de auto-retry. Chamado pelo DELETE do projeto para que o worker não
+// continue baixando e recrie o diretório após a exclusão.
+export function cancelMovieDownload(projectId: string): boolean {
+  const proc = runningProcesses.get(projectId);
+  if (proc && proc.exitCode === null) {
+    console.log(`[JackIn Media] Cancelando download do projeto ${projectId}`);
+    try { proc.kill('SIGKILL'); } catch {}
+  }
+  runningProcesses.delete(projectId);
+  runningDownloads.delete(projectId);
+  autoRetryState.delete(projectId);
+  return true;
+}
+
+// Reconcile a project stuck in "downloading" after a server restart.
 // Cobre TODOS os tipos (filme, série, upload): se um arquivo de vídeo completo
 // existe (sem .aria2 vivo), marca done e dispara o prepare; senão RETOMA o
 // download automaticamente (aria2 continua do .aria2) até finalizar.
-export function reconcileMovieStatus(projectId: string): void {
-  const db = getDb();
+export function reconcileMovieStatus(projectId: string): void {  const db = getDb();
   const row = db.exec(
     'SELECT id, status, video_path, faceless_config, title FROM projects WHERE id = ?',
     [projectId]
@@ -714,6 +729,9 @@ router.post('/download', (req: Request, res: Response) => {
     res.status(400).json({ error: 'Title and sourceUrl are required' });
     return;
   }
+  // sql.js rejeita `undefined` em binds — normaliza para null.
+  const sNum = seasonNumber == null ? null : Number(seasonNumber);
+  const eNum = episodeNumber == null ? null : Number(episodeNumber);
   // Alternativas reais fornecidas pela busca (frontend) — usadas em cascata
   // quando o magnet primário está morto (seeders fantasmas). Filtra duplicatas.
   const alts = Array.isArray(altSourceUrls)
@@ -723,11 +741,11 @@ router.post('/download', (req: Request, res: Response) => {
   const id = uuid();
   const db = getDb();
 
-  const isSeries = seasonNumber != null || (episodeNumber != null);
+  const isSeries = sNum != null || eNum != null;
   const projectType = isSeries ? 'series' : 'movie';
   // Temporada inteira: "Série (T2)"; episódio específico: usa o título do ep.
-  const formattedTitle = isSeries && seasonNumber != null && episodeNumber == null
-    ? `${title} (T${seasonNumber})`
+  const formattedTitle = isSeries && sNum != null && eNum == null
+    ? `${title} (T${sNum})`
     : isSeries && episodeTitle
       ? `${episodeTitle}`
       : `${title} (${quality || '4K'})`;
@@ -749,7 +767,7 @@ router.post('/download', (req: Request, res: Response) => {
   if (isSeries) {
     db.run(
       'INSERT INTO projects (id, youtube_url, title, status, project_type, faceless_config, series_id, season_number, episode_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, sourceUrl, formattedTitle, 'downloading', projectType, config, seriesId, seasonNumber, episodeNumber]
+      [id, sourceUrl, formattedTitle, 'downloading', projectType, config, seriesId, sNum, eNum]
     );
   } else {
     db.run(

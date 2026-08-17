@@ -147,6 +147,11 @@ router.delete('/series/:seriesId', async (req: Request, res: Response) => {
     } catch (err) {}
 
     try {
+      const { cancelMovieDownload } = await import('../media/media-search.js');
+      cancelMovieDownload(pid);
+    } catch (err) {}
+
+    try {
       const { cancelPreparation } = await import('../../services/media-service.js');
       cancelPreparation(pid);
     } catch (err) {}
@@ -354,6 +359,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { cancelTorrent } = await import('../media/torrent-downloader.js');
     cancelTorrent(projectId);
+  } catch (err) {}
+  // Mata o worker Python de download (media-search) para não recriar o
+  // diretório após a exclusão.
+  try {
+    const { cancelMovieDownload } = await import('../media/media-search.js');
+    cancelMovieDownload(projectId);
   } catch (err) {}
 
   try {
