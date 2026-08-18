@@ -211,7 +211,8 @@ function SeriesCard({
   const b = breakdownSeries(series.episodes);
   const ready = b.episodes.filter((e) => e.status === 'done');
   const watchedCount = b.watchedCount;
-  const posterId = ready[0]?.id || series.episodes[0]?.id;
+  const posterExternal = series.episodes.find((e) => e.facelessConfig?.posterUrl)?.facelessConfig?.posterUrl;
+  const posterId = series.seriesId || ready[0]?.id || series.episodes[0]?.id;
   const thumbnailUrl = posterId ? `${apiBase}/projects/${posterId}/thumbnail` : '';
   const firstPlay = ready.find((e) => e.watched !== 1) || ready[0];
 
@@ -245,12 +246,18 @@ function SeriesCard({
     >
       {/* Poster Image Container */}
       <div className="relative aspect-[2/3] bg-zinc-900 overflow-hidden">
-        {!imageError && thumbnailUrl ? (
+        {!imageError && (posterExternal || thumbnailUrl) ? (
           <img
-            src={thumbnailUrl}
+            src={posterExternal || thumbnailUrl}
             alt={series.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImageError(true)}
+            onError={(e) => {
+              if (posterExternal && e.currentTarget.src !== thumbnailUrl && thumbnailUrl) {
+                e.currentTarget.src = thumbnailUrl;
+              } else {
+                setImageError(true);
+              }
+            }}
             loading="lazy"
           />
         ) : (

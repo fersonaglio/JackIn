@@ -969,14 +969,16 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
     return;
   }
 
-  // Caso especial: download concluído mas preso em 'preparing' sem artefatos de
-  // playback. Não re-baixar 3GB à toa — re-dispara o pipeline de prepare.
-  if (status === 'preparing') {
+  // Caso especial: download concluído mas com prepare falho (status 'error'
+  // com arquivo no disco, ex.: ffprobe transitório na finalização). Não
+  // re-baixar GBs à toa — re-dispara o pipeline de prepare. Se não houver
+  // master, cai no re-download normal abaixo.
+  if (status === 'preparing' || status === 'error') {
     const pm = getProjectMedia(projectId);
     const master = pm?.videoPath && fs.existsSync(pm.videoPath) ? pm.videoPath : null;
     if (master) {
       try {
-        db.run('UPDATE projects SET status = ?, error_message = NULL WHERE id = ?', ['preparing', projectId]);
+        db.run('UPDATE projects SET status = ?, error_message = NULL, prep_state = ? WHERE id = ?', ['preparing', 'none', projectId]);
         persist();
       } catch {}
       prepareProject(projectId)

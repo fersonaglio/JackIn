@@ -143,9 +143,15 @@ export default function LibraryDetailModal({
   const sizeBytes = target?.kind === 'movie' ? movie?.sizeBytes : undefined;
   const downloadDate = target?.kind === 'movie' ? movie?.createdAt : undefined;
   // Série não tem "qualidade" única — oculta o badge para não mostrar "T1" etc.
-  const qualityLabel = target?.kind === 'movie' ? ((movie?.facelessConfig?.quality) || quality) : undefined;
-  const posterExternal = target?.kind === 'movie' ? movie?.facelessConfig?.posterUrl : undefined;
-  const posterId = target?.kind === 'movie' ? movie!.id : target?.episodes?.[0]?.id || '';
+  const qualityLabel = (target?.kind === 'movie' ? movie?.facelessConfig?.quality : undefined) || quality;
+  const posterExternal =
+    target?.kind === 'movie'
+      ? movie?.facelessConfig?.posterUrl
+      : target?.episodes?.find((e) => e.facelessConfig?.posterUrl)?.facelessConfig?.posterUrl;
+  const posterId =
+    target?.kind === 'movie'
+      ? movie!.id
+      : target?.seriesId || target?.episodes?.[0]?.id || '';
 
   const modalContent = (
     <AnimatePresence>

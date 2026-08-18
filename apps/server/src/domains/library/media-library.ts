@@ -289,15 +289,21 @@ router.get('/:id', (req: Request, res: Response) => {
   });
 });
 
-// Capa/poster da mídia. Prioridade: arquivo de capa na pasta do projeto →
-// frame extraído do vídeo (ffmpeg) → poster via iTunes pelo título.
+// Capa/poster da mídia. Prioridade:
+// 1. Arquivo de poster/thumbnail na pasta do projeto
+// 2. Arquivo de poster/thumbnail na pasta da série pai (se for episódio)
+// 3. posterUrl registrado no faceless_config do projeto ou da série pai (TMDB)
+// 4. project_thumb.jpg existente
+// 5. Frame extraído do vídeo via FFmpeg (seek aos 45s para evitar telas pretas de fade-in)
+// 6. Busca de arte no iTunes pelo título
 router.get('/:id/thumbnail', async (req: Request, res: Response) => {
   const projectId = String(req.params.id);
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
 
+  // 1. Arquivos de poster no próprio projeto
   if (existsSync(projectDir)) {
-    const candidates = ['thumbnail.jpg', 'thumbnail.png', 'poster.jpg', 'poster.png', 'project_thumb.jpg', 'project_thumb.png', 'cover.jpg', 'cover.png'];
-    for (const file of candidates) {
+    const directPosters = ['thumbnail.jpg', 'thumbnail.png', 'poster.jpg', 'poster.png', 'cover.jpg', 'cover.png'];
+    for (const file of directPosters) {
       const filePath = path.join(projectDir, file);
       if (existsSync(filePath)) {
         res.sendFile(path.resolve(filePath));
@@ -306,10 +312,70 @@ router.get('/:id/thumbnail', async (req: Request, res: Response) => {
     }
   }
 
-  const proj = getDb().exec('SELECT video_path, title FROM projects WHERE id = ?', [projectId])[0]?.values[0];
+  const db = getDb();
+  const proj = db.exec(
+    'SELECT video_path, title, series_id, faceless_config, project_type FROM projects WHERE id = ?',
+    [projectId]
+  )[0]?.values[0];
+
   let videoPath = proj?.[0] as string | null;
   const rawTitle = proj?.[1] as string | null;
+  const seriesId = proj?.[2] as string | null;
+  let facelessConfigStr = proj?.[3] as string | null;
 
+  // 2. Se for episódio de série, verifica o poster na pasta da série pai
+  if (seriesId && seriesId !== projectId) {
+    const parentDir = path.join(DATA_DIR, 'projects', seriesId);
+    if (existsSync(parentDir)) {
+      const parentPosters = ['thumbnail.jpg', 'thumbnail.png', 'poster.jpg', 'poster.png', 'cover.jpg', 'cover.png'];
+      for (const file of parentPosters) {
+        const filePath = path.join(parentDir, file);
+        if (existsSync(filePath)) {
+          res.sendFile(path.resolve(filePath));
+          return;
+        }
+      }
+    }
+
+    if (!facelessConfigStr) {
+      const parentProj = db.exec('SELECT faceless_config FROM projects WHERE id = ?', [seriesId])[0]?.values[0];
+      if (parentProj?.[0]) {
+        facelessConfigStr = parentProj[0] as string;
+      }
+    }
+  }
+
+  // 3. Poster externo (TMDB) salvo no faceless_config
+  if (facelessConfigStr) {
+    try {
+      const config = JSON.parse(facelessConfigStr);
+      if (config?.posterUrl && typeof config.posterUrl === 'string' && config.posterUrl.startsWith('http')) {
+        try {
+          const imgRes = await fetch(config.posterUrl);
+          if (imgRes.ok) {
+            mkdirSync(projectDir, { recursive: true });
+            const thumbPath = path.join(projectDir, 'thumbnail.jpg');
+            writeFileSync(thumbPath, Buffer.from(await imgRes.arrayBuffer()));
+            res.sendFile(path.resolve(thumbPath));
+            return;
+          }
+        } catch (e) {
+          console.error(`[JackIn] Falha ao baixar poster do facelessConfig para ${projectId}:`, (e as Error).message);
+        }
+      }
+    } catch {}
+  }
+
+  // 4. project_thumb.jpg já existente
+  if (existsSync(projectDir)) {
+    const thumbPath = path.join(projectDir, 'project_thumb.jpg');
+    if (existsSync(thumbPath)) {
+      res.sendFile(path.resolve(thumbPath));
+      return;
+    }
+  }
+
+  // 5. Extração de frame do vídeo via FFmpeg (seek aos 45s para evitar abertura preta)
   if (!videoPath && existsSync(projectDir)) {
     try {
       const files = readdirSync(projectDir);
@@ -321,16 +387,27 @@ router.get('/:id/thumbnail', async (req: Request, res: Response) => {
   if (videoPath && existsSync(videoPath)) {
     const thumbPath = path.join(projectDir, 'project_thumb.jpg');
     try {
-      execSync(`"${FFMPEG_BIN}" -y -ss 00:00:01 -i "${videoPath}" -vframes 1 -q:v 2 "${thumbPath}"`, { stdio: 'pipe' });
+      execSync(`"${FFMPEG_BIN}" -y -ss 00:00:45 -i "${videoPath}" -vframes 1 -q:v 2 "${thumbPath}"`, { stdio: 'pipe' });
       res.sendFile(path.resolve(thumbPath));
       return;
     } catch (e) {
-      console.error(`[JackIn] Falha ao gerar thumbnail de ${projectId}:`, (e as Error).message);
+      try {
+        execSync(`"${FFMPEG_BIN}" -y -ss 00:00:10 -i "${videoPath}" -vframes 1 -q:v 2 "${thumbPath}"`, { stdio: 'pipe' });
+        res.sendFile(path.resolve(thumbPath));
+        return;
+      } catch (e2) {
+        console.error(`[JackIn] Falha ao gerar thumbnail de ${projectId}:`, (e2 as Error).message);
+      }
     }
   }
 
+  // 6. Busca fallback no iTunes
   if (rawTitle) {
-    const cleanTitle = rawTitle.replace(/\s*\([^)]*\)/g, '').trim();
+    const cleanTitle = rawTitle
+      .replace(/\s*\([^)]*\)/g, '')
+      .replace(/\s*S\d{2}E\d{2}.*$/i, '')
+      .replace(/\s*-\s*Season\s+\d+.*$/i, '')
+      .trim();
     if (cleanTitle) {
       try {
         const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanTitle)}&limit=1`;
