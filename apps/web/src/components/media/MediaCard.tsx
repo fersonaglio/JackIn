@@ -8,7 +8,7 @@ interface MediaCardProps {
   item: CatalogItem;
   onSelect: (item: CatalogItem) => void;
   priority?: boolean;
-  badgeType?: 'lancamento' | 'dublado' | 'legendado' | 'filme';
+  badgeType?: 'lancamento';
 }
 
 export default function MediaCard({ item, onSelect, priority = false, badgeType }: MediaCardProps) {
@@ -38,23 +38,19 @@ export default function MediaCard({ item, onSelect, priority = false, badgeType 
   const hoverProps = prefersReduced ? {} : { scale: 1.04, y: -4 };
   const tapProps = prefersReduced ? {} : { scale: 0.97 };
 
-  const isRecentRelease = Boolean(item.year && item.year >= 2024);
-  const isDublado = (item.tmdbId % 2 === 0);
-  const badgeLabel = badgeType === 'lancamento'
-    ? (isRecentRelease ? 'LANÇAMENTO' : isDublado ? 'DUBLADO' : 'LEGENDADO')
-    : badgeType === 'dublado'
-    ? 'DUBLADO'
-    : badgeType === 'legendado'
-    ? 'LEGENDADO'
-    : isRecentRelease
-    ? 'LANÇAMENTO'
-    : isDublado
-    ? 'DUBLADO'
-    : 'LEGENDADO';
-
-  const badgeBg = badgeLabel === 'LANÇAMENTO' || badgeLabel === 'DUBLADO' 
-    ? 'bg-[#E50914] text-white font-black' 
-    : 'bg-[#8B0000] text-zinc-100 font-bold';
+  const isRecentRelease = Boolean(
+    item.releaseDate
+      ? (() => {
+          const released = new Date(item.releaseDate).getTime();
+          if (Number.isNaN(released)) return false;
+          const now = Date.now();
+          const FOUR_MONTHS_MS = 4 * 30 * 24 * 60 * 60 * 1000;
+          return released <= now && now - released <= FOUR_MONTHS_MS;
+        })()
+      : item.year && item.year === new Date().getFullYear()
+  );
+  const badgeLabel = isRecentRelease ? 'LANÇAMENTO' : null;
+  const badgeBg = 'bg-[#E50914] text-white font-black';
 
   return (
     <div className="flex flex-col shrink-0 w-[150px] sm:w-[170px] md:w-[190px] group cursor-pointer" onClick={() => onSelect(item)}>
@@ -91,11 +87,13 @@ export default function MediaCard({ item, onSelect, priority = false, badgeType 
         )}
 
         {/* Top-Left Red Ribbon Badge */}
-        <div className="absolute top-2 left-2 z-10">
-          <span className={`px-2 py-0.5 rounded text-[8.5px] tracking-wider uppercase shadow-md ${badgeBg}`}>
-            {badgeLabel}
-          </span>
-        </div>
+        {badgeLabel && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className={`px-2 py-0.5 rounded text-[8.5px] tracking-wider uppercase shadow-md ${badgeBg}`}>
+              {badgeLabel}
+            </span>
+          </div>
+        )}
 
         {/* Top-Right Year Pill (Pobreflix style) */}
         {year && year !== '—' && (

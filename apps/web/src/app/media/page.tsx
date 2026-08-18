@@ -15,10 +15,6 @@ export default function MediaExplorerPage() {
       <div className="relative z-10 px-4 md:px-8 pb-24 max-w-[1920px] mx-auto">
         <MediaCatalog
           onSelectItem={explorer.handleOpenModal}
-          onSelectPt={(item) => {
-            explorer.setAudioPref('ptbr');
-            explorer.handleOpenModal(item);
-          }}
           libraryCount={explorer.libraryCount}
         />
       </div>

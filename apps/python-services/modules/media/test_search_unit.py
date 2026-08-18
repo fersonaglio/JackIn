@@ -134,6 +134,16 @@ def test_tier_to_option():
           ["id", "quality", "badge", "resolution", "bitrate", "size", "audio", "format", "sourceUrl"]))
     check("option magnet", opt["sourceUrl"].startswith("magnet:?xt=urn:btih:"))
     check("option badge", "42" in opt["badge"])
+    check("option size 2GB", opt["size"] == "2.0 GB")
+
+    zero_t = {
+        "name": "Disclosure.Day.2026.1080p.WEB-DL.x264",
+        "seeders": "10",
+        "size": "0",
+        "info_hash": "b" * 40,
+    }
+    opt_zero = m.tier_to_option(zero_t, "1080P")
+    check("option zero size is empty", opt_zero["size"] == "")
 
 
 def test_build_options():
@@ -698,6 +708,34 @@ def test_display_dedup():
     check("distinct years kept", len(kept) == 2)
 
 
+def test_single_token_relevance_and_silo():
+    """Single token queries must anchor the title prefix and not match loose containment in the middle."""
+    check(
+        "silo rejects Dimension 20 episode title",
+        not m._strong_match("silo", "Dimension 20 S28E04 The Silo a Specter and the Student Body")
+    )
+    check(
+        "silo matches The Silo Season 1",
+        m._strong_match("silo", "The Silo Season 1 1080p")
+    )
+    check(
+        "silo matches Silo S01E01",
+        m._strong_match("silo", "Silo.S01E01.1080p")
+    )
+    check(
+        "avatar matches Avatar The Way of Water",
+        m._strong_match("avatar", "Avatar The Way of Water 2022")
+    )
+    check(
+        "series group title does not isolate middle token",
+        m._series_group_title("silo", "Dimension 20 S28E04 The Silo a Specter and the Student Body") != "silo"
+    )
+    check(
+        "series group title extracts valid prefix",
+        m._series_group_title("silo", "Silo S02 2160p") == "silo"
+    )
+
+
 def main():
     test_normalize_key()
     test_series_detection()
@@ -736,6 +774,7 @@ def main():
     test_tmdb_requires_key()
     test_title_case_display()
     test_display_dedup()
+    test_single_token_relevance_and_silo()
 
     print("\n" + "=" * 40)
     if FAILURES:

@@ -211,6 +211,9 @@ def _queries(q) -> list:
     return [q] if q else []
 
 
+ARTICLES = {"the", "a", "an"}
+
+
 def _base_match(base: str, name: str) -> bool:
     """True when `base` is a PREFIX of the name's clean tokens (base title +
     part number), NOT an embedded/substring occurrence. Prevents a generic PT
@@ -222,7 +225,14 @@ def _base_match(base: str, name: str) -> bool:
     name_toks = normalize_key(name).split()
     if not pt_toks or len(name_toks) < len(pt_toks):
         return False
-    return name_toks[:len(pt_toks)] == pt_toks
+    if name_toks[:len(pt_toks)] == pt_toks:
+        return True
+    base_no_art = [w for w in pt_toks if w not in ARTICLES]
+    name_no_art = [w for w in name_toks if w not in ARTICLES]
+    if base_no_art and len(name_no_art) >= len(base_no_art):
+        if name_no_art[:len(base_no_art)] == base_no_art:
+            return True
+    return False
 
 
 _NEUTRAL_EXTRA_WORDS = {
@@ -246,20 +256,31 @@ _QUALITY_AND_AUDIO_TAGS: set[str] = {
 
 
 def _strong_match(query: str, name: str) -> bool:
-    """Primary-query relevance for MULTI-token queries.
+    """Primary-query relevance.
 
     The query must be a PREFIX of the candidate's clean tokens ("Iron Man 2",
-    "Star Wars: The Force Awakens"), or the candidate must only add neutral
-    tokens. This rejects cross-franchise containment where the query is just an
-    embedded subtitle — "iron man" must NOT match "Tetsuo: The Iron Man"
-    (query is a suffix) — while keeping sequels and saga entries. Single-token
-    queries keep plain similarity so "avatar" still matches "Avatar: The Way
-    of Water"."""
+    "Star Wars: The Force Awakens", "Avatar: The Way of Water", "Silo Season 1"),
+    or the candidate must only add neutral tokens. This rejects cross-franchise
+    containment where the query is just an embedded subtitle or episode title —
+    "iron man" must NOT match "Tetsuo: The Iron Man", and "silo" must NOT match
+    "Dimension 20 S28E04 The Silo" — while keeping sequels and saga entries.
+    """
     q_toks = normalize_key(query).split()
+    if not q_toks:
+        return False
     if len(q_toks) < 2:
-        return similarity(query, name) >= MIN_RELEVANCE
+        if _base_match(query, name):
+            return True
+        n_toks = normalize_key(name).split()
+        if not n_toks:
+            return False
+        n_no_art = [w for w in n_toks if w not in ARTICLES]
+        q_no_art = [w for w in q_toks if w not in ARTICLES]
+        if q_no_art and n_no_art and n_no_art[:len(q_no_art)] == q_no_art:
+            return True
+        return False
     n_toks = normalize_key(name).split()
-    if n_toks[:len(q_toks)] == q_toks:
+    if n_toks[:len(q_toks)] == q_toks or _base_match(query, name):
         return True
     qset, nset = set(q_toks), set(n_toks)
     if qset <= nset:
@@ -348,8 +369,6 @@ def rank_torrents(query, torrents: list, audio_pref: str = "") -> list:
         scored.append((candidate_score(queries, t, audio_pref), t))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [t for _, t in scored]
-
-ARTICLES = {"the", "a", "an"}
 
 
 def _norm_title_key(s: str) -> str:
@@ -490,7 +509,9 @@ def _series_group_title(query: str, name: str) -> str:
                 best_start = i
     
     if best_ratio >= 0.4:
-        return " ".join(clean_tokens[best_start:best_start + best_len])
+        leading = clean_tokens[:best_start]
+        if not leading or all(w in ARTICLES for w in leading):
+            return " ".join(clean_tokens[best_start:best_start + best_len])
     
     return clean_no_season
 
@@ -540,7 +561,8 @@ TIER_META = {
 def tier_to_option(t: dict, tier: str) -> dict:
     seeders = int(t.get("seeders", "0") or 0)
     try:
-        size_gb = round(float(t.get("size", "0") or 0) / (1024 ** 3), 1)
+        raw_size = float(t.get("size", "0") or 0)
+        size_gb = round(raw_size / (1024 ** 3), 1) if raw_size > 0 else 0.0
     except (TypeError, ValueError):
         size_gb = 0.0
     meta = TIER_META.get(tier, TIER_META["OTHER"])
@@ -561,7 +583,7 @@ def tier_to_option(t: dict, tier: str) -> dict:
         "badge": f"⚡ {seeders} Seeds",
         "resolution": meta["resolution"],
         "bitrate": meta["bitrate"],
-        "size": f"{size_gb} GB",
+        "size": f"{size_gb} GB" if size_gb > 0 else "",
         "seeders": seeders,
         "audio": detect_audio_info(name) or meta["audio"],
         "audioType": audio_info["audioType"],

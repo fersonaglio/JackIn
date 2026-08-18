@@ -47,7 +47,8 @@ export default function TorrentOptionRow({ option, isDownloading, started = fals
     ? { label: 'poucos seeders', cls: 'bg-red-500/15 border-red-500/40 text-red-300' }
     : null;
 
-  const details = [option.format, option.audio, option.resolution, option.size, `⚡ ${option.bitrate}`].filter(Boolean);
+  const validSize = option.size && option.size !== '0.0 GB' && option.size !== '0 GB' ? option.size : null;
+  const details = [option.format, option.audio, option.resolution, validSize, `⚡ ${option.bitrate}`].filter(Boolean);
 
   return (
     <motion.div

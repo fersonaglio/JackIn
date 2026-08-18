@@ -37,11 +37,16 @@ export interface MagnetSeasonInfo {
   seasons: number[];
   /** Torrent que cobre a série inteira ("Complete Series", "All Seasons"). */
   all: boolean;
+  /** True quando o magnet é um episódio avulso (ex.: S02E02). */
+  isSingleEpisode?: boolean;
 }
 
 export function seasonInfoFromSource(sourceUrl: string): MagnetSeasonInfo {
   const dn = decodeURIComponent(sourceUrl || '');
-  const info: MagnetSeasonInfo = { seasons: [], all: false };
+  const isSingle =
+    /\bS\d{1,2}E\d{1,3}\b|\b(?:episode|episodio|ep)[\s.\-_]*\d{1,3}\b/i.test(dn) &&
+    !/\b(complete|completa|temporada\s+completa|all\s+seasons|s[eé]rie\s+completa)\b/i.test(dn);
+  const info: MagnetSeasonInfo = { seasons: [], all: false, isSingleEpisode: isSingle };
 
   if (/\b(complete\s+series|all\s+seasons|s[eé]rie\s+completa|todas\s+as\s+temporadas)\b/i.test(dn)) {
     info.all = true;

@@ -11,7 +11,6 @@ import { buildBackdropUrl } from '@/data/media';
 
 interface MediaCatalogProps {
   onSelectItem: (item: CatalogItem) => void;
-  onSelectPt?: (item: CatalogItem) => void;
   libraryCount?: number;
   projects?: Project[];
   onWatchProject?: (project: Project) => void;
@@ -20,7 +19,6 @@ interface MediaCatalogProps {
 
 export default function MediaCatalog({
   onSelectItem,
-  onSelectPt,
   libraryCount = 0,
   projects = [],
   onWatchProject,
@@ -108,23 +106,12 @@ export default function MediaCatalog({
           />
         )}
 
-        {/* Section 0: Em Português — filmes que têm release dublado PT-BR */}
-        {filmes.length > 0 && (
-          <CategoryRow
-            title="Em Português (Dublado)"
-            items={filmes.slice(0, 12)}
-            onSelect={onSelectPt || onSelectItem}
-            badgeType="dublado"
-            viewAllHref="/filmes"
-          />
-        )}
-
         {/* Section 1: Últimos Filmes */}
         <CategoryRow
           title="Últimos Filmes"
           items={filmes}
           onSelect={onSelectItem}
-          badgeType="dublado"
+          badgeType="lancamento"
           viewAllHref="/filmes"
         />
 
@@ -165,7 +152,7 @@ export default function MediaCatalog({
           title="Últimas Séries"
           items={series}
           onSelect={onSelectItem}
-          badgeType="legendado"
+          badgeType="lancamento"
           viewAllHref="/series"
         />
 
@@ -175,7 +162,7 @@ export default function MediaCatalog({
             title="Ficção Científica &amp; Fantasia"
             items={data.scifi}
             onSelect={onSelectItem}
-            badgeType="dublado"
+            badgeType="lancamento"
             viewAllHref="/filmes?genre=scifi"
           />
         )}
@@ -186,7 +173,7 @@ export default function MediaCatalog({
             title="Ação &amp; Aventura em 4K"
             items={data.action}
             onSelect={onSelectItem}
-            badgeType="legendado"
+            badgeType="lancamento"
             viewAllHref="/filmes?genre=action"
           />
         )}
@@ -197,7 +184,7 @@ export default function MediaCatalog({
             title="Animações &amp; Família"
             items={data.animation}
             onSelect={onSelectItem}
-            badgeType="dublado"
+            badgeType="lancamento"
             viewAllHref="/filmes?genre=animation"
           />
         )}

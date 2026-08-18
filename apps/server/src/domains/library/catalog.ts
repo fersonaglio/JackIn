@@ -8,10 +8,56 @@ const ITUNES_RSS_URL = 'https://itunes.apple.com/us/rss';
 const CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' };
 
 // Tabs do catálogo → IDs de gênero do TMDB.
-const GENRE_IDS: Record<string, string> = {
+const MOVIE_GENRE_IDS: Record<string, string> = {
   action: '28',
+  comedy: '35',
   scifi: '878',
+  horror: '27',
   animation: '16',
+  thriller: '53',
+  drama: '18',
+  adventure: '12',
+};
+
+const TV_GENRE_IDS: Record<string, string> = {
+  action: '10759',
+  comedy: '35',
+  scifi: '10765',
+  drama: '18',
+  mystery: '9648',
+  crime: '80',
+  animation: '16',
+  documentary: '99',
+};
+
+const TMDB_GENRE_NAMES: Record<string, string> = {
+  '28': 'Ação',
+  '12': 'Aventura',
+  '16': 'Animação',
+  '35': 'Comédia',
+  '80': 'Crime',
+  '99': 'Documentário',
+  '18': 'Drama',
+  '10751': 'Família',
+  '14': 'Fantasia',
+  '36': 'História',
+  '27': 'Terror',
+  '10402': 'Música',
+  '9648': 'Mistério',
+  '10749': 'Romance',
+  '878': 'Ficção Científica',
+  '10770': 'Cinema TV',
+  '53': 'Suspense',
+  '10752': 'Guerra',
+  '37': 'Faroeste',
+  '10759': 'Ação & Aventura',
+  '10762': 'Infantil',
+  '10763': 'Notícias',
+  '10764': 'Reality Show',
+  '10765': 'Ficção Científica & Fantasia',
+  '10766': 'Novela',
+  '10767': 'Talk Show',
+  '10768': 'Guerra & Política',
 };
 
 const DEFAULT_BATCH_PAGES = 8;
@@ -26,6 +72,7 @@ export interface CatalogItem {
   posterPath: string | null;
   backdropPath: string | null;
   year: number | null;
+  releaseDate: string | null;
   rating: number;
   genres: string[];
   type: 'movie' | 'tv';
@@ -97,8 +144,9 @@ async function fetchTmdbDiscover(
         posterPath: r.poster_path ? `${TMDB_IMG}/w500${r.poster_path}` : null,
         backdropPath: r.backdrop_path ? `${TMDB_IMG}/w1280${r.backdrop_path}` : null,
         year: releaseDate ? Number(releaseDate.slice(0, 4)) || null : null,
+        releaseDate: releaseDate || null,
         rating: r.vote_average || 0,
-        genres: (r.genre_ids || []).map((g: number) => String(g)),
+        genres: (r.genre_ids || []).map((g: number) => TMDB_GENRE_NAMES[String(g)] || String(g)),
         type,
         popularity: r.popularity || 0,
       });
@@ -133,6 +181,7 @@ async function fetchItunes(type: 'movie' | 'tv', limit: number): Promise<Catalog
       posterPath: art ? resizeArt(art, '600x600bb') : null,
       backdropPath: art ? resizeArt(art, '1000x1000bb') : null,
       year: date ? Number(date.slice(0, 4)) || null : null,
+      releaseDate: date || null,
       rating: 8.5,
       genres: [],
       type,
@@ -141,11 +190,12 @@ async function fetchItunes(type: 'movie' | 'tv', limit: number): Promise<Catalog
   });
 }
 
-// GET /api/catalog/discover?type=movie|tv&genre=action|scifi|animation&cursor=1&pages=8
+// GET /api/catalog/discover?type=movie|tv&genre=action|comedy|scifi|...&cursor=1&pages=8
 router.get('/discover', async (req: Request, res: Response) => {
   const type = req.query.type === 'tv' ? 'tv' : 'movie';
   const genreKey = String(req.query.genre || '');
-  const genreId = GENRE_IDS[genreKey] || '';
+  const genreMap = type === 'tv' ? TV_GENRE_IDS : MOVIE_GENRE_IDS;
+  const genreId = genreMap[genreKey] || '';
   const cursor = Math.max(Number(req.query.cursor) || 1, 1);
   const pages = Math.min(Math.max(Number(req.query.pages) || DEFAULT_BATCH_PAGES, 1), MAX_BATCH_PAGES);
 

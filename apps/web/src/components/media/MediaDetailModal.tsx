@@ -449,6 +449,16 @@ export default function MediaDetailModal({
                           const pool = opts.filter(matchesAudioFilter);
                           if (pool.length === 0) return null;
                           return [...pool].sort((a, b) => {
+                            const packScore = (x: MediaOption) => {
+                              const info = seasonInfoFromSource(x.sourceUrl);
+                              if (info.all) return 3;
+                              if (info.seasons.length > 1) return 2;
+                              if (info.isSingleEpisode) return 0;
+                              return 1;
+                            };
+                            const pDiff = packScore(b) - packScore(a);
+                            if (pDiff !== 0) return pDiff;
+
                             const q = (x: MediaOption) => {
                               if (x.quality.includes('4K')) return 4;
                               if (x.quality.includes('1080')) return 3;

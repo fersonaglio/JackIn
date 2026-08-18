@@ -51,22 +51,22 @@ describe('seriesBaseTitle', () => {
 
 describe('seasonInfoFromSource', () => {
   it('detecta S01 como temporada única', () => {
-    expect(seasonInfoFromSource('magnet:?xt=urn:btih:aa&dn=Show S01 COMPLETE 1080p')).toEqual({ seasons: [1], all: false });
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:aa&dn=Show S01 COMPLETE 1080p')).toEqual({ seasons: [1], all: false, isSingleEpisode: false });
   });
-  it('detecta S01E01 como temporada 1', () => {
-    expect(seasonInfoFromSource('magnet:?xt=urn:btih:bb&dn=Show S01E01 1080p')).toEqual({ seasons: [1], all: false });
+  it('detecta S01E01 como temporada 1 e episódio avulso', () => {
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:bb&dn=Show S01E01 1080p')).toEqual({ seasons: [1], all: false, isSingleEpisode: true });
   });
   it('detecta range S01-S03', () => {
-    expect(seasonInfoFromSource('magnet:?xt=urn:btih:cc&dn=Show S01-S03 1080p')).toEqual({ seasons: [1, 2, 3], all: false });
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:cc&dn=Show S01-S03 1080p')).toEqual({ seasons: [1, 2, 3], all: false, isSingleEpisode: false });
   });
   it('detecta Season 3 word', () => {
-    expect(seasonInfoFromSource('magnet:?xt=urn:btih:dd&dn=Show Season 3 720p')).toEqual({ seasons: [3], all: false });
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:dd&dn=Show Season 3 720p')).toEqual({ seasons: [3], all: false, isSingleEpisode: false });
   });
   it('detecta Complete Series como all', () => {
-    expect(seasonInfoFromSource('magnet:?xt=urn:btih:ee&dn=Show Complete Series 1080p')).toEqual({ seasons: [], all: true });
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:ee&dn=Show Complete Series 1080p')).toEqual({ seasons: [], all: true, isSingleEpisode: false });
   });
   it('retorna vazio sem marcador', () => {
-    expect(seasonInfoFromSource('magnet:?xt=urn:btih:ff&dn=Some Movie')).toEqual({ seasons: [], all: false });
+    expect(seasonInfoFromSource('magnet:?xt=urn:btih:ff&dn=Some Movie')).toEqual({ seasons: [], all: false, isSingleEpisode: false });
   });
 });
 

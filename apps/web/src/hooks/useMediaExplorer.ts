@@ -26,6 +26,41 @@ export interface DeleteTarget {
   count?: number;
 }
 
+const TMDB_GENRE_NAMES: Record<string, string> = {
+  '28': 'Ação',
+  '12': 'Aventura',
+  '16': 'Animação',
+  '35': 'Comédia',
+  '80': 'Crime',
+  '99': 'Documentário',
+  '18': 'Drama',
+  '10751': 'Família',
+  '14': 'Fantasia',
+  '36': 'História',
+  '27': 'Terror',
+  '10402': 'Música',
+  '9648': 'Mistério',
+  '10749': 'Romance',
+  '878': 'Ficção Científica',
+  '10770': 'Cinema TV',
+  '53': 'Suspense',
+  '10752': 'Guerra',
+  '37': 'Faroeste',
+  '10759': 'Ação & Aventura',
+  '10762': 'Infantil',
+  '10763': 'Notícias',
+  '10764': 'Reality Show',
+  '10765': 'Ficção Científica & Fantasia',
+  '10766': 'Novela',
+  '10767': 'Talk Show',
+  '10768': 'Guerra & Política',
+};
+
+export function formatGenre(genre?: string): string {
+  if (!genre) return '';
+  return TMDB_GENRE_NAMES[genre] || genre;
+}
+
 export function catalogToPreview(item: CatalogItem): MovieSearchResult {
   return {
     id: String(item.tmdbId),
@@ -35,7 +70,7 @@ export function catalogToPreview(item: CatalogItem): MovieSearchResult {
     overview: item.overview,
     posterUrl: buildPosterUrl(item.posterPath, 'w500'),
     backdropUrl: buildBackdropUrl(item.backdropPath, 'w1280'),
-    genre: item.genres[0] || '',
+    genre: formatGenre(item.genres[0]),
     rating: String(item.rating),
     options: [],
   };
@@ -97,7 +132,7 @@ export function useMediaExplorer() {
           year: item.year,
           posterUrl: buildPosterUrl(item.posterPath, 'w500'),
           overview: item.overview,
-          genre: item.genres[0] || '',
+          genre: formatGenre(item.genres[0]),
         }, ptTitleIfDifferent);
         const results = data.results || [];
         const withOptions = results.filter((r) => r.options && r.options.length > 0);

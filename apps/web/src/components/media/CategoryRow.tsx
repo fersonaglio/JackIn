@@ -8,7 +8,7 @@ interface CategoryRowProps {
   title: string;
   items: CatalogItem[];
   onSelect: (item: CatalogItem) => void;
-  badgeType?: 'lancamento' | 'dublado' | 'legendado' | 'filme';
+  badgeType?: 'lancamento';
   viewAllHref?: string;
 }
 

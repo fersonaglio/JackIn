@@ -1,7 +1,6 @@
 'use client';
-import { useMemo, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { CatalogItem } from '@/types/media';
 import { buildPosterUrl } from '@/data/media';
 import { usePaginatedCatalog, CATALOG_PER_PAGE } from '@/hooks/usePaginatedCatalog';
 import { useMediaExplorer } from '@/hooks/useMediaExplorer';
@@ -16,19 +15,26 @@ interface CatalogPageProps {
 const MOVIE_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'Todos' },
   { key: 'action', label: 'Ação' },
+  { key: 'comedy', label: 'Comédia' },
   { key: 'scifi', label: 'Ficção Científica' },
+  { key: 'horror', label: 'Terror' },
   { key: 'animation', label: 'Animação' },
-  { key: 'recent', label: 'Lançamentos' },
+  { key: 'thriller', label: 'Suspense' },
+  { key: 'drama', label: 'Drama' },
+  { key: 'adventure', label: 'Aventura' },
 ];
 
 const SERIES_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'Todos' },
-  { key: 'recent', label: 'Lançamentos' },
+  { key: 'action', label: 'Ação & Aventura' },
+  { key: 'comedy', label: 'Comédia' },
+  { key: 'scifi', label: 'Ficção & Fantasia' },
+  { key: 'drama', label: 'Drama' },
+  { key: 'mystery', label: 'Mistério' },
+  { key: 'crime', label: 'Crime' },
+  { key: 'animation', label: 'Animação' },
+  { key: 'documentary', label: 'Documentário' },
 ];
-
-const GENRE_KEYS = new Set(['action', 'scifi', 'animation']);
-const MOVIE_RECENT_YEAR = 2024;
-const SERIES_RECENT_YEAR = 2023;
 
 function parseGenreParam(value: string | null, tabs: { key: string; label: string }[]): string {
   if (!value) return 'all';
@@ -45,14 +51,8 @@ export default function CatalogPage({ type }: CatalogPageProps) {
   const activeTab = parseGenreParam(searchParams.get('genre'), tabs);
   const pageParam = searchParams.get('page');
 
-  const genreKey = GENRE_KEYS.has(activeTab) ? activeTab : '';
-  const recentFilter = useMemo(() => {
-    if (activeTab !== 'recent') return undefined;
-    const minYear = type === 'movie' ? MOVIE_RECENT_YEAR : SERIES_RECENT_YEAR;
-    return (it: CatalogItem) => it.year !== null && it.year >= minYear;
-  }, [activeTab, type]);
-
-  const catalog = usePaginatedCatalog(type, genreKey, recentFilter);
+  const genreKey = activeTab === 'all' ? '' : activeTab;
+  const catalog = usePaginatedCatalog(type, genreKey);
   const { page, totalPages, items, loading, loadingMore, error, setPage } = catalog;
 
   // Aplica o ?page=N vindo da URL assim que os dados carregam. Quando ainda há
@@ -145,22 +145,6 @@ export default function CatalogPage({ type }: CatalogPageProps) {
                 {tab.label}
               </button>
             ))}
-
-            <span className="mx-1 h-5 w-px bg-zinc-800" />
-
-            <button
-              type="button"
-              onClick={() => explorer.setAudioPref(explorer.audioPref === 'ptbr' ? 'any' : 'ptbr')}
-              className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold border transition-all flex items-center gap-1.5 ${
-                explorer.audioPref === 'ptbr'
-                  ? 'bg-[#EF9F27] text-zinc-950 border-[#EF9F27]'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500'
-              }`}
-              title="Filtrar busca para releases confirmados com áudio dublado PT-BR"
-            >
-              <span>{explorer.audioPref === 'ptbr' ? '✓' : ''}</span>
-              Só Dublado PT-BR
-            </button>
           </div>
 
           {loading ? (
@@ -190,7 +174,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {items.map((item) => (
-                  <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType={type === 'movie' ? 'dublado' : 'lancamento'} />
+                  <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType="lancamento" />
                 ))}
               </div>
               <Pagination page={page} totalPages={totalPages} hasMore={catalog.hasMore} onChange={handlePageChange} />

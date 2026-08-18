@@ -45,10 +45,14 @@ export default function TorrentOptionCard({ option, isDownloading, onDownload }:
         )}
 
         <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono pt-2 border-t border-zinc-800/60">
-          <span className="flex items-center gap-1">
-            <span>📦</span>
-            <span className="font-semibold">{option.size}</span>
-          </span>
+          {option.size && option.size !== '0.0 GB' && option.size !== '0 GB' ? (
+            <span className="flex items-center gap-1">
+              <span>📦</span>
+              <span className="font-semibold">{option.size}</span>
+            </span>
+          ) : (
+            <span />
+          )}
           <span className="flex items-center gap-1">
             <span>⚡</span>
             <span>{option.bitrate}</span>
