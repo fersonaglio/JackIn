@@ -16,7 +16,7 @@ export interface PaginatedCatalogState {
   refresh: () => void;
 }
 
-export const CATALOG_PER_PAGE = 15;
+export const CATALOG_PER_PAGE = 18;
 const BATCH_PAGES = 8;
 // Próximo lote é buscado quando o usuário está a 5 (ou menos) páginas do fim.
 const PREFETCH_THRESHOLD = 5;
@@ -28,6 +28,13 @@ export function sortByYearThenPopularity(items: CatalogItem[]): CatalogItem[] {
     if (yb !== ya) return yb - ya; // ano desc — recentes primeiro, clássicos no fim
     return (b.popularity ?? 0) - (a.popularity ?? 0); // relevância como desempate
   });
+}
+
+// Garantia de não-mistura: /filmes só mostra movie, /series só mostra tv.
+// O servidor já separa, mas o filtro defensivo descarta qualquer item do
+// tipo errado que apareça em algum lote.
+export function onlyType(items: CatalogItem[], type: 'movie' | 'tv'): CatalogItem[] {
+  return items.filter((i) => i.type === type);
 }
 
 // Decide se devemos pré-carregar mais um lote: perto do fim do que já existe,
@@ -61,7 +68,10 @@ export function usePaginatedCatalog(
   const [nextCursor, setNextCursor] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const loadMoreAbortRef = useRef<AbortController | null>(null);
+  // Um load-more em andamento (evita disparos duplicados sem abortar o fetch).
+  const prefetchingRef = useRef(false);
+  // Timestamp até o qual retries de load-more ficam em espera (backoff).
+  const loadMoreRetryAtRef = useRef(0);
 
   const load = useCallback(async () => {
     abortRef.current?.abort();
@@ -72,7 +82,8 @@ export function usePaginatedCatalog(
     setLoadingMore(false);
     try {
       const data = await discoverCatalog(type, genreKey, 1, BATCH_PAGES);
-      const sorted = sortByYearThenPopularity(data.items || []);
+      const typed = onlyType(data.items || [], type);
+      const sorted = sortByYearThenPopularity(typed);
       setAllItems(filter ? sorted.filter(filter) : sorted);
       setNextCursor(data.nextCursor);
       setHasMore(data.hasMore);
@@ -95,32 +106,39 @@ export function usePaginatedCatalog(
 
   // Pré-carregamento: perto do fim do que já foi baixado, busca o próximo lote
   // do TMDB e anexa (reordena ano desc → os clássicos novos entram no fim).
+  // Guard `prefetchingRef` em vez de abort no change de dep: `setLoadingMore`
+  // é dependência DESTE effect — sem o guard, o re-render disparado por ele
+  // rodava o cleanup (ctrl.abort()) no fetch recém-iniciado, o .catch/.finally
+  // pulavam (guard !aborted) e o loadingMore ficava preso em true para sempre,
+  // congelando o catálogo na última página carregada.
   useEffect(() => {
-    if (!shouldPrefetchMore(current, totalPages, hasMore, loading, loadingMore)) return;
+    if (prefetchingRef.current) return;
+    if (Date.now() < loadMoreRetryAtRef.current) return;
+    if (!shouldPrefetchMore(page, totalPages, hasMore, loading, loadingMore)) return;
 
-    loadMoreAbortRef.current?.abort();
-    const ctrl = new AbortController();
-    loadMoreAbortRef.current = ctrl;
+    prefetchingRef.current = true;
     setLoadingMore(true);
 
     discoverCatalog(type, genreKey, nextCursor, BATCH_PAGES)
       .then((data) => {
-        if (ctrl.signal.aborted) return;
-        setAllItems((prev) => sortByYearThenPopularity([...prev, ...(data.items || [])]));
+        setAllItems((prev) => {
+          const added = onlyType(data.items || [], type);
+          const merged = [...prev, ...added];
+          return sortByYearThenPopularity(filter ? merged.filter(filter) : merged);
+        });
         setNextCursor(data.nextCursor);
         setHasMore(data.hasMore);
       })
       .catch(() => {
-        if (!ctrl.signal.aborted) setHasMore(false); // evita loop se falhar
+        // Falha transitória: NÃO mata o hasMore. Espera um backoff curto e
+        // tenta de novo na próxima mudança de página/estado.
+        loadMoreRetryAtRef.current = Date.now() + 6000;
       })
       .finally(() => {
-        if (!ctrl.signal.aborted) setLoadingMore(false);
+        prefetchingRef.current = false;
+        setLoadingMore(false);
       });
-
-    return () => ctrl.abort();
-  }, [current, totalPages, hasMore, nextCursor, loading, loadingMore, type, genreKey]);
-
-  useEffect(() => () => loadMoreAbortRef.current?.abort(), []);
+  }, [page, totalPages, hasMore, nextCursor, loading, loadingMore, type, genreKey, filter]);
 
   return {
     page: current,

@@ -55,17 +55,22 @@ export default function CatalogPage({ type }: CatalogPageProps) {
   const catalog = usePaginatedCatalog(type, genreKey, recentFilter);
   const { page, totalPages, items, loading, loadingMore, error, setPage } = catalog;
 
-  // Aplica o ?page=N vindo da URL assim que os dados carregam.
+  // Aplica o ?page=N vindo da URL assim que os dados carregam. Quando ainda há
+  // mais conteúdo no servidor (hasMore), a página N da URL é respeitada além
+  // do que já foi carregado (o clique em "próxima" na borda dispara o lote).
   const appliedUrlPageRef = useRef<string | null>(null);
   useEffect(() => {
     if (loading) return;
     const parsed = pageParam ? parseInt(pageParam, 10) : 1;
-    const target = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), totalPages) : 1;
+    const numeric = Number.isFinite(parsed) ? parsed : 1;
+    const target = catalog.hasMore
+      ? Math.max(numeric, 1)
+      : Math.min(Math.max(numeric, 1), totalPages);
     if (appliedUrlPageRef.current !== pageParam) {
       appliedUrlPageRef.current = pageParam;
       if (target !== page) setPage(target);
     }
-  }, [loading, pageParam, totalPages, page, setPage]);
+  }, [loading, pageParam, totalPages, page, setPage, catalog.hasMore]);
 
   // Prefetch dos posters da próxima página (dados já estão em memória para
   // todas as páginas; só as imagens da página seguinte são aquecidas para a
@@ -188,7 +193,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
                   <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType={type === 'movie' ? 'dublado' : 'lancamento'} />
                 ))}
               </div>
-              <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />
+              <Pagination page={page} totalPages={totalPages} hasMore={catalog.hasMore} onChange={handlePageChange} />
               {loadingMore && (
                 <div className="flex items-center justify-center gap-2 mt-4 text-zinc-400 text-xs">
                   <span className="w-4 h-4 border-2 border-[#EF9F27] border-t-transparent rounded-full animate-spin" />
@@ -225,7 +230,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
         searchError={explorer.searchError}
         onSuggestionClick={explorer.handleSuggestionClick}
         onCloseModal={() => explorer.setModalOpen(false)}
-        onCloseCinema={() => explorer.setCinemaMedia(null)}
+        onCloseCinema={explorer.handleCloseCinema}
         onDownload={explorer.handleStartDownload}
         onDownloadAll={explorer.handleDownloadAllSeasons}
         onWatch={explorer.handleWatch}

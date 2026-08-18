@@ -137,7 +137,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
         itemToDelete={explorer.itemToDelete}
         cinemaMedia={explorer.cinemaMedia}
         onCloseModal={() => explorer.setModalOpen(false)}
-        onCloseCinema={() => explorer.setCinemaMedia(null)}
+        onCloseCinema={explorer.handleCloseCinema}
         onDownload={explorer.handleStartDownload}
         onDownloadAll={explorer.handleDownloadAllSeasons}
         onWatch={explorer.handleWatch}

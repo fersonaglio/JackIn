@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { sortByYearThenPopularity, CATALOG_PER_PAGE, shouldPrefetchMore } from './usePaginatedCatalog';
+import { sortByYearThenPopularity, onlyType, CATALOG_PER_PAGE, shouldPrefetchMore } from './usePaginatedCatalog';
 
-function item(partial: { title: string; year: number | null; popularity?: number }) {
+function item(partial: { title: string; year: number | null; popularity?: number; type?: 'movie' | 'tv' }) {
   return {
     tmdbId: 1,
     title: partial.title,
@@ -11,7 +11,7 @@ function item(partial: { title: string; year: number | null; popularity?: number
     year: partial.year,
     rating: 8.5,
     genres: [],
-    type: 'movie' as const,
+    type: partial.type ?? ('movie' as const),
     popularity: partial.popularity ?? 0,
   };
 }
@@ -51,8 +51,26 @@ describe('sortByYearThenPopularity', () => {
 });
 
 describe('CATALOG_PER_PAGE', () => {
-  it('é 15 por página', () => {
-    expect(CATALOG_PER_PAGE).toBe(15);
+  it('é 18 por página', () => {
+    expect(CATALOG_PER_PAGE).toBe(18);
+  });
+});
+
+describe('onlyType (garantia filme/série não misturam)', () => {
+  it('mantém só os itens do tipo pedido', () => {
+    const mixed = [
+      item({ title: 'filme', year: 2020, type: 'movie' }),
+      item({ title: 'série', year: 2020, type: 'tv' }),
+      item({ title: 'outra série', year: 2021, type: 'tv' }),
+    ];
+    expect(onlyType(mixed, 'movie').map((i) => i.title)).toEqual(['filme']);
+    expect(onlyType(mixed, 'tv').map((i) => i.title)).toEqual(['série', 'outra série']);
+  });
+
+  it('não muta o array original', () => {
+    const input = [item({ title: 'filme', year: 2020, type: 'movie' }), item({ title: 'série', year: 2020, type: 'tv' })];
+    onlyType(input, 'movie');
+    expect(input).toHaveLength(2);
   });
 });
 

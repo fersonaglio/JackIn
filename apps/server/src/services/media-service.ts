@@ -904,9 +904,18 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
   }
 
   if (target === 'hevc' && pm.artifacts?.master && fs.existsSync(pm.artifacts.master.path)) {
-    return { filePath: pm.artifacts.master.path, prepState: pm.prepState, isArtifact: true };
+    // O master é um REMUX (-c:v copy): só é seguro para o Safari quando o
+    // codec de vídeo é h264/hevc. Fontes mpeg4/divx (indecodáveis no browser)
+    // geram master mpeg4 → vídeo preto com áudio. Nesse caso cai no playable
+    // (h264), que o Safari também reproduz nativamente.
+    const masterCodecOk = !!info?.video && VIDEO_SAFE.hevc.has(info.video.codec);
+    if (masterCodecOk) {
+      return { filePath: pm.artifacts.master.path, prepState: pm.prepState, isArtifact: true };
+    }
   }
-  if (target === 'h264' && pm.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
+  // playable.mp4 (h264) funciona em TODOS os browsers (Chrome + Safari) —
+  // fallback universal quando o master não é seguro para o target pedido.
+  if (pm.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
     return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
   }
 

@@ -333,6 +333,20 @@ export function useMediaExplorer() {
 
   const handleWatch = useCallback((project: Project, episodeList?: { id: string; title: string; videoUrl: string }[]) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    // Persiste "tocando agora" no sessionStorage DESTA aba. O sessionStorage é
+    // por-tab: só a janela que está assistindo guarda — outras janelas/tabs
+    // ficam limpas. Se esta janela recarregar (F5/HMR), o player restaura e
+    // retoma de onde parou (veja o efeito de restore abaixo).
+    try {
+      sessionStorage.setItem(
+        'jackin_now_playing',
+        JSON.stringify({
+          id: project.id,
+          title: project.title || 'Filme',
+          episodeList: episodeList ?? null,
+        })
+      );
+    } catch {}
     setCinemaMedia({
       title: project.title || 'Filme',
       videoUrl: `${baseUrl}/projects/${project.id}/video`,
@@ -341,21 +355,44 @@ export function useMediaExplorer() {
     });
   }, []);
 
-  // Abre automaticamente em nova janela se o parâmetro ?watch= estiver na URL
-  const hasAutoWatchedRef = useRef(false);
+  // Fechar o player remove o "tocando agora" — um reload depois de fechar não
+  // reabre o filme. (Não usar efeito em cinemaMedia===null: no mount de uma
+  // aba recarregada isso apagaria a chave ANTES do restore ler.)
+  const handleCloseCinema = useCallback(() => {
+    try {
+      sessionStorage.removeItem('jackin_now_playing');
+    } catch {}
+    setCinemaMedia(null);
+  }, []);
+
+  // Restaura o player APENAS quando esta aba foi RECARREGADA (F5 ou reload de
+  // HMR do next dev): navigation type 'reload'/'back_forward'. Abas novas e
+  // navegação SPA (type 'navigate') não restauram — é isso que permite usar
+  // 2+ janelas ao mesmo tempo sem o filme reabrir em lugar indevido.
+  const restoredRef = useRef(false);
   useEffect(() => {
-    if (hasAutoWatchedRef.current || allProjects.length === 0) return;
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const watchId = params.get('watch');
-      if (watchId) {
-        const proj = allProjects.find((p) => p.id === watchId);
-        if (proj) {
-          hasAutoWatchedRef.current = true;
-          handleWatch(proj);
-        }
-      }
-    }
+    if (restoredRef.current || allProjects.length === 0) return;
+    if (typeof window === 'undefined') return;
+
+    let navType = 'navigate';
+    try {
+      const nav = performance.getEntriesByType?.('navigation')?.[0] as { type?: string } | undefined;
+      if (nav?.type) navType = nav.type;
+    } catch {}
+    if (navType !== 'reload' && navType !== 'back_forward') return;
+
+    let saved: { id?: string; title?: string; episodeList?: { id: string; title: string; videoUrl: string }[] | null } | null = null;
+    try {
+      const raw = sessionStorage.getItem('jackin_now_playing');
+      if (raw) saved = JSON.parse(raw);
+    } catch {}
+    if (!saved?.id) return;
+
+    const proj = allProjects.find((p) => p.id === saved!.id);
+    if (!proj) return;
+
+    restoredRef.current = true;
+    handleWatch(proj, saved.episodeList ?? undefined);
   }, [allProjects, handleWatch]);
 
   // Biblioteca do JackIn: filmes + episódios de séries (agrupados por seriesId).
@@ -390,6 +427,7 @@ export function useMediaExplorer() {
     handleToggleWatched,
     handleRetry,
     handleWatch,
+    handleCloseCinema,
     setModalOpen,
     setItemToDelete,
     setCinemaMedia,

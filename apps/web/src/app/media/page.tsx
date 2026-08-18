@@ -36,7 +36,7 @@ export default function MediaExplorerPage() {
         searchError={explorer.searchError}
         onSuggestionClick={explorer.handleSuggestionClick}
         onCloseModal={() => explorer.setModalOpen(false)}
-        onCloseCinema={() => explorer.setCinemaMedia(null)}
+        onCloseCinema={explorer.handleCloseCinema}
         onDownload={explorer.handleStartDownload}
         onDownloadAll={explorer.handleDownloadAllSeasons}
         onWatch={explorer.handleWatch}

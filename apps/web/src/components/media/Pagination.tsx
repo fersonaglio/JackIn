@@ -3,6 +3,8 @@
 interface PaginationProps {
   page: number;
   totalPages: number;
+  /** Há mais conteúdo além do que já foi carregado (catálogo continua). */
+  hasMore?: boolean;
   onChange: (page: number) => void;
   siblings?: number;
 }
@@ -28,10 +30,15 @@ const BTN_BASE =
 const BTN_IDLE = 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500';
 const BTN_ACTIVE = 'bg-[#EF9F27] text-zinc-950 border-[#EF9F27]';
 
-export default function Pagination({ page, totalPages, onChange, siblings = 5 }: PaginationProps) {
-  if (totalPages <= 1) return null;
+export default function Pagination({ page, totalPages, hasMore = false, onChange, siblings = 5 }: PaginationProps) {
+  if (totalPages <= 1 && !hasMore) return null;
 
   const pages = pageWindow(page, totalPages, siblings);
+  // Na borda do que foi carregado, com mais conteúdo vindo do servidor, os
+  // botões de avançar ficam ativos — clicar dispara o carregamento do próximo
+  // lote (o catálogo cresce e a página avança).
+  const nextDisabled = page >= totalPages && !hasMore;
+  const atEdgeWithMore = page >= totalPages && hasMore;
 
   return (
     <nav aria-label="Paginação" className="flex items-center justify-center gap-1.5 flex-wrap mt-10">
@@ -74,19 +81,19 @@ export default function Pagination({ page, totalPages, onChange, siblings = 5 }:
 
       <button
         type="button"
-        disabled={page >= totalPages}
+        disabled={nextDisabled}
         onClick={() => onChange(page + 1)}
         className={`${BTN_BASE} ${BTN_IDLE}`}
-        title="Próxima página"
+        title={atEdgeWithMore ? 'Carregar mais títulos e avançar' : 'Próxima página'}
       >
         ›
       </button>
       <button
         type="button"
-        disabled={page >= totalPages}
-        onClick={() => onChange(totalPages)}
+        disabled={nextDisabled}
+        onClick={() => onChange(atEdgeWithMore ? page + 1 : totalPages)}
         className={`${BTN_BASE} ${BTN_IDLE}`}
-        title="Última página"
+        title={atEdgeWithMore ? 'Carregar mais títulos' : 'Última página'}
       >
         »
       </button>
