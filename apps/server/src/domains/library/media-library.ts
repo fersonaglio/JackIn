@@ -501,13 +501,14 @@ const TEXT_SUBTITLE_CODECS = new Set([
 // Stream video of the project — static artifact serving with native Range.
 // Toda a preparação acontece na ingestão (prepareProject); aqui só resolvemos
 // o artefato certo para o target do browser e servimos com res.sendFile.
-// Alvo: h264 (Chrome/Edge/Firefox) | hevc (Safari). Default por User-Agent.
+// Alvo: hevc (Safari e navegadores macOS com decodificação por hardware) | h264. Default por User-Agent.
 function detectTarget(req: Request): Target {
   const q = String(req.query.target || '');
   if (q === 'hevc' || q === 'h264') return q;
   const ua = req.headers['user-agent'] || '';
   const isSafari = /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium/.test(ua);
-  return isSafari ? 'hevc' : 'h264';
+  const isMacOrIos = /Macintosh|iPhone|iPad|Mac OS X/i.test(ua);
+  return (isSafari || isMacOrIos) ? 'hevc' : 'h264';
 }
 
 router.get('/:id/video', (req: Request, res: Response) => {

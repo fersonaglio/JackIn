@@ -26,7 +26,6 @@ export interface MediaStreamInfo {
   language?: string;
   title?: string;
 }
-
 export interface MediaInfo {
   path: string;
   sizeBytes: number;
@@ -76,6 +75,24 @@ const AUDIO_SAFE: Record<Target, Set<string>> = {
   hevc: new Set(['aac', 'ac3', 'eac3', 'mp3']),
   h264: new Set(['aac', 'mp3', 'opus']),
 };
+
+// HE-AAC (AAC-LC + SBR/PS) tem delay de decodificação variável nos navegadores
+// (o decoder precisa de ~2 frames de priming antes de emitir áudio), o que
+// causa o áudio adiantado/atrasado em relação ao vídeo quando o arquivo é
+// servido direto. Forçar re-encode para AAC-LC (ou AC3/E-AC3) elimina o
+// priming e o dessync. Detectar pelo profile do ffprobe: "HE-AAC" (SBR) e
+// "HE-AACv2" (SBR+PS). Codecs que já são AAC-LC ("LC-AAC", "Main") seguem ok.
+export function isHeAacAudio(a: MediaStreamInfo): boolean {
+  if (a.codecType !== 'audio' || (a.codec !== 'aac' && a.codec !== 'mp4a')) return false;
+  const p = (a.profile || '').toLowerCase();
+  return p.includes('he-aac') || p.includes('he_aac') || p.includes('heaac') || p.includes('aac+') || p.includes('sbr');
+}
+
+// Áudio que precisa transcode para o target: codec fora da whitelist OU HE-AAC
+// (delay de priming nos browsers → dessync A/V).
+export function audioNeedsTranscodeFor(audio: MediaStreamInfo[], target: Target): boolean {
+  return audio.some((a) => !AUDIO_SAFE[target].has(a.codec) || isHeAacAudio(a));
+}
 
 const CONTAINER_SAFE: Record<Target, Set<string>> = {
   hevc: new Set(['mp4', 'mov', 'm4v']),
@@ -216,7 +233,7 @@ export function classifyForTarget(info: MediaInfo, target: Target): Tier {
   // Vídeo ok: direct só se contêiner + áudio + moov no topo (faststart) —
   // sem moov no topo, o seek fica degradado; melhor gerar o master remuxado.
   const containerOk = info.formatNames.some((f) => CONTAINER_SAFE[target].has(f));
-  const audioOk = info.audio.length > 0 && info.audio.every((a) => AUDIO_SAFE[target].has(a.codec));
+  const audioOk = info.audio.length > 0 && !audioNeedsTranscodeFor(info.audio, target);
   if (containerOk && audioOk && info.moovAtHead) return 'direct';
 
   return 'remux';
@@ -400,7 +417,13 @@ function updatePrepState(projectId: string, state: PrepState, extra?: { error?: 
 // Prepare falhou: além do prep_state='failed', o projeto NÃO pode ficar
 // eternamente em 'preparing' — marca 'error' para a UI oferecer "Tentar
 // novamente" e o usuário ver de verdade o que falhou.
-function markPrepFailed(projectId: string, error: string, artifacts?: Artifacts) {
+function markPrepFailed(projectId: string, error: string, artifacts?: Artifacts, gen?: number) {
+  // Um prepare ANTIGO (morto por cancelamento/retry) não pode derrubar um
+  // prepare NOVO recém-iniciado: o cancelamento mata o ffmpeg, o 'close' do
+  // processo morto rejeita o runFfmpeg e o fail() do prepare velho roda
+  // DEPOIS do retry já ter setado status='preparing' — sem esta checagem ele
+  // rebaixaria o projeto a 'error' de novo no meio do re-prepare.
+  if (gen !== undefined && prepGeneration.get(projectId) !== gen) return;
   updatePrepState(projectId, 'failed', { error, artifacts });
   const db = getDb();
   const cur = db.exec('SELECT status FROM projects WHERE id = ?', [projectId])[0]?.values[0]?.[0];
@@ -457,8 +480,39 @@ function runFfmpeg(args: string[], durationSec: number, onProgress: (pct: number
     }
     let stderrFull = '';
     let sawProgress = false;
+    let lastActivity = Date.now();
+
+    // Watchdog anti-travamento: um ffmpeg pendurado (arquivo corrompido, leitura
+    // travada em rede, etc.) nunca emite 'close' e a promise nunca resolve —
+    // isso deixava `runningPrep` preso para sempre e `isPreparing()` retornava
+    // true eternamente, fazendo o retry responder 409 "Preparação em andamento".
+    // Mata o processo após STALL_MS sem NENHUMA saída (stdout/stderr), ou após
+    // um teto total generoso baseado na duração da mídia.
+    const STALL_MS = 5 * 60 * 1000;
+    const totalMs = Math.min(
+      4 * 60 * 60 * 1000,
+      Math.max(STALL_MS, (durationSec || 0) * 10_000 + 60_000)
+    );
+    const startedAt = Date.now();
+    const watchdog = setInterval(() => {
+      const now = Date.now();
+      const stalled = now - lastActivity > STALL_MS;
+      const overTotal = now - startedAt > totalMs;
+      if (!stalled && !overTotal) return;
+      clearInterval(watchdog);
+      try { proc.kill('SIGKILL'); } catch {}
+      if (projectId && activeFfmpegProcesses.get(projectId) === proc) {
+        activeFfmpegProcesses.delete(projectId);
+      }
+      reject(new Error(
+        stalled
+          ? `ffmpeg travado (sem saída por ${Math.round(STALL_MS / 1000)}s)`
+          : 'ffmpeg excedeu o tempo máximo de preparação'
+      ));
+    }, 15_000);
 
     proc.stdout?.on('data', (chunk: Buffer) => {
+      lastActivity = Date.now();
       const text = chunk.toString();
       const m = text.match(/out_time_ms=(\d+)/);
       if (m && durationSec > 0) {
@@ -469,6 +523,7 @@ function runFfmpeg(args: string[], durationSec: number, onProgress: (pct: number
     });
 
     proc.stderr?.on('data', (chunk: Buffer) => {
+      lastActivity = Date.now();
       stderrFull += chunk.toString();
       if (stderrFull.length > 8000) {
         stderrFull = stderrFull.slice(stderrFull.length - 8000);
@@ -476,6 +531,7 @@ function runFfmpeg(args: string[], durationSec: number, onProgress: (pct: number
     });
 
     proc.on('error', (err) => {
+      clearInterval(watchdog);
       if (projectId && activeFfmpegProcesses.get(projectId) === proc) {
         activeFfmpegProcesses.delete(projectId);
       }
@@ -483,6 +539,7 @@ function runFfmpeg(args: string[], durationSec: number, onProgress: (pct: number
     });
 
     proc.on('close', (code, signal) => {
+      clearInterval(watchdog);
       if (projectId && activeFfmpegProcesses.get(projectId) === proc) {
         activeFfmpegProcesses.delete(projectId);
       }
@@ -504,7 +561,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0', '-c:v', 'copy'];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
   args.push('-map', '0:a');
-  const audioNeedsTranscode = info.audio.some((a) => !AUDIO_SAFE.hevc.has(a.codec));
+  const audioNeedsTranscode = audioNeedsTranscodeFor(info.audio, 'hevc');
   const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
   if (audioNeedsTranscode) {
     // EAC3 não suporta mono; em arquivos mono (fora do padrão), usa AAC 2.0.
@@ -527,7 +584,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
 
 function toneMapFilter(info: MediaInfo): string[] {
   if (info.hdr === 'sdr') return [];
-  return ['-vf', 'tonemap=hable:desat=0,format=yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709'];
+  return ['-vf', 'tonemap=mobius:desat=0.5,format=yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709'];
 }
 
 function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
@@ -536,13 +593,14 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
   if (info.video?.codec === 'h264' || info.video?.codec === 'vp9' || info.video?.codec === 'vp8' || info.video?.codec === 'av1') {
     args.push('-c:v', 'copy');
   } else if (fastTranscode) {
-    args.push('-c:v', 'h264_videotoolbox', '-q:v', '65', '-allow_sw', '1');
+    args.push('-c:v', 'h264_videotoolbox', '-q:v', '85', '-allow_sw', '1');
+    args.push(...toneMapFilter(info));
   } else {
-    args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18');
+    args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '16');
+    args.push(...toneMapFilter(info));
   }
-  args.push(...toneMapFilter(info));
   args.push('-map', '0:a');
-  const audioNeedsTranscode = info.audio.some((a) => !AUDIO_SAFE.h264.has(a.codec));
+  const audioNeedsTranscode = audioNeedsTranscodeFor(info.audio, 'h264');
   if (audioNeedsTranscode) {
     args.push('-c:a', 'aac');
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
@@ -574,7 +632,10 @@ function settingsHash(info: MediaInfo): string {
     v: info.video ? { c: info.video.codec, p: info.video.profile, bd: info.video.bitDepth, pf: info.video.pixFmt } : null,
     hdr: info.hdr,
     dv: info.dvProfile,
-    audio: info.audio.map((a) => ({ c: a.codec, ch: a.channels, l: a.language })),
+    // `p` (profile) importa: HE-AAC (SBR) precisa re-encode para AAC-LC — sem
+    // o profile no hash, um arquivo preparado antes como "direct" (artifacts
+    // vazio) nunca invalidava e o playable não era gerado (dessync A/V).
+    audio: info.audio.map((a) => ({ c: a.codec, p: a.profile, ch: a.channels, l: a.language })),
     subs: info.subtitles.map((s) => s.codec),
     flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1' },
   };
@@ -598,6 +659,11 @@ export function findMasterFile(projectDir: string): string | null {
 
 // ── Preparation pipeline ──────────────────────────────────────────────────
 const runningPrep = new Map<string, Promise<void>>();
+// Geração de cada prepare: incrementa a cada prepareProject novo. O prepare
+// antigo morto por cancelamento/retry usa a geração velha e, ao falhar
+// (ffmpeg morto → close → reject), markPrepFailed descarta o erro via
+// checagem de geração em vez de rebaixar o status do prepare novo.
+const prepGeneration = new Map<string, number>();
 
 export function isPreparing(projectId: string): boolean {
   const proc = runningPrep.get(projectId);
@@ -659,6 +725,9 @@ export function prepareProject(projectId: string): Promise<void> {
   const existing = runningPrep.get(projectId);
   if (existing) return existing;
 
+  const gen = (prepGeneration.get(projectId) || 0) + 1;
+  prepGeneration.set(projectId, gen);
+
   // Prioridade pela temporada/episódio do projeto: séries preparam a 1ª
   // temporada antes das demais; filmes (sem temporada) têm prioridade máxima.
   const row = getDb().exec('SELECT season_number, episode_number FROM projects WHERE id = ?', [projectId])[0]?.values[0];
@@ -667,14 +736,14 @@ export function prepareProject(projectId: string): Promise<void> {
     episode: row && row[1] != null ? Number(row[1]) : 0,
   };
 
-  const proc = enqueuePrep(priority, () => doPrepare(projectId)).finally(() => {
+  const proc = enqueuePrep(priority, () => doPrepare(projectId, gen)).finally(() => {
     runningPrep.delete(projectId);
   });
   runningPrep.set(projectId, proc);
   return proc;
 }
 
-async function doPrepare(projectId: string): Promise<void> {
+async function doPrepare(projectId: string, gen: number): Promise<void> {
   const isAborted = () => {
     const pm = getProjectMedia(projectId);
     return !pm || pm.status === 'cancelled';
@@ -704,7 +773,7 @@ async function doPrepare(projectId: string): Promise<void> {
     ? getProjectMedia(projectId)!.videoPath!
     : findMasterFile(projectDir);
   if (!master) {
-    markPrepFailed(projectId, 'Nenhum arquivo de vídeo master encontrado');
+    markPrepFailed(projectId, 'Nenhum arquivo de vídeo master encontrado', undefined, gen);
     return;
   }
 
@@ -714,7 +783,7 @@ async function doPrepare(projectId: string): Promise<void> {
     info = await probeMedia(master);
   } catch (e: any) {
     if (isAborted()) return;
-    markPrepFailed(projectId, e.message);
+    markPrepFailed(projectId, e.message, undefined, gen);
     return;
   }
 
@@ -723,11 +792,16 @@ async function doPrepare(projectId: string): Promise<void> {
   const hash = settingsHash(info);
   const existing = getProjectMedia(projectId);
   if (existing?.prepState === 'done' && existing?.prepSettingsHash === hash && existing?.artifacts) {
-    // Verificar integridade: arquivos do manifest ainda existem.
+    // Verificar integridade: arquivos do manifest ainda existem. Para HE-AAC
+    // (agora re-encodado a AAC-LC), o playable É obrigatório — um artifacts
+    // vazio ("preparado como direct") não pode passar como "tudo existe".
     const arts = existing.artifacts;
+    const needsPlayableForChrome = classifyForTarget(info, 'h264') !== 'direct';
+    const needsPlayableForSafari = classifyForTarget(info, 'hevc') !== 'direct';
+    const playableNeeded = needsPlayableForChrome || needsPlayableForSafari;
     const allExist =
       (arts.master ? fs.existsSync(arts.master.path) : true) &&
-      (arts.playable ? fs.existsSync(arts.playable.path) : true) &&
+      (!playableNeeded ? true : !!arts.playable && fs.existsSync(arts.playable.path)) &&
       Object.values(arts.audio).every((a) => fs.existsSync(a.path)) &&
       Object.values(arts.subs).every((a) => fs.existsSync(a.path));
     if (allExist) {
@@ -748,7 +822,7 @@ async function doPrepare(projectId: string): Promise<void> {
   const tmpSuffix = `.tmp-${process.pid}`;
   const fail = (e: any) => {
     if (isAborted()) return;
-    markPrepFailed(projectId, e.message || String(e), artifacts);
+    markPrepFailed(projectId, e.message || String(e), artifacts, gen);
   };
 
   // 1) master.mp4 (Safari) — só se o master original não for direct para Safari
@@ -903,18 +977,16 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
     }
   }
 
-  if (target === 'hevc' && pm.artifacts?.master && fs.existsSync(pm.artifacts.master.path)) {
-    // O master é um REMUX (-c:v copy): só é seguro para o Safari quando o
-    // codec de vídeo é h264/hevc. Fontes mpeg4/divx (indecodáveis no browser)
-    // geram master mpeg4 → vídeo preto com áudio. Nesse caso cai no playable
-    // (h264), que o Safari também reproduz nativamente.
-    const masterCodecOk = !!info?.video && VIDEO_SAFE.hevc.has(info.video.codec);
+  if (pm.artifacts?.master && fs.existsSync(pm.artifacts.master.path)) {
+    // O master é um REMUX (-c:v copy): preserva 100% da imagem original sem perda.
+    // Seguro quando o codec de vídeo é h264 ou hevc (suportados nativamente em todos
+    // os navegadores modernos no Mac/Windows). Fontes legadas (mpeg4/divx) caem no playable.
+    const masterCodecOk = !info?.video || VIDEO_SAFE.hevc.has(info.video.codec);
     if (masterCodecOk) {
       return { filePath: pm.artifacts.master.path, prepState: pm.prepState, isArtifact: true };
     }
   }
-  // playable.mp4 (h264) funciona em TODOS os browsers (Chrome + Safari) —
-  // fallback universal quando o master não é seguro para o target pedido.
+  // playable.mp4 (h264) funciona como fallback universal quando o master não é seguro.
   if (pm.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
     return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
   }

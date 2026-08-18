@@ -58,6 +58,7 @@ function LibraryCard({  project,
   const [imageError, setImageError] = useState(false);
   const isDone = project.status === 'done';
   const isDownloading = project.status === 'downloading';
+  const isPreparing = project.status === 'preparing';
   const isWatched = project.watched === 1;
   const hasProgress = !isWatched && (project.watchProgress || 0) > 0;  // Clean title & quality parsing
   const rawTitle = project.title || 'Mídia 4K';
@@ -107,10 +108,12 @@ function LibraryCard({  project,
                     ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
                     : isDownloading
                       ? 'bg-[#EF9F27]/20 border-[#EF9F27]/50 text-[#EF9F27] animate-pulse'
-                      : 'bg-red-500/20 border-red-500/50 text-red-400'
+                      : isPreparing
+                        ? 'bg-sky-500/20 border-sky-500/50 text-sky-300 animate-pulse'
+                        : 'bg-red-500/20 border-red-500/50 text-red-400'
             }`}
           >
-            {isWatched ? '✓ Visto' : hasProgress ? 'Continuar' : isDone ? 'Pronto' : isDownloading ? `${project.progressPct || 0}%` : 'Erro'}
+            {isWatched ? '✓ Visto' : hasProgress ? 'Continuar' : isDone ? 'Pronto' : isDownloading ? `${project.progressPct || 0}%` : isPreparing ? 'Preparando' : 'Erro'}
           </span>
         </div>
 
@@ -125,6 +128,15 @@ function LibraryCard({  project,
             </div>
             <p className="text-[10px] text-[#EF9F27] font-mono text-center font-bold">
               {statusLabel(project.progressStatus) || `Baixando ${project.progressPct || 0}%`}
+            </p>
+          </div>
+        ) : isPreparing ? (
+          <div className="absolute bottom-0 inset-x-0 bg-zinc-950/90 p-2.5 backdrop-blur-md border-t border-zinc-800/80 space-y-1.5 z-20">
+            <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-sky-500 h-full rounded-full animate-pulse transition-all duration-300" style={{ width: '60%' }} />
+            </div>
+            <p className="text-[10px] text-sky-400 font-mono text-center font-bold">
+              Preparando para assistir…
             </p>
           </div>
         ) : hasProgress ? (
@@ -166,7 +178,7 @@ function LibraryCard({  project,
             </button>
           )}
 
-          {!isDone && !isDownloading && onRetry && (
+          {!isDone && !isDownloading && !isPreparing && onRetry && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onRetry(project); }}

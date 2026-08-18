@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { getDb, persist, persistThrottled, DATA_DIR } from '../../db/schema.js';
 import { progressEvents } from '../../services/progress-events.js';
-import { prepareProject, reconcileProjectMedia, isPreparing, getProjectMedia } from '../../services/media-service.js';
+import { prepareProject, reconcileProjectMedia, isPreparing, cancelPreparation, getProjectMedia } from '../../services/media-service.js';
 import { searchMediaEnhanced } from './media-search-llm.js';
 
 const router = Router();
@@ -957,9 +957,19 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
     res.status(409).json({ error: 'Download já em andamento' });
     return;
   }
+  // Prepare "em andamento" num projeto que já está em erro/cancelado é um
+  // prepare PRESO (ex.: ffmpeg pendurado que nunca emitiu close) — o watchdog
+  // do runFfmpeg eventualmente mata o processo, mas enquanto a entrada de
+  // runningPrep não é limpa o isPreparing() retorna true e o retry fica
+  // eternamente em 409. Força o cancelamento do prepare stale e segue o fluxo
+  // normal de retry (re-download ou re-prepare, conforme o caso abaixo).
   if (isPreparing(projectId)) {
-    res.status(409).json({ error: 'Preparação de playback já em andamento' });
-    return;
+    if (status === 'error' || status === 'cancelled') {
+      cancelPreparation(projectId);
+    } else {
+      res.status(409).json({ error: 'Preparação de playback já em andamento' });
+      return;
+    }
   }
   // 'preparing' sem worker ativo = projeto preso (ex.: download completou mas o
   // prepare nunca disparou). Permite retry: se o master já existe em disco,
