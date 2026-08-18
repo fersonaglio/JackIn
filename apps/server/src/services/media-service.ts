@@ -561,16 +561,15 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0', '-c:v', 'copy'];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
   args.push('-map', '0:a');
-  const audioNeedsTranscode = audioNeedsTranscodeFor(info.audio, 'hevc');
-  const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
-  if (audioNeedsTranscode) {
-    // EAC3 não suporta mono; em arquivos mono (fora do padrão), usa AAC 2.0.
-    if (maxCh >= 2) {
-      args.push('-c:a', 'eac3');
-      args.push('-b:a', audioBitrate(maxCh, 'eac3'));
-    } else {
-      args.push('-c:a', 'aac', '-b:a', '192k');
-    }
+  // O master é o artefato servido para target=hevc. O player escolhe hevc por
+  // canPlayType, e o Chrome em Apple Silicon também passa (HEVC por hardware) —
+  // então o áudio do master PRECISA ser AAC-LC (universal em Chrome+Safari).
+  // EAC3/AC3 o Safari toca, mas o Chrome fica MUDO. Se a fonte já é AAC-LC,
+  // copia; caso contrário (HE-AAC, AC3, EAC3, DTS, etc.) re-encode para AAC-LC.
+  const alreadyAacLc = info.audio.every((a) => a.codec === 'aac' && !isHeAacAudio(a));
+  if (!alreadyAacLc) {
+    const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
+    args.push('-c:a', 'aac', '-b:a', audioBitrate(maxCh, 'aac'));
   } else {
     args.push('-c:a', 'copy');
   }
@@ -637,7 +636,10 @@ function settingsHash(info: MediaInfo): string {
     // vazio) nunca invalidava e o playable não era gerado (dessync A/V).
     audio: info.audio.map((a) => ({ c: a.codec, p: a.profile, ch: a.channels, l: a.language })),
     subs: info.subtitles.map((s) => s.codec),
-    flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1' },
+    // masterAudio: 'aac-lc' invalida masters antigos gerados com EAC3 — EAC3 o
+    // Safari toca, mas Chrome/Edge (Chromium) em Apple Silicon usam target=hevc
+    // e ficam MUDOS. Bump forçado para regenerar com áudio universal AAC-LC.
+    flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1', masterAudio: 'aac-lc' },
   };
   return crypto.createHash('sha256').update(JSON.stringify(summary)).digest('hex');
 }
@@ -979,9 +981,11 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
 
   if (pm.artifacts?.master && fs.existsSync(pm.artifacts.master.path)) {
     // O master é um REMUX (-c:v copy): preserva 100% da imagem original sem perda.
-    // Seguro quando o codec de vídeo é h264 ou hevc (suportados nativamente em todos
-    // os navegadores modernos no Mac/Windows). Fontes legadas (mpeg4/divx) caem no playable.
-    const masterCodecOk = !info?.video || VIDEO_SAFE.hevc.has(info.video.codec);
+    // O áudio do master é AAC-LC universal (Chrome/Edge/Safari decodificam) — o
+    // prepare re-encoda HE-AAC/AC3/EAC3/DTS para AAC-LC. Serve para o target
+    // quando o codec de VÍDEO é compatível: h264 ou hevc (Safari + Chromium com
+    // HEVC por hardware). Fontes legadas (mpeg4/divx) caem no playable.
+    const masterCodecOk = !info?.video || VIDEO_SAFE[target].has(info.video.codec);
     if (masterCodecOk) {
       return { filePath: pm.artifacts.master.path, prepState: pm.prepState, isArtifact: true };
     }

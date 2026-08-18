@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyForTarget, audioBitrate, pickNextPrepIndex, type MediaInfo, type Target, type PrepTask } from '../services/media-service.js';
+import { classifyForTarget, audioBitrate, pickNextPrepIndex, isHeAacAudio, type MediaInfo, type Target, type PrepTask, type MediaStreamInfo } from '../services/media-service.js';
 
 function mkInfo(partial: Partial<MediaInfo>): MediaInfo {
   return {
@@ -95,6 +95,43 @@ describe('classifyForTarget', () => {
     const info = mkInfo({ video: undefined, audio: [] });
     expect(classifyForTarget(info, 'hevc')).toBe('transcode');
     expect(classifyForTarget(info, 'h264')).toBe('transcode');
+  });
+
+  it('HE-AAC (SBR) nunca é direct — re-encode para AAC-LC evita o priming que dessincroniza o áudio', () => {
+    const info = mkInfo({
+      formatNames: ['mov', 'mp4'],
+      video: { index: 0, codecType: 'video', codec: 'h264' },
+      audio: [{ index: 1, codecType: 'audio', codec: 'aac', profile: 'HE-AAC', channels: 6, language: 'por' }],
+    });
+    expect(classifyForTarget(info, 'hevc')).toBe('remux');
+    expect(classifyForTarget(info, 'h264')).toBe('remux');
+  });
+
+  it('AAC-LC (profile LC) permanece direct para ambos os targets', () => {
+    const info = mkInfo({
+      formatNames: ['mov', 'mp4'],
+      video: { index: 0, codecType: 'video', codec: 'h264' },
+      audio: [{ index: 1, codecType: 'audio', codec: 'aac', profile: 'LC', channels: 2, language: 'por' }],
+    });
+    expect(classifyForTarget(info, 'hevc')).toBe('direct');
+    expect(classifyForTarget(info, 'h264')).toBe('direct');
+  });
+});
+
+describe('isHeAacAudio', () => {
+  const audio = (profile?: string, codec = 'aac'): MediaStreamInfo => ({ index: 1, codecType: 'audio', codec, profile });
+
+  it('detecta HE-AAC e HE-AACv2 (SBR/PS)', () => {
+    expect(isHeAacAudio(audio('HE-AAC'))).toBe(true);
+    expect(isHeAacAudio(audio('HE-AACv2'))).toBe(true);
+    expect(isHeAacAudio(audio('AAC+'))).toBe(true);
+    expect(isHeAacAudio(audio('LC'))).toBe(false);
+    expect(isHeAacAudio(audio(undefined))).toBe(false);
+  });
+
+  it('ignora codecs não-AAC e streams não-áudio', () => {
+    expect(isHeAacAudio(audio('HE-AAC', 'eac3'))).toBe(false);
+    expect(isHeAacAudio({ index: 0, codecType: 'video', codec: 'h264', profile: 'High' })).toBe(false);
   });
 });
 
