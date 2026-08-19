@@ -875,17 +875,20 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
     }
   }
 
-  // 2) playable.mp4 (Chrome) — só se o master original não for direct para Chrome
-  if (!directForChrome) {
+  // 2) playable.mp4 (fallback apenas para codecs legados como mpeg4/xvid) — se o
+  // master.mp4 já foi gerado em hevc/h264 com áudio AAC universal, ele toca
+  // diretamente em todos os navegadores com aceleração por hardware (GPU 0% CPU).
+  const masterAlreadyUniversal = (info.video?.codec === 'hevc' || info.video?.codec === 'h264') && !!artifacts.master;
+  if (!directForChrome && !masterAlreadyUniversal) {
     if (isAborted()) return;
     const out = path.join(projectDir, 'playable.mp4');
     const tmp = out + tmpSuffix;
-    emitPrep(projectId, 30, 'Gerando playable.mp4 (Chrome)...');
+    emitPrep(projectId, 30, 'Gerando playable.mp4...');
     try {
       if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
-      await runFfmpeg(buildPlayableArgs(info, tmp), info.duration, (pct) => emitPrep(projectId, 30 + pct * 0.4, 'Gerando playable.mp4 (Chrome)...'), projectId);
+      await runFfmpeg(buildPlayableArgs(info, tmp), info.duration, (pct) => emitPrep(projectId, 30 + pct * 0.4, 'Gerando playable.mp4...'), projectId);
       if (isAborted()) {
-        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
+        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
         return;
       }
       if (!fs.existsSync(tmp)) throw new Error('playable.mp4 não foi gerado');
@@ -894,7 +897,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
       artifacts.playable = artifactOf(out);
       updatePrepState(projectId, 'partial', { artifacts });
     } catch (e) {
-      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
+      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
       return fail(e);
     }
   }
