@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyForTarget, audioBitrate, pickNextPrepIndex, isHeAacAudio, type MediaInfo, type Target, type PrepTask, type MediaStreamInfo } from '../services/media-service.js';
+import { classifyForTarget, audioBitrate, pickNextPrepIndex, isHeAacAudio, aacPrimingOffset, type MediaInfo, type Target, type PrepTask, type MediaStreamInfo } from '../services/media-service.js';
 
 function mkInfo(partial: Partial<MediaInfo>): MediaInfo {
   return {
@@ -135,8 +135,24 @@ describe('isHeAacAudio', () => {
   });
 });
 
-describe('audioBitrate', () => {
-  it('bitrate por canal — nunca mono, sem downmix', () => {
+describe('aacPrimingOffset (dessync A/V do encoder AAC-LC)', () => {
+  it('48kHz → 1024 samples = 21.33ms (áudio adiantado)', () => {
+    const info = mkInfo({ audio: [{ index: 1, codecType: 'audio', codec: 'aac', sampleRate: 48000 }] });
+    expect(aacPrimingOffset(info)).toBeCloseTo(0.021333, 5);
+  });
+
+  it('44.1kHz → 23.2ms', () => {
+    const info = mkInfo({ audio: [{ index: 1, codecType: 'audio', codec: 'aac', sampleRate: 44100 }] });
+    expect(aacPrimingOffset(info)).toBeCloseTo(0.02322, 4);
+  });
+
+  it('sem sample rate → fallback 48kHz', () => {
+    const info = mkInfo({ audio: [{ index: 1, codecType: 'audio', codec: 'aac' }] });
+    expect(aacPrimingOffset(info)).toBeCloseTo(0.021333, 5);
+  });
+});
+
+describe('audioBitrate', () => {  it('bitrate por canal — nunca mono, sem downmix', () => {
     expect(audioBitrate(2, 'aac')).toBe('320k');
     expect(audioBitrate(6, 'aac')).toBe('448k');
     expect(audioBitrate(8, 'aac')).toBe('640k');

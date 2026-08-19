@@ -557,6 +557,20 @@ function runFfmpeg(args: string[], durationSec: number, onProgress: (pct: number
 }
 
 // ── Geração de artefatos ──────────────────────────────────────────────────
+// O encoder AAC-LC adiciona 1024 amostras de priming (delay de codificação).
+// O muxer grava o primeiro pacote de áudio com PTS = priming, enquanto o vídeo
+// (copy + B-frames) começa ~1 frame depois — resultado: áudio 21ms ADIANTADO
+// no browser. Compensa deslocando o áudio pelo priming via asetpts (delay real
+// no muxer), alinhando os PTS iniciais de áudio e vídeo.
+export function aacPrimingOffset(info: MediaInfo): number {
+  const sr = info.audio[0]?.sampleRate || 48000;
+  return 1024 / sr;
+}
+
+export function aacPrimingFilter(info: MediaInfo): string {
+  return `asetpts=PTS+${aacPrimingOffset(info)}/TB`;
+}
+
 function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0', '-c:v', 'copy'];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
@@ -570,6 +584,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   if (!alreadyAacLc) {
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
     args.push('-c:a', 'aac', '-b:a', audioBitrate(maxCh, 'aac'));
+    args.push('-af', aacPrimingFilter(info));
   } else {
     args.push('-c:a', 'copy');
   }
@@ -604,6 +619,7 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
     args.push('-c:a', 'aac');
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
     args.push('-b:a', audioBitrate(maxCh, 'aac'));
+    args.push('-af', aacPrimingFilter(info));
   } else {
     args.push('-c:a', 'copy');
   }
@@ -619,7 +635,9 @@ function buildAudioVariantArgs(info: MediaInfo, audioIdx: number, outPath: strin
   const track = info.audio.find((a) => a.index === audioIdx) || info.audio[audioIdx];
   const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0', '-c:v', 'copy'];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
-  args.push('-map', `0:${track.index}`, '-c:a', track.codec === 'aac' ? 'copy' : 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'));
+  const copiesAudio = track.codec === 'aac' && !isHeAacAudio(track);
+  args.push('-map', `0:${track.index}`, '-c:a', copiesAudio ? 'copy' : 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'));
+  if (!copiesAudio) args.push('-af', aacPrimingFilter(info));
   args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-f', 'mp4', outPath);
   return args;
 }
