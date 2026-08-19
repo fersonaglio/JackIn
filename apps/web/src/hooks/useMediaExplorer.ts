@@ -237,10 +237,12 @@ export function useMediaExplorer() {
       setDownloadingItems((prev) => ({ ...prev, [key]: true }));
       try {
         const finalPosterUrl = posterUrl || selectedMovie?.posterUrl;
+        const requirePt = option.ptConfirmed === true;
         const altSourceUrls = (selectedMovie?.options ?? [])
+          .filter((o) => (requirePt ? o.ptConfirmed === true : true))
           .map((o) => o.sourceUrl)
           .filter((u: string): u is string => !!u && u !== option.sourceUrl);
-        await downloadMediaMovie(movieTitle, option.quality, option.sourceUrl, finalPosterUrl, altSourceUrls);
+        await downloadMediaMovie(movieTitle, option.quality, option.sourceUrl, finalPosterUrl, altSourceUrls, undefined, undefined, requirePt);
         pollActiveProjects();
         setStartedItems((prev) => ({ ...prev, [key]: true }));
         setTimeout(() => {
@@ -274,7 +276,8 @@ export function useMediaExplorer() {
           finalPosterUrl,
           undefined,
           seriesTitle,
-          seasonNumber
+          seasonNumber,
+          option.ptConfirmed === true
         );
         pollActiveProjects();
         setStartedItems((prev) => ({ ...prev, [key]: true }));

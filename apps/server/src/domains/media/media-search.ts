@@ -6,7 +6,7 @@ import fs from 'fs';
 import { getDb, persist, persistThrottled, DATA_DIR } from '../../db/schema.js';
 import { progressEvents } from '../../services/progress-events.js';
 import { prepareProject, reconcileProjectMedia, isPreparing, cancelPreparation, getProjectMedia } from '../../services/media-service.js';
-import { searchMediaEnhanced } from './media-search-llm.js';
+import { searchMediaEnhanced } from './media-search-interpret.js';
 
 const router = Router();
 
@@ -59,7 +59,7 @@ function scheduleAutoRetry(id: string, opts: DownloadOptions): boolean {
       persist();
       // Busca novas alternativas em cada tentativa: a fonte morta não vai
       // "acordar" sozinha, mas indexadores reais podem ter novas opções agora.
-      findBetterDownloadOptions(opts.title, 4)
+      findBetterDownloadOptions(opts.title, 4, opts.requirePt)
         .then((altOpts) => {
           const real = altOpts.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl));
           const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts.sourceUrl);
@@ -77,7 +77,7 @@ function scheduleAutoRetry(id: string, opts: DownloadOptions): boolean {
           try {
             getDb().run(
               'UPDATE projects SET faceless_config = ? WHERE id = ?',
-              [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [] }), id]
+              [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [], requirePt: retryOpts.requirePt === true }), id]
             );
             persist();
           } catch {}
@@ -136,6 +136,9 @@ interface DownloadOptions {
   posterUrl?: string;
   /** Alternativas em cascata — se o primário estiver morto, tenta estas. */
   altSourceUrls?: string[];
+  /** true quando o usuário pediu Dublado: o download é rejeitado se o arquivo
+   *  não tiver áudio em português, e o fallback fica restrito a fontes PT. */
+  requirePt?: boolean;
 }
 
 // Curated WordPress BR magnets carry a fixed 30-seed estimate but often have
@@ -146,8 +149,8 @@ const CURATED_SITE_RE = /limontorrents|baixetorrents|mestredosfilmes|filmeshdtor
 // Retorna até maxOptions magnets REAIS (apibay/1337x, sem curated/yts) para o
 // título, ordenados do mais confiável para o menos — usados como candidates em
 // cascata: se um magnet estiver morto, o worker tenta o próximo automaticamente.
-async function findBetterDownloadOptions(title: string, maxOptions: number = 4): Promise<Partial<DownloadOptions>[]> {
-  const { searchMediaEnhanced } = await import('./media-search-llm.js');
+async function findBetterDownloadOptions(title: string, maxOptions: number = 4, requirePt: boolean = false): Promise<Partial<DownloadOptions>[]> {
+  const { searchMediaEnhanced } = await import('./media-search-interpret.js');
   const seen = new Set<string>();
   const results: Partial<DownloadOptions>[] = [];
   let posterUrl = '';
@@ -178,15 +181,19 @@ async function findBetterDownloadOptions(title: string, maxOptions: number = 4):
 
       // Opções reais (indexadores com seeders reais) têm prioridade total.
       const real = r.options.filter((o: any) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl) && !o.sourceUrl.toLowerCase().includes('yts') && !(o as any).quality?.toLowerCase().includes('yts'));
+      // Quando o usuário pediu Dublado, o fallback NÃO pode escorregar para uma
+      // fonte sem PT (YTS/original) — restringe o pool às PT-confirmadas.
+      const pool = requirePt ? real.filter((o: any) => o.ptConfirmed) : real;
       // PT-confirmadas primeiro, depois qualidade/seeders (a busca já ordena).
-      const pt = real.filter((o: any) => o.ptConfirmed);
-      for (const o of [...pt, ...real]) {
+      const pt = pool.filter((o: any) => o.ptConfirmed);
+      for (const o of [...pt, ...pool]) {
         if (results.length >= maxOptions) break;
         push(o);
       }
       // Curadas (limontorrents etc.) só como último recurso, e só se nada real.
       if (results.length === 0) {
-        for (const o of r.options) {
+        const curated = requirePt ? r.options.filter((o: any) => o.ptConfirmed) : r.options;
+        for (const o of curated) {
           if (results.length >= maxOptions) break;
           push(o);
         }
@@ -259,6 +266,8 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
     const alts = [...new Set(altSourceUrls.filter((u) => u && u !== sourceUrl))];
     if (alts.length > 0) args.push('--alt-urls', JSON.stringify(alts));
   }
+  // Dublado: o worker rejeita o arquivo se não houver faixa de áudio PT.
+  if (opts.requirePt) args.push('--require-pt');
   const proc = spawn(VENV_PYTHON, args, { env: { ...process.env, PYTHONUNBUFFERED: '1' } });
 
   proc.on('error', (err) => {
@@ -841,18 +850,19 @@ router.get('/enhanced', async (req: Request, res: Response) => {
     const output = await searchMediaEnhanced(query, audio, hasMeta ? metaHint : null);
     res.json(output);
   } catch (err) {
-    console.error(`[JackIn Media LLM] Enhanced search error: ${(err as Error).message}`);
+    console.error(`[JackIn Media] Enhanced search error: ${(err as Error).message}`);
     res.json({ query, results: [], llmEnhanced: false });
   }
 });
 
 // POST /api/media-search/download
 router.post('/download', (req: Request, res: Response) => {
-  const { title, quality, sourceUrl, posterUrl, altSourceUrls, seriesTitle, seasonNumber, episodeNumber, episodeTitle } = req.body;
+  const { title, quality, sourceUrl, posterUrl, altSourceUrls, seriesTitle, seasonNumber, episodeNumber, episodeTitle, requirePt } = req.body;
   if (!title || !sourceUrl) {
     res.status(400).json({ error: 'Title and sourceUrl are required' });
     return;
   }
+  const wantPt = requirePt === true;
   // sql.js rejeita `undefined` em binds — normaliza para null.
   const sNum = seasonNumber == null ? null : Number(seasonNumber);
   const eNum = episodeNumber == null ? null : Number(episodeNumber);
@@ -885,7 +895,7 @@ router.post('/download', (req: Request, res: Response) => {
     seriesId = (existing[0]?.values[0]?.[0] as string) || id;
   }
 
-  const config = JSON.stringify({ sourceUrl, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts });
+  const config = JSON.stringify({ sourceUrl, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts, requirePt: wantPt });
   console.log(`[JackIn Media] Criando projeto de mídia ${id} para: ${formattedTitle}`);
 
   if (isSeries) {
@@ -903,21 +913,21 @@ router.post('/download', (req: Request, res: Response) => {
 
   // Já dispara com alternatives: se o magnet escolhido estiver morto (seeders
   // fantasmas, DL:0B), o worker tenta os próximos automaticamente em cascata.
-  startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts });
-  findBetterDownloadOptions(title, 4)
+  startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: alts, requirePt: wantPt });
+  findBetterDownloadOptions(title, 4, wantPt)
     .then((altOpts) => {
       const altsFromSearch = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== sourceUrl);
       const mergedAlts = [...new Set([...alts, ...altsFromSearch])];
       if (mergedAlts.length > 0) {
         try {
-          db.run('UPDATE projects SET faceless_config = ? WHERE id = ?', [JSON.stringify({ sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: mergedAlts }), id]);
+          db.run('UPDATE projects SET faceless_config = ? WHERE id = ?', [JSON.stringify({ sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: mergedAlts, requirePt: wantPt }), id]);
           persist();
         } catch {}
         // Se o worker primário já terminou (muito rápido ou falhou), refaz com alternativas.
         if (!runningDownloads.has(id)) {
           const st = db.exec('SELECT status FROM projects WHERE id = ?', [id])[0]?.values[0]?.[0];
           if (st === 'error') {
-            startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: mergedAlts });
+            startMovieDownload(id, { sourceUrl, title, quality: quality || '4K', posterUrl: posterUrl || '', altSourceUrls: mergedAlts, requirePt: wantPt });
           }
         }
       }
@@ -1032,6 +1042,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
           title: parsed.title || title,
           quality: parsed.quality || '4K',
           posterUrl: parsed.posterUrl || '',
+          requirePt: parsed.requirePt === true,
         };
       }
     } catch {
@@ -1117,7 +1128,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
   res.json({ id: projectId, status: 'downloading', source: 'retry' });
 
   // Async: seek better alternatives in cascade and attach them to project config
-  findBetterDownloadOptions(opts.title, 4)
+  findBetterDownloadOptions(opts.title, 4, opts.requirePt)
     .then((altOpts) => {
       const real = altOpts.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl));
       const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts!.sourceUrl);
@@ -1135,7 +1146,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
         try {
           db.run(
             'UPDATE projects SET faceless_config = ? WHERE id = ?',
-            [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [] }), projectId]
+            [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [], requirePt: retryOpts.requirePt === true }), projectId]
           );
           persist();
         } catch {}
@@ -1204,6 +1215,7 @@ router.post('/resume/:projectId', (req: Request, res: Response) => {
           quality: parsed.quality || '4K',
           posterUrl: parsed.posterUrl || '',
           altSourceUrls: Array.isArray(parsed.altSourceUrls) ? parsed.altSourceUrls : undefined,
+          requirePt: parsed.requirePt === true,
         };
       }
     } catch {

@@ -412,7 +412,10 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
     return False
 
 
-def download_file_with_shield(urls: list, output_dir: Path, title: str, quality: str) -> Path:
+_PT_AUDIO_LANGS = {"pt", "por", "pt-br", "ptbr", "bra", "braz"}
+
+
+def download_file_with_shield(urls: list, output_dir: Path, title: str, quality: str, require_pt: bool = False) -> Path:
     global _last_emitted_pct
     _last_emitted_pct = 0
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -562,6 +565,21 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
         quarantine_file(target_path, "inspeção de mídia reprovada (quarentena em vez de deleção)")
         raise RuntimeError("ESCUDO DE SEGURANÇA: Arquivo de vídeo corrompido ou sem faixas decodificáveis válidas (colocado em quarentena).")
 
+    # Camada 2.5: Verificação de idioma do áudio (Dublado). O usuário pediu uma
+    # fonte "Dublado"/"Dual Áudio", mas o magnet PT costuma estar morto (sites
+    # curados com seeders fantasmas) e o cascade de fallback baixa a primeira
+    # fonte viva — que pode ser YTS/original só em inglês. Entregar isso
+    # silenciosamente viola o pedido explícito de áudio em português: rejeita
+    # (fail-closed) para o auto-retry buscar uma fonte PT de verdade.
+    if require_pt:
+        langs = detect_audio_languages(target_path)
+        if not any(lang in _PT_AUDIO_LANGS for lang in langs):
+            quarantine_file(target_path, f"sem áudio em português (idiomas detectados: {langs or 'nenhum'})")
+            raise RuntimeError(
+                "Download rejeitado: a fonte não contém áudio em português (Dublado). "
+                "O magnet 'Dublado' estava morto e o fallback baixou uma fonte legendada/em outra língua."
+            )
+
     # Camada 3: Extração de áudio limpo whisper_audio.wav para transcrição
     # (mono 16kHz é artefato de transcrição/Whisper — NÃO é o áudio do playback).
     emit_progress(98, "Extraindo faixa de áudio para curadoria do JackIn...", 0)
@@ -587,6 +605,7 @@ def main():
     parser.add_argument("--title", type=str, default="Filme_4K", help="Movie title")
     parser.add_argument("--quality", type=str, default="4K REMUX", help="Media quality string")
     parser.add_argument("--poster-url", type=str, default="", help="Movie poster URL")
+    parser.add_argument("--require-pt", action="store_true", help="Rejeita o download se o arquivo não tiver faixa de áudio em português (Dublado)")
     args = parser.parse_args()
 
     output_dir = Path(args.out_dir)
@@ -612,7 +631,7 @@ def main():
             print(f"Aviso ao salvar thumbnail: {p_err}", file=sys.stderr)
 
     try:
-        final_video = download_file_with_shield(urls, output_dir, args.title, args.quality)
+        final_video = download_file_with_shield(urls, output_dir, args.title, args.quality, require_pt=args.require_pt)
 
         # Detecta episódios individuais do pack (S01E01, "1x01", "E01") — cada
         # arquivo de vídeo do diretório vira um projeto de episódio no servidor,

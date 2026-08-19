@@ -215,11 +215,12 @@ export async function downloadMediaMovie(
   posterUrl?: string,
   altSourceUrls?: string[],
   seriesTitle?: string,
-  seasonNumber?: number | null
+  seasonNumber?: number | null,
+  requirePt?: boolean
 ): Promise<{ id: string; title: string; status: string; quality: string }> {
   return fetchApi('/media-search/download', {
     method: 'POST',
-    body: JSON.stringify({ title, quality, sourceUrl, posterUrl, altSourceUrls, seriesTitle, seasonNumber })
+    body: JSON.stringify({ title, quality, sourceUrl, posterUrl, altSourceUrls, seriesTitle, seasonNumber, requirePt })
   });
 }
 

@@ -3,6 +3,9 @@ import path from 'path';
 
 import fs from 'fs';
 
+import { MovieDb } from 'moviedb-promise';
+import type { MovieResult, TvResult } from 'moviedb-promise';
+
 // ─── Engine runner (mirrors the /search route) ───
 const SCRIPTS_DIR = path.resolve(import.meta.dirname, '../../../../../apps/python-services');
 const defaultVenv = path.resolve(import.meta.dirname, '../../../../../.venv/bin/python3');
@@ -53,91 +56,15 @@ export interface InterpretedQuery {
   confidence?: number;
 }
 
-// ─── ZEN LLM client with circuit breaker ───
-interface ZenChoice {
-  message?: { content?: string };
+// ─── TMDB client (moviedb-promise) — replaces the ZEN LLM interpreter ───
+let movieDb: MovieDb | null = null;
+
+function getMovieDb(): MovieDb | null {
+  const key = (process.env.TMDB_API_KEY || '').trim();
+  if (!key) return null;
+  if (!movieDb) movieDb = new MovieDb(key);
+  return movieDb;
 }
-
-const breaker = { failures: 0, openUntil: 0 };
-const MAX_FAILURES = 3;
-const OPEN_MS = 60_000;
-
-function isBreakerOpen(): boolean {
-  if (Date.now() < breaker.openUntil) return true;
-  if (breaker.failures >= MAX_FAILURES) {
-    breaker.openUntil = Date.now() + OPEN_MS;
-    breaker.failures = 0;
-    return true;
-  }
-  return false;
-}
-
-function recordSuccess() {
-  breaker.failures = 0;
-}
-
-function recordFailure() {
-  breaker.failures += 1;
-}
-
-async function callZen(prompt: string, timeoutMs: number): Promise<string | null> {
-  if (isBreakerOpen()) return null;
-  const zenKey = process.env.ZEN_API_KEY || process.env.OPENCODE_ZEN_API_KEY || '';
-  if (!zenKey) return null;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const apiRes = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${zenKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'deepseek-v4-flash-free',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        // deepseek-v4-flash-free spends tokens on "reasoning_content" before
-        // emitting the final content. The API default max_tokens is too small,
-        // so responses came back empty or truncated (finish_reason=length).
-        // 1000 gives the reasoning room while still returning a short JSON body.
-        max_tokens: 1000,
-      }),
-      signal: controller.signal,
-    });
-    if (!apiRes.ok) {
-      recordFailure();
-      return null;
-    }
-    const data = (await apiRes.json()) as { choices?: ZenChoice[] };
-    const content = data.choices?.[0]?.message?.content?.trim() || '';
-    if (!content) {
-      recordFailure();
-      return null;
-    }
-    recordSuccess();
-    return content;
-  } catch {
-    recordFailure();
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function parseJson(content: string): any {
-  const cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
-}
-
-// ─── interpretQuery (LLM 1) with in-memory cache ───
-const interpretCache = new Map<string, { at: number; value: InterpretedQuery }>();
-const INTERPRET_TTL_MS = 3600_000;
 
 function fold(text: string): string {
   return text
@@ -147,34 +74,52 @@ function fold(text: string): string {
     .trim();
 }
 
-const INTERPRET_PROMPT = (rawQuery: string) => `Você é o assistente de busca de um catálogo de torrents brasileiro (filmes e séries).
-O usuário escreve um termo livre (pode ser português, inglês, vago, com gíria, ou nome parcial). Você deve identificar o título canônico do filme/série em INGLÊS, o título em português do Brasil (quando conhecido), o ano de lançamento (quando inferível) e o tipo (movie ou series).
+const interpretCache = new Map<string, { at: number; value: InterpretedQuery }>();
+const INTERPRET_TTL_MS = 3600_000;
 
-REGRA: responda APENAS um objeto JSON puro, sem markdown, sem \`\`\`.
-
-Exemplos:
-Entrada: "aquela saga de anel"
-Saída: {"canonicalTitle":"The Lord of the Rings","ptTitle":"O Senhor dos Anéis","year":null,"mediaType":"movie","confidence":0.9}
-
-Entrada: "shang shi dublado"
-Saída: {"canonicalTitle":"Shang-Chi and the Legend of the Ten Rings","ptTitle":"Shang-Chi e a Lenda dos Dez Anéis","year":2021,"mediaType":"movie","confidence":0.95}
-
-Entrada: "o filme do homem que voa"
-Saída: {"canonicalTitle":"Superman","ptTitle":"Super-Homem","year":null,"mediaType":"movie","confidence":0.8}
-
-Entrada: "the last of us"
-Saída: {"canonicalTitle":"The Last of Us","ptTitle":"The Last of Us","year":null,"mediaType":"series","confidence":0.95}
-
-Entrada: "velozes e furiosos"
-Saída: {"canonicalTitle":"Fast & Furious","ptTitle":"Velozes e Furiosos","year":null,"mediaType":"movie","confidence":0.8}
-
-Entrada: "mandalorian"
-Saída: {"canonicalTitle":"The Mandalorian","ptTitle":"The Mandalorian","year":null,"mediaType":"series","confidence":0.9}
-
-Se o termo já for um título canônico, devolva-o como canonicalTitle.
-
-Entrada: "${rawQuery}"
-Saída:`;
+// ─── interpretQuery: TMDB /search/multi → InterpretedQuery ───
+// Resolve um termo livre (PT ou EN) para o título canônico em inglês + título
+// PT + ano + tipo (filme/série). O TMDB já resolve títulos em português
+// ("senhor dos anéis" → The Lord of the Rings) e tipa filme/série; quando a
+// chave está ausente, offline ou sem match, cai no mapa determinístico.
+async function interpretViaTmdb(rawQuery: string): Promise<InterpretedQuery | null> {
+  const mdb = getMovieDb();
+  if (!mdb) return null;
+  try {
+    const res = await mdb.searchMulti({ query: rawQuery, language: 'pt-BR', include_adult: false });
+    for (const r of res.results || []) {
+      if (r.media_type === 'movie') {
+        const m = r as MovieResult;
+        const canonical = (m.original_title || '').trim();
+        if (!canonical) continue;
+        const pt = (m.title || '').trim();
+        return {
+          canonicalTitle: canonical,
+          ptTitle: pt && fold(pt) !== fold(canonical) ? pt : null,
+          year: m.release_date ? Number(m.release_date.slice(0, 4)) || null : null,
+          mediaType: 'movie',
+          confidence: m.vote_count && m.vote_count > 20 ? 0.9 : 0.7,
+        };
+      }
+      if (r.media_type === 'tv') {
+        const t = r as TvResult;
+        const canonical = (t.original_name || '').trim();
+        if (!canonical) continue;
+        const pt = (t.name || '').trim();
+        return {
+          canonicalTitle: canonical,
+          ptTitle: pt && fold(pt) !== fold(canonical) ? pt : null,
+          year: t.first_air_date ? Number(t.first_air_date.slice(0, 4)) || null : null,
+          mediaType: 'series',
+          confidence: t.vote_count && t.vote_count > 20 ? 0.9 : 0.7,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn(`[JackIn Media] TMDB interpret falhou para "${rawQuery}": ${(e as Error).message}`);
+  }
+  return null;
+}
 
 export async function interpretQuery(rawQuery: string): Promise<InterpretedQuery> {
   const key = fold(rawQuery);
@@ -183,26 +128,18 @@ export async function interpretQuery(rawQuery: string): Promise<InterpretedQuery
     return hit.value;
   }
 
-  // ZEN has a slow cold start after a server restart; allow a single retry so a
-  // first-call timeout never degrades the whole search to the identity query.
-  let content: string | null = null;
-  for (let attempt = 0; attempt < 2 && !content; attempt += 1) {
-    content = await callZen(INTERPRET_PROMPT(rawQuery), 20000);
-  }
-  const parsed = content ? parseJson(content) : null;
+  const tmdb = await interpretViaTmdb(rawQuery);
 
-  // Only accept an interpretation when the model returned a title we can act on.
-  // Failures (timeout/offline/bad JSON) fall back to identity AND are NOT cached,
-  // so a transient ZEN hiccup never poisons the 1h cache with a useless result.
-  const result: InterpretedQuery = parsed?.canonicalTitle && String(parsed.canonicalTitle).length > 0
-    ? {
-        canonicalTitle: String(parsed.canonicalTitle),
-        ptTitle: parsed.ptTitle ? String(parsed.ptTitle) : null,
-        year: parsed.year ? Number(parsed.year) || null : null,
-        mediaType: parsed.mediaType === 'series' || parsed.mediaType === 'movie' ? parsed.mediaType : null,
-        confidence: parsed.confidence ? Number(parsed.confidence) : undefined,
-      }
-    : { canonicalTitle: rawQuery, confidence: 0 };
+  let result: InterpretedQuery;
+  if (tmdb && tmdb.canonicalTitle) {
+    result = tmdb;
+  } else {
+    // TMDB sem match/chave/offline: cai na tradução determinística PT→EN e
+    // devolve identidade quando nada casa (o engine então tenta o termo cru).
+    const translated = deterministicTranslate(rawQuery);
+    const engineTitle = fold(translated) !== fold(rawQuery) ? translated : rawQuery;
+    result = { canonicalTitle: engineTitle, confidence: 0 };
+  }
 
   if ((result.confidence ?? 0) > 0) {
     interpretCache.set(key, { at: Date.now(), value: result });
@@ -210,11 +147,7 @@ export async function interpretQuery(rawQuery: string): Promise<InterpretedQuery
   return result;
 }
 
-// ─── Deterministic PT→EN translation (mirrors Python _pt_to_en) ───
-// Used as fallback when ZEN LLM is unavailable. Tries compound phrases
-// first, then word-level translations (longest key first to avoid
-// partial matches like "duna" capturing "duna parte 2").
-
+// ─── Deterministic PT→EN translation (fallback offline) ───
 const DETERMINISTIC_TRANSLATIONS: Record<string, string> = {
   // Compound phrases (longest first — checked in sorted order)
   "duna parte dois": "Dune Part Two",
@@ -331,16 +264,13 @@ function deterministicTranslate(rawQuery: string): string {
     if (folded.includes(keyFolded)) {
       const value = DETERMINISTIC_TRANSLATIONS[key];
       if (value === 'senhor') continue; // typo alias — skip, let another key match
-      // Replace the PT phrase with the EN equivalent
       const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       result = result.replace(re, value);
       break; // First (longest) match wins
     }
   }
 
-  // Clean up: if result still has PT words, try word-level fallback
   if (result === rawQuery.toLowerCase()) {
-    // Try a second pass with word-level only (shorter keys)
     const wordKeys = sortedKeys.filter((k) => k.split(' ').length <= 2);
     for (const key of wordKeys) {
       const keyFolded = foldText(key);
@@ -358,7 +288,7 @@ function deterministicTranslate(rawQuery: string): string {
   return result !== rawQuery.toLowerCase() ? result : rawQuery;
 }
 
-// ─── Deterministic edition merge (no LLM cost) ───
+// ─── Deterministic edition merge + noise filter (no LLM) ───
 const EDITION_RE = /\b(extended|ext\.?|theatrical|directors?\s*cut|uncut|remastered?|remaster|imax|special\s*edition|collectors?\s*edition)\b/gi;
 const LEADING_ARTICLE_RE = /^(the|a|an|o|os|a|as|el|la|los|las)\s+/i;
 
@@ -402,55 +332,16 @@ function mergeEditionGroups(results: MediaSearchResult[]): MediaSearchResult[] {
   return groups;
 }
 
-// ─── rankCandidates (LLM 2): filter noise + reorder ───
-function rankGuidance(query: string, interpreted: InterpretedQuery | null, results: MediaSearchResult[]): string {
-  const qLower = query.toLowerCase();
-  const hasSeries = results.some((r) => r.mediaType === 'series');
-  const hasMovie = results.some((r) => (r.mediaType || 'movie') === 'movie');
-
-  // Explicit type intent from the query itself ("temporada", "season", "filme").
-  const wantsSeries = /serie|temporada|season|temporadas/i.test(qLower);
-  const wantsMovie = /\bfilme\b|\bmovie\b/i.test(qLower) || interpreted?.mediaType === 'movie';
-
-  if (wantsSeries) return 'só a série (descarte filmes e extras)';
-  if (wantsMovie) return 'só o filme (descarte episódios)';
-  if (hasSeries && hasMovie) return 'mantenha série E filme (só remova lixo/duplicatas)';
-  return 'remova apenas lixo/duplicatas';
-}
-
-const RANK_PROMPT = (query: string, interpreted: InterpretedQuery | null, results: MediaSearchResult[]) => {
-  const guidance = rankGuidance(query, interpreted, results);
-  const compact = results.map((r, i) => {
-    const pt = (r.options || []).some((o) => o.ptConfirmed || o.audioType === 'dub') ? 'PT-DUB' : '';
-    return `${i}:${r.mediaType === 'series' ? 'S' : 'F'} ${r.title} (${r.year || '?'})${pt ? ' [' + pt + ']' : ''}`;
-  });
-  return `Busca "${query}". ${guidance}. Resultados:\n${compact.join('\n')}\nPreferi manter versões marcadas [PT-DUB] quando o filme/série for o mesmo. Responda só JSON {"keep":["indices em ordem"]}`;
-};
-
-// Deterministic noise filter applied BEFORE the LLM ranking. The ZEN model is
-// variable-latency and non-deterministic; obvious junk that shows up as title
-// artifacts (group encodes, short suffixes, near-duplicate rows) is removed
-// here so even an LLM miss leaves a clean result set.
 const JUNK_SUFFIX_RE = /(\s+(r|v\d+|10b|atv\d+|web-dl|hdr|x265|hevc|proper|repack|extended|ext)\s*$)/i;
-// Encoding/group prefixes that indicate junk. NOT franchise heads — "star wars"
-// is a valid franchise title (Star Wars: O Mandaloriano e Grogu) and must not
-// be dropped here; the franchise-noise filtering happens at the engine level.
 const JUNK_PREFIX_RE = /^(mcu|atv\d+|disneyplus?|marvel|dsnp|amzn|nf|d+)\s+/i;
 
 function filterNoiseGroups(results: MediaSearchResult[]): MediaSearchResult[] {
   const kept: MediaSearchResult[] = [];
   for (const r of results) {
     const base = r.title.trim();
-    // Drop rows whose title is just the canonical title plus a junk suffix or
-    // encoding prefix ("... 10b r", "atv3 shang chi...").
     if (JUNK_SUFFIX_RE.test(base) || JUNK_PREFIX_RE.test(base)) continue;
     kept.push(r);
   }
-  // Near-duplicate rows: same normalized title/type/year where one title fully
-  // contains the other (the longer/rarer one is usually an encoding artifact).
-  // Prefer keeping the row that carries a PT-BR dubbed option, so dedup never
-  // discards the group that actually has the dub (e.g. "star wars the
-  // mandalorian and grogu" with PT vs the bare "the mandalorian and grogu").
   const hasPt = (r: MediaSearchResult) => (r.options || []).some((o) => o.ptConfirmed || o.audioType === 'dub');
   const deduped: MediaSearchResult[] = [];
   for (const r of kept) {
@@ -462,7 +353,6 @@ function filterNoiseGroups(results: MediaSearchResult[]): MediaSearchResult[] {
       return a === b || a.includes(b) || b.includes(a);
     });
     if (isDup) {
-      // If the incoming row has a dub and the kept one does not, swap.
       const idx = deduped.findIndex((d) => {
         if ((d.mediaType || 'movie') !== (r.mediaType || 'movie')) return false;
         if (d.year && r.year && d.year !== r.year) return false;
@@ -480,66 +370,14 @@ function filterNoiseGroups(results: MediaSearchResult[]): MediaSearchResult[] {
   return deduped;
 }
 
+// ─── rankCandidates: determinístico (merge de edições + filtro de ruído) ───
 export async function rankCandidates(
-  query: string,
+  _query: string,
   results: MediaSearchResult[],
-  interpreted: InterpretedQuery | null,
+  _interpreted: InterpretedQuery | null,
 ): Promise<MediaSearchResult[]> {
   if (results.length < 2) return results;
-  // Deterministic pass first: drop obvious title artifacts and near-duplicates
-  // so the LLM never has to reason about encoding noise.
-  const cleaned = filterNoiseGroups(results);
-  const merged = mergeEditionGroups(cleaned);
-  if (merged.length < 2) return merged;
-
-  const refQuery = interpreted?.canonicalTitle || query;
-  // Single attempt for ranking: the ZEN model is variable-latency (5-25s). A
-  // retry doubles worst-case latency for marginal reliability gain; if this
-  // call fails the deterministic fallback (merged) is already good.
-  const content = await callZen(RANK_PROMPT(refQuery, interpreted, merged), 25000);
-  const parsed = content ? parseJson(content) : null;
-  const keep = parsed?.keep;
-
-  if (!Array.isArray(keep) || keep.length === 0) return merged;
-
-  // The model may return numeric indices or title strings (or a mix). Resolve
-  // each entry against the merged results by index first, then by title.
-  const ordered: MediaSearchResult[] = [];
-  const used = new Set<number>();
-  for (const entry of keep) {
-    let idx: number | undefined;
-    if (typeof entry === 'number') {
-      idx = entry;
-    } else if (typeof entry === 'string') {
-      const asNum = Number(entry.trim());
-      if (Number.isInteger(asNum) && asNum >= 0) {
-        idx = asNum;
-      } else {
-        const norm = normalizeEdition(entry).toLowerCase();
-        const found = merged.findIndex((r, i) => !used.has(i) && normalizeEdition(r.title).toLowerCase() === norm);
-        if (found >= 0) idx = found;
-      }
-    }
-    if (idx !== undefined && merged[idx] && !used.has(idx)) {
-      used.add(idx);
-      ordered.push(merged[idx]);
-    }
-  }
-
-  // If the LLM dropped everything (bad response), keep the original ordering.
-  const finalOrdered = ordered.length > 0 ? ordered : merged;
-
-  // The LLM must never hide the PT-BR dub that the engine surfaced. If it
-  // dropped the only group carrying a ptConfirmed option, restore it at the top
-  // (prefer a group that matches the query, else any dubbed group).
-  const hasPt = (r: MediaSearchResult) => (r.options || []).some((o) => o.ptConfirmed || o.audioType === 'dub');
-  if (merged.some(hasPt) && !finalOrdered.some(hasPt)) {
-    const ptGroup = merged.find((r) => hasPt(r));
-    if (ptGroup) {
-      finalOrdered.unshift(ptGroup);
-    }
-  }
-  return finalOrdered;
+  return mergeEditionGroups(filterNoiseGroups(results));
 }
 
 // ─── Engine subprocess runner ───
@@ -563,7 +401,7 @@ function runEngine(query: string, audio: string, metaHint: Record<string, string
 
     proc.on('close', (code) => {
       if (code !== 0) {
-        console.error(`[JackIn Media LLM] Engine failed: ${stderr.slice(0, 200)}`);
+        console.error(`[JackIn Media] Engine failed: ${stderr.slice(0, 200)}`);
         resolve({ results: [] });
         return;
       }
@@ -577,7 +415,7 @@ function runEngine(query: string, audio: string, metaHint: Record<string, string
   });
 }
 
-// ─── Orchestrator (hybrid: LLM enhances, never blocks) ───
+// ─── Orchestrator (TMDB + determinístico, sem LLM) ───
 export interface EnhancedSearchOutput {
   query: string;
   engineQuery: string;
@@ -595,44 +433,25 @@ export async function searchMediaEnhanced(
   const started = Date.now();
   const interpret = await interpretQuery(rawQuery);
 
-  let engineQuery: string;
-  let llmEnhanced = false;
-
-  if ((interpret.confidence ?? 0) > 0 && interpret.canonicalTitle !== rawQuery) {
-    // LLM successfully interpreted the query
-    engineQuery = interpret.canonicalTitle;
-    llmEnhanced = true;
-  } else {
-    // LLM failed or returned identity — try deterministic PT→EN translation
-    const translated = deterministicTranslate(rawQuery);
-    engineQuery = translated !== rawQuery.toLowerCase() ? translated : rawQuery;
-    console.log(
-      `[JackIn Media LLM] LLM miss for "${rawQuery}" → deterministic: "${engineQuery}" ` +
-      `(original: "${rawQuery}")`,
-    );
-  }
+  const engineQuery =
+    (interpret.confidence ?? 0) > 0 && interpret.canonicalTitle !== rawQuery
+      ? interpret.canonicalTitle
+      : deterministicTranslate(rawQuery);
   const ptTitle = interpret?.ptTitle && interpret.ptTitle !== rawQuery ? interpret.ptTitle : '';
 
   const { results } = await runEngine(engineQuery, audio, metaHint, ptTitle);
-
-  let ranked = results;
-  if (llmEnhanced && results.length > 0) {
-    const before = ranked.length;
-    ranked = await rankCandidates(engineQuery, results, interpret);
-    llmEnhanced = ranked.length !== before || JSON.stringify(ranked.map((r) => r.id)) !== JSON.stringify(results.map((r) => r.id));
-  }
+  const ranked = await rankCandidates(engineQuery, results, interpret);
 
   console.log(
-    `[JackIn Media LLM] "${rawQuery}" → engine:"${engineQuery}" llm:${llmEnhanced ? 'on' : 'off'} ` +
-    `${results.length}→${ranked.length} resultados em ${Date.now() - started}ms`,
+    `[JackIn Media] "${rawQuery}" → engine:"${engineQuery}" ${results.length}→${ranked.length} resultados em ${Date.now() - started}ms`,
   );
 
   return {
     query: rawQuery,
     engineQuery,
     results: ranked,
-    llmEnhanced,
+    llmEnhanced: false,
     tookMs: Date.now() - started,
-    interpret: llmEnhanced ? interpret : undefined,
+    interpret: (interpret.confidence ?? 0) > 0 ? interpret : undefined,
   };
 }
