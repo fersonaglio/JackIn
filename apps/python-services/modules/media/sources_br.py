@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import MEDIA_APIS, get_unverified_context
+from config import MEDIA_APIS, get_unverified_context, get_session
 from matcher import similarity
 from normalize import is_series, series_base_title, normalize_key as _norm_key
 from sources import _fetch_html_via_flaresolverr, decode_title, fetch_solidtorrents
@@ -63,22 +63,33 @@ def _apibay(query: str) -> list:
         return []
     encoded = urllib.parse.quote(query.strip().lower())
     url = f"{MEDIA_APIS['apibay']}/q.php?q={encoded}"
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    data = None
     try:
-        with urllib.request.urlopen(req, context=get_unverified_context(), timeout=2.5) as res:
-            data = json.loads(res.read().decode("utf-8", "replace"))
+        session = get_session()
+        r = session.get(url, timeout=(2.0, 3.0), headers={"User-Agent": UA})
+        if r.status_code == 200:
+            data = r.json()
             _APIBAY_BREAKER["fails"] = 0
     except Exception:
-        _APIBAY_BREAKER["fails"] += 1
-        if _APIBAY_BREAKER["fails"] >= 2:
-            _APIBAY_BREAKER["off_until"] = time.time() + 60
-        return []
+        pass
+    if data is None:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, context=get_unverified_context(), timeout=2.5) as res:
+                data = json.loads(res.read().decode("utf-8", "replace"))
+                _APIBAY_BREAKER["fails"] = 0
+        except Exception:
+            _APIBAY_BREAKER["fails"] += 1
+            if _APIBAY_BREAKER["fails"] >= 2:
+                _APIBAY_BREAKER["off_until"] = time.time() + 60
+            return []
     if not isinstance(data, list) or not data or data[0].get("name") == "No results returned":
         return []
     for item in data:
         if isinstance(item, dict) and item.get("name"):
             item["name"] = decode_title(item["name"])
     return data
+
 
 
 def _parse_size(text: str) -> int:

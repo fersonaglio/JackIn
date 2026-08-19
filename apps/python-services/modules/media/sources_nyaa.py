@@ -10,12 +10,12 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-from config import get_unverified_context
+from config import get_unverified_context, get_session
 
 NS = "{https://nyaa.si/xmlns/nyaa}"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 RSS_URL = "https://nyaa.si/?page=rss&q={query}&c=0_0"
-TIMEOUT = 8
+TIMEOUT = (2.0, 3.5)
 MIN_RESULTS = 3
 
 _SIZE_MULT = {"TIB": 1024 ** 4, "GIB": 1024 ** 3, "MIB": 1024 ** 2, "KIB": 1024}
@@ -76,9 +76,19 @@ def _merge(results):
 
 def _fetch_rss(query):
     url = RSS_URL.format(query=urllib.parse.quote(query.strip()))
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, context=get_unverified_context(), timeout=TIMEOUT) as res:
-        return res.read().decode("utf-8", "replace")
+    try:
+        session = get_session()
+        r = session.get(url, timeout=TIMEOUT, headers={"User-Agent": UA})
+        if r.status_code == 200:
+            return r.text
+    except Exception:
+        pass
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, context=get_unverified_context(), timeout=3.5) as res:
+            return res.read().decode("utf-8", "replace")
+    except Exception:
+        return ""
 
 
 def search_nyaa(query):
@@ -91,3 +101,4 @@ def search_nyaa(query):
         return _merge(results)
     except Exception:
         return []
+

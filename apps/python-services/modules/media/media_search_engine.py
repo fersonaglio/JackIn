@@ -11,7 +11,7 @@ import re
 import hashlib
 from pathlib import Path
 
-from config import MEDIA_APIS, TRACKERS_QUERY, get_unverified_context
+from config import MEDIA_APIS, TRACKERS_QUERY, get_unverified_context, get_session
 from normalize import is_series, season_of, series_base_title, clean_title, normalize_key
 from matcher import similarity
 from query_expansion import expand_queries, _fold
@@ -760,30 +760,39 @@ def _wikipedia_lookup(title: str) -> dict:
         candidates = [clean]
         if "altas aventuras" in clean.lower() or "up" in clean.lower():
             candidates = ["Up - Altas Aventuras", "Up (filme)", clean]
+        session = get_session()
         for c in candidates:
             for lang in ("pt", "en"):
                 wiki_title = urllib.parse.quote(c.replace(" ", "_"))
                 url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{wiki_title}"
-                req = urllib.request.Request(url, headers={"User-Agent": "JackIn/1.0 (https://github.com/fersonaglio/JackIn)"})
+                data = None
                 try:
-                    with urllib.request.urlopen(req, context=get_unverified_context(), timeout=4) as response:
-                        data = json.loads(response.read().decode("utf-8"))
-                        thumb = data.get("thumbnail", {}).get("source", "")
-                        extract = data.get("extract", "")
-                        if thumb or extract:
-                            t_name = data.get("title", clean)
-                            if t_name in ("Up (filme)", "Up"):
-                                t_name = "Up - Altas Aventuras"
-                            return {
-                                "title": t_name,
-                                "posterUrl": thumb,
-                                "backdropUrl": thumb,
-                                "overview": extract,
-                                "genre": "Filme / Animação",
-                                "score": 0.9,
-                            }
+                    r = session.get(url, headers={"User-Agent": "JackIn/1.0 (https://github.com/fersonaglio/JackIn)"}, timeout=(2.0, 3.5))
+                    if r.status_code == 200:
+                        data = r.json()
                 except Exception:
-                    continue
+                    pass
+                if data is None:
+                    try:
+                        req = urllib.request.Request(url, headers={"User-Agent": "JackIn/1.0 (https://github.com/fersonaglio/JackIn)"})
+                        with urllib.request.urlopen(req, context=get_unverified_context(), timeout=3.5) as response:
+                            data = json.loads(response.read().decode("utf-8"))
+                    except Exception:
+                        continue
+                thumb = data.get("thumbnail", {}).get("source", "")
+                extract = data.get("extract", "")
+                if thumb or extract:
+                    t_name = data.get("title", clean)
+                    if t_name in ("Up (filme)", "Up"):
+                        t_name = "Up - Altas Aventuras"
+                    return {
+                        "title": t_name,
+                        "posterUrl": thumb,
+                        "backdropUrl": thumb,
+                        "overview": extract,
+                        "genre": "Filme / Animação",
+                        "score": 0.9,
+                    }
     except Exception:
         pass
     return {}
@@ -821,29 +830,38 @@ def _itunes_lookup(meta_title: str, year: str) -> dict:
     try:
         encoded_title = urllib.parse.quote(meta_title)
         url = f"{MEDIA_APIS['itunes']}?term={encoded_title}&limit=8"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, context=get_unverified_context(), timeout=4) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            results_list = data.get("results", [])
-            movie_items = [it for it in results_list if _is_movie_item(it)]
-            matched_item = None
-            for item in movie_items:
-                if item.get("releaseDate") and year and year in item.get("releaseDate", ""):
-                    matched_item = item
-                    break
-            if not matched_item and movie_items:
-                matched_item = movie_items[0]
-            if matched_item:
-                itunes_title = matched_item.get("trackName") or matched_item.get("collectionName") or meta_title
-                result = {
-                    "title": itunes_title,
-                    "posterUrl": matched_item.get("artworkUrl100", "").replace("100x100bb.jpg", "600x600bb.jpg"),
-                    "overview": matched_item.get("longDescription") or matched_item.get("shortDescription") or "",
-                    "genre": matched_item.get("primaryGenreName", ""),
-                    "score": round(similarity(meta_title, itunes_title), 2),
-                }
-                _ITUNES_CACHE[cache_key] = {'t': time.time(), 'v': result}
-                return result
+        data = None
+        try:
+            session = get_session()
+            r = session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=(2.0, 3.5))
+            if r.status_code == 200:
+                data = r.json()
+        except Exception:
+            pass
+        if data is None:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, context=get_unverified_context(), timeout=3.5) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        results_list = data.get("results", []) if isinstance(data, dict) else []
+        movie_items = [it for it in results_list if _is_movie_item(it)]
+        matched_item = None
+        for item in movie_items:
+            if item.get("releaseDate") and year and year in item.get("releaseDate", ""):
+                matched_item = item
+                break
+        if not matched_item and movie_items:
+            matched_item = movie_items[0]
+        if matched_item:
+            itunes_title = matched_item.get("trackName") or matched_item.get("collectionName") or meta_title
+            result = {
+                "title": itunes_title,
+                "posterUrl": matched_item.get("artworkUrl100", "").replace("100x100bb.jpg", "600x600bb.jpg"),
+                "overview": matched_item.get("longDescription") or matched_item.get("shortDescription") or "",
+                "genre": matched_item.get("primaryGenreName", ""),
+                "score": round(similarity(meta_title, itunes_title), 2),
+            }
+            _ITUNES_CACHE[cache_key] = {'t': time.time(), 'v': result}
+            return result
     except urllib.error.HTTPError as e:
         if e.code in (403, 429):
             return {}  # rate-limit — silently skip
@@ -891,9 +909,18 @@ def _tmdb_lookup(title: str, year: str) -> dict:
             "include_adult": "false",
         })
         url = f"https://api.themoviedb.org/3/search/multi?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, context=get_unverified_context(), timeout=5) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        data = None
+        try:
+            session = get_session()
+            r = session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=(2.0, 3.5))
+            if r.status_code == 200:
+                data = r.json()
+        except Exception:
+            pass
+        if data is None:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, context=get_unverified_context(), timeout=3.5) as response:
+                data = json.loads(response.read().decode("utf-8"))
 
         best = None
         best_year_match = False
@@ -903,6 +930,7 @@ def _tmdb_lookup(title: str, year: str) -> dict:
             if not (item.get("backdrop_path") or item.get("poster_path")):
                 continue
             # TMDB classifies video games and some fringe entries as media_type
+
             # "movie"; `video:true` + near-zero engagement is a reliable junk
             # signal (e.g. "Star Wars: Starfighter" surfacing as a film).
             if item.get("video") is True:
@@ -1028,47 +1056,6 @@ def search_media(query: str, audio: str = "", meta_hint: dict = None, pt_title: 
 
     from concurrent.futures import ThreadPoolExecutor
 
-    def gather(strategies: list, stop_at_min: bool) -> bool:
-        if not strategies:
-            return False
-        primary = strategies[:4]
-        with ThreadPoolExecutor(max_workers=min(len(primary), 4)) as ex:
-            futures = [ex.submit(search_all, s) for s in primary]
-            for fut in futures:
-                try:
-                    for it in fut.result():
-                        h = it.get("info_hash", "")
-                        if not h:
-                            continue
-                        cur = candidate_pool.get(h)
-                        if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
-                            candidate_pool[h] = it
-                except Exception:
-                    continue
-        if stop_at_min and len(candidate_pool) >= MIN_CANDIDATES:
-            return True
-        for strat in strategies[4:]:
-            for it in search_all(strat):
-                h = it.get("info_hash", "")
-                if not h:
-                    continue
-                cur = candidate_pool.get(h)
-                if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
-                    candidate_pool[h] = it
-            if stop_at_min and len(candidate_pool) >= MIN_CANDIDATES:
-                return True
-        return False
-
-    gather(variants, True)
-
-    # 1b. PT-BR recall pass. The base query misses Brazilian releases that only
-    #     appear with a tagged term ("Avatar DUBLADO" -> 50+ PT releases while
-    #     "Avatar" alone returns none). Always runs tagged hunts against the
-    #     dedicated Brazilian path (sources_br), plus the base tagged queries,
-    #     to maximize PT coverage. When the caller asks for strict PT
-    #     (audio=ptbr) the hunt is the primary source of candidates.
-    from concurrent.futures import ThreadPoolExecutor
-
     def hunt_base(tag):
         return list(search_all(f"{match_query} {tag}"))
 
@@ -1081,40 +1068,92 @@ def search_media(query: str, audio: str = "", meta_hint: dict = None, pt_title: 
     if q.strip().lower() != match_query.strip().lower():
         pt_variants.append(q.strip())
 
-    jobs = [lambda v=v: hunt_br(v) for v in pt_variants]
-
     # WordPress curated BR sites (baixetorrents.net, mestredosfilmes.top):
-    # manual catalogs of PT-BR dubs that trawling sources (apibay) often miss.
-    # Best-effort — any site failure returns [] and never blocks the other jobs.
-    # Hunt BOTH the translated (EN) title and the PT title when available, since
-    # the curated sites index posts under the Brazilian title ("Vingadores:
-    # Ultimato") — an EN-only hunt misses them on exact-match grouping.
-    wp_variants = list(dict.fromkeys([match_query, q.strip()]))
-    if pt_title and pt_title.strip().lower() not in [v.strip().lower() for v in wp_variants]:
+    # Prioritize the PT title and original query (avoids redundant queries of translated EN strings on PT sites).
+    wp_variants = []
+    if pt_title and pt_title.strip():
         wp_variants.append(pt_title.strip())
-    jobs += [lambda v=v: search_wp_sites(v) for v in wp_variants]
+    if q.strip() not in wp_variants:
+        wp_variants.append(q.strip())
+    if match_query != q.strip() and match_query not in wp_variants and len(wp_variants) < 2:
+        wp_variants.append(match_query)
 
-    if not _pool_has_confirmed_pt(candidate_pool) or audio == "ptbr":
-        jobs += [lambda t=tag: hunt_base(t) for tag in ("DUBLADO", "PT-BR")]
+    # Unify Phase 1 (base variants) + Phase 2 (PT hunts + WP sites) into a single
+    # concurrent gathering pool to eliminate sequential latency bottlenecks.
+    primary_variants = variants[:4]
+    initial_jobs = [lambda s=s: search_all(s) for s in primary_variants]
+    initial_jobs += [lambda v=v: hunt_br(v) for v in pt_variants]
+    initial_jobs += [lambda v=v: search_wp_sites(v) for v in wp_variants]
 
-    with ThreadPoolExecutor(max_workers=len(jobs)) as ex:
-        futures = [ex.submit(j) for j in jobs]
+
+    with ThreadPoolExecutor(max_workers=min(len(initial_jobs), 16)) as ex:
+        futures = [ex.submit(j) for j in initial_jobs]
         for fut in futures:
-            for it in fut.result():
-                h = it.get("info_hash", "")
-                if not h:
-                    continue
-                cur = candidate_pool.get(h)
-                if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
-                    candidate_pool[h] = it
+            try:
+                for it in fut.result():
+                    h = it.get("info_hash", "")
+                    if not h:
+                        continue
+                    cur = candidate_pool.get(h)
+                    if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
+                        candidate_pool[h] = it
+            except Exception:
+                continue
 
-    # 1c. Rate-limit retry — when ALL sources return zero (apibay/YTS may
-    #     throttle after a burst), one delayed retry of the base gather often
-    #     recovers. No retry for strict-PT mode (the recall pass IS the retry).
+    # Extra tagged search only when the pool carries zero confirmed PT or audio == "ptbr"
+    if not _pool_has_confirmed_pt(candidate_pool) or audio == "ptbr":
+        tagged_jobs = [lambda t=tag: hunt_base(t) for tag in ("DUBLADO", "PT-BR")]
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            futures = [ex.submit(j) for j in tagged_jobs]
+            for fut in futures:
+                try:
+                    for it in fut.result():
+                        h = it.get("info_hash", "")
+                        if not h:
+                            continue
+                        cur = candidate_pool.get(h)
+                        if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
+                            candidate_pool[h] = it
+                except Exception:
+                    continue
+
+
+    # If still below MIN_CANDIDATES and remaining variants exist, check them
+    if len(candidate_pool) < MIN_CANDIDATES and len(variants) > 4:
+        extra_jobs = [lambda s=s: search_all(s) for s in variants[4:]]
+        with ThreadPoolExecutor(max_workers=min(len(extra_jobs), 4)) as ex:
+            futures = [ex.submit(j) for j in extra_jobs]
+            for fut in futures:
+                try:
+                    for it in fut.result():
+                        h = it.get("info_hash", "")
+                        if not h:
+                            continue
+                        cur = candidate_pool.get(h)
+                        if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
+                            candidate_pool[h] = it
+                except Exception:
+                    continue
+
+    # Rate-limit retry — when ALL sources return zero (apibay/YTS may
+    # throttle after a burst), one delayed retry of the base gather often
+    # recovers. No retry for strict-PT mode (the recall pass IS the retry).
     if not candidate_pool and audio != "ptbr" and not retried:
         time.sleep(1.5)
         retried = True
-        gather(variants, False)
+        with ThreadPoolExecutor(max_workers=min(len(primary_variants), 4)) as ex:
+            futures = [ex.submit(search_all, s) for s in primary_variants]
+            for fut in futures:
+                try:
+                    for it in fut.result():
+                        h = it.get("info_hash", "")
+                        if not h:
+                            continue
+                        cur = candidate_pool.get(h)
+                        if cur is None or int(it.get("seeders", "0") or 0) > int(cur.get("seeders", "0") or 0):
+                            candidate_pool[h] = it
+                except Exception:
+                    continue
 
     # WP candidates hunted under the PT title are curated dubs; hold them apart
     # so they can be force-injected into the exact-match group even when their
@@ -1241,23 +1280,31 @@ def search_media(query: str, audio: str = "", meta_hint: dict = None, pt_title: 
         reverse=True,
     )[:15]
 
-    for group in sorted_groups:
-        meta_title = group["title"]
-        year = group["year"]
-        torrents = sorted(group["torrents"], key=lambda t: candidate_score(rank_queries, t, audio), reverse=True)
-
-        # When the catalog already knows the title (Wikipedia metadata), reuse it
-        # and skip the iTunes hop (fragile + extra latency for titles not on iTunes).
+    # Parallelize metadata lookup across all candidate groups
+    def _fetch_group_meta(g):
+        meta_title = g["title"]
+        year = g["year"]
         if meta_hint is not None and meta_hint.get("title"):
-            meta = {
+            return {
                 "title": meta_hint.get("title", ""),
                 "posterUrl": meta_hint.get("posterUrl", ""),
                 "overview": meta_hint.get("overview", ""),
                 "genre": meta_hint.get("genre", ""),
                 "score": round(similarity(meta_title, meta_hint.get("title", "")), 2),
             }
-        else:
-            meta = _fetch_itunes_metadata(meta_title, year, alt_titles=[match_query] if match_query.lower() != meta_title.lower() else [])
+        return _fetch_itunes_metadata(
+            meta_title,
+            year,
+            alt_titles=[match_query] if match_query.lower() != meta_title.lower() else []
+        )
+
+    with ThreadPoolExecutor(max_workers=min(max(len(sorted_groups), 1), 8)) as ex:
+        group_metas = list(ex.map(_fetch_group_meta, sorted_groups))
+
+    for group, meta in zip(sorted_groups, group_metas):
+        meta_title = group["title"]
+        year = group["year"]
+        torrents = sorted(group["torrents"], key=lambda t: candidate_score(rank_queries, t, audio), reverse=True)
         close = meta.get("score", 0.0) >= 0.5
 
         # 5. Build up to MAX_OPTIONS options across quality tiers (best per tier)
@@ -1296,6 +1343,7 @@ def search_media(query: str, audio: str = "", meta_hint: dict = None, pt_title: 
 
     # 6. Collapse duplicate display rows (see dedup_by_display).
     return dedup_by_display(results)
+
 
 def main():
     parser = argparse.ArgumentParser(description="Media Search Engine for JackIn")

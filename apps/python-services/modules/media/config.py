@@ -87,3 +87,23 @@ ENABLE_1337X = os.environ.get("ENABLE_1337X", "1") == "1"
 ENABLE_NYAA = os.environ.get("ENABLE_NYAA", "1") == "1"
 ENABLE_PROWLARR = os.environ.get("ENABLE_PROWLARR", "1") == "1"
 PROWLARR_URL = os.environ.get("PROWLARR_URL", "http://localhost:9696")
+
+_GLOBAL_SESSION = None
+
+
+def get_session():
+    """Return a thread-safe pooled requests.Session for fast HTTP keep-alive."""
+    global _GLOBAL_SESSION
+    if _GLOBAL_SESSION is None:
+        import requests
+        from requests.adapters import HTTPAdapter
+
+        s = requests.Session()
+        adapter = HTTPAdapter(pool_connections=40, pool_maxsize=40, max_retries=0)
+        s.mount("https://", adapter)
+        s.mount("http://", adapter)
+        if INSECURE_SSL:
+            s.verify = False
+        _GLOBAL_SESSION = s
+    return _GLOBAL_SESSION
+

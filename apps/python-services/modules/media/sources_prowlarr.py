@@ -16,7 +16,7 @@ import re
 import urllib.parse
 import urllib.request
 
-from config import get_unverified_context
+from config import get_unverified_context, get_session
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
@@ -70,13 +70,23 @@ def search_prowlarr(query: str) -> list:
     base = (os.environ.get("PROWLARR_URL") or "http://localhost:9696").strip().rstrip("/")
     encoded = urllib.parse.quote(query.strip())
     url = f"{base}/api/v1/search?query={encoded}&limit=100&type=search"
+    data = None
     try:
-        req = urllib.request.Request(url, headers={"X-Api-Key": api_key, "User-Agent": UA})
-        with urllib.request.urlopen(req, context=get_unverified_context(), timeout=10) as res:
-            body = res.read().decode("utf-8", "replace")
-        data = json.loads(body)
+        session = get_session()
+        r = session.get(url, headers={"X-Api-Key": api_key, "User-Agent": UA}, timeout=(2.0, 3.5))
+        if r.status_code == 200:
+            data = r.json()
     except Exception:
-        return []
+        pass
+    if data is None:
+        try:
+            req = urllib.request.Request(url, headers={"X-Api-Key": api_key, "User-Agent": UA})
+            with urllib.request.urlopen(req, context=get_unverified_context(), timeout=3.5) as res:
+                body = res.read().decode("utf-8", "replace")
+            data = json.loads(body)
+        except Exception:
+            return []
     if not isinstance(data, list):
         return []
     return parse_prowlarr_response(data)
+

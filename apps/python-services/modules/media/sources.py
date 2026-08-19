@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import MEDIA_APIS, get_unverified_context
+from config import MEDIA_APIS, get_unverified_context, get_session
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
@@ -33,11 +33,22 @@ def _cache_set(key, value):
     _CACHE[key] = (value, time.time() + _CACHE_TTL)
 
 
-def _get(url, timeout=10, is_json=True):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, context=get_unverified_context(), timeout=timeout) as res:
-        body = res.read().decode("utf-8", "replace")
-    return json.loads(body) if is_json else body
+def _get(url, timeout=(2.5, 4.0), is_json=True):
+    try:
+        session = get_session()
+        r = session.get(url, timeout=timeout, headers={"User-Agent": UA})
+        if r.status_code != 200:
+            return {} if is_json else ""
+        return r.json() if is_json else r.text
+    except Exception:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            to = timeout[1] if isinstance(timeout, (tuple, list)) else timeout
+            with urllib.request.urlopen(req, context=get_unverified_context(), timeout=to) as res:
+                body = res.read().decode("utf-8", "replace")
+            return json.loads(body) if is_json else body
+        except Exception:
+            return {} if is_json else ""
 
 
 def decode_title(name: str) -> str:
@@ -68,7 +79,7 @@ def fetch_apibay(query: str) -> list:
     encoded = urllib.parse.quote(query.strip().lower())
     url = f"{MEDIA_APIS['apibay']}/q.php?q={encoded}"
     try:
-        data = _get(url, timeout=3, is_json=True)
+        data = _get(url, timeout=(2.0, 3.0), is_json=True)
         _APIBAY_BREAKER["fails"] = 0
     except Exception:
         _APIBAY_BREAKER["fails"] += 1
@@ -86,9 +97,9 @@ def fetch_apibay(query: str) -> list:
 def fetch_yts(query: str) -> list:
     encoded = urllib.parse.quote(query.strip())
     url = f"{MEDIA_APIS['yts']}/api/v2/list_movies.json?query_term={encoded}&limit=20"
-    data = _get(url, timeout=10, is_json=True)
+    data = _get(url, timeout=(2.0, 4.0), is_json=True)
     results = []
-    if data.get("status") == "ok" and data.get("data", {}).get("movie_count", 0) > 0:
+    if isinstance(data, dict) and data.get("status") == "ok" and data.get("data", {}).get("movie_count", 0) > 0:
         for movie in data["data"]["movies"]:
             for t in movie.get("torrents", []):
                 results.append({
@@ -105,7 +116,7 @@ def fetch_solidtorrents(query: str) -> list:
     encoded = urllib.parse.quote(query.strip())
     url = f"https://solidtorrents.net/api/v1/search?q={encoded}&category=video"
     try:
-        data = _get(url, timeout=8, is_json=True)
+        data = _get(url, timeout=(2.0, 3.5), is_json=True)
     except Exception:
         return []
     results = []
@@ -126,6 +137,7 @@ def fetch_solidtorrents(query: str) -> list:
                     "info_hash": info_hash,
                 })
     return results
+
 
 
 def _parse_size(text: str) -> int:

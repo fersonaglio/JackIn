@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import get_unverified_context
+from config import get_unverified_context, get_session
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
@@ -68,11 +68,23 @@ def _cache_set(key, value):
     _CACHE[key] = (value, time.time() + _CACHE_TTL)
 
 
-def _get(url, timeout=6, is_json=True):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, context=get_unverified_context(), timeout=timeout) as res:
-        body = res.read().decode("utf-8", "replace")
-    return json.loads(body) if is_json else body
+def _get(url, timeout=(2.0, 4.0), is_json=True):
+    try:
+        session = get_session()
+        r = session.get(url, timeout=timeout, headers={"User-Agent": UA})
+        if r.status_code != 200:
+            return {} if is_json else ""
+        return r.json() if is_json else r.text
+    except Exception:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            to = timeout[1] if isinstance(timeout, (tuple, list)) else timeout
+            with urllib.request.urlopen(req, context=get_unverified_context(), timeout=to) as res:
+                body = res.read().decode("utf-8", "replace")
+            return json.loads(body) if is_json else body
+        except Exception:
+            return {} if is_json else ""
+
 
 
 def _parse_size(text: str) -> int:
@@ -276,7 +288,7 @@ def _extract_magnets(html: str, label_type: str) -> list:
 
 def _fetch_post_magnets(post_url: str, site: dict) -> list:
     try:
-        html = _get(post_url, timeout=15, is_json=False)
+        html = _get(post_url, timeout=(2.0, 3.5), is_json=False)
     except Exception:
         return []
     if not html:
@@ -385,9 +397,10 @@ def _search_site(site: dict, query: str) -> list:
     url = f"{site['search_url']}?{params}"
     try:
         # _get com is_json=True (default) já faz json.loads → retorna list/dict.
-        data = _get(url, timeout=15)
+        data = _get(url, timeout=(2.0, 3.5))
     except Exception:
         return []
+
 
     if not isinstance(data, list):
         return []

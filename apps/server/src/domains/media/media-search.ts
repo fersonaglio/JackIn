@@ -734,6 +734,32 @@ export function reconcileMovieStatus(projectId: string): void {
   }
 }
 
+interface SearchCacheEntry {
+  data: any;
+  expiresAt: number;
+}
+const SEARCH_CACHE = new Map<string, SearchCacheEntry>();
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getSearchCache(key: string): any | null {
+  const entry = SEARCH_CACHE.get(key);
+  if (entry && entry.expiresAt > Date.now()) {
+    return entry.data;
+  }
+  if (entry) {
+    SEARCH_CACHE.delete(key);
+  }
+  return null;
+}
+
+function setSearchCache(key: string, data: any): void {
+  if (SEARCH_CACHE.size > 200) {
+    const oldestKey = SEARCH_CACHE.keys().next().value;
+    if (oldestKey) SEARCH_CACHE.delete(oldestKey);
+  }
+  SEARCH_CACHE.set(key, { data, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+}
+
 // GET /api/media-search/search?q=Oppenheimer[&audio=dub]
 router.get('/search', async (req: Request, res: Response) => {
   const query = (req.query.q as string || '').trim();
@@ -741,6 +767,22 @@ router.get('/search', async (req: Request, res: Response) => {
   const ptTitle = (req.query.ptTitle as string || '').trim();
   if (!query) {
     res.status(400).json({ error: 'Query param q is required' });
+    return;
+  }
+
+  const metaHint = {
+    title: query,
+    year: String(req.query.year || ''),
+    posterUrl: String(req.query.posterUrl || ''),
+    overview: String(req.query.overview || ''),
+    genre: String(req.query.genre || ''),
+  };
+  const hasMeta = Boolean(metaHint.posterUrl || metaHint.overview);
+
+  const cacheKey = `search:${query.toLowerCase()}:${audio.toLowerCase()}:${ptTitle.toLowerCase()}:${metaHint.year}`;
+  const cached = getSearchCache(cacheKey);
+  if (cached) {
+    res.json(cached);
     return;
   }
 
@@ -752,17 +794,6 @@ router.get('/search', async (req: Request, res: Response) => {
   ];
   if (audio) args.push('--audio', audio);
   if (ptTitle && ptTitle.toLowerCase() !== query.toLowerCase()) args.push('--pt-title', ptTitle);
-
-  // Optional catalog metadata (Wikipedia): lets the engine skip the iTunes
-  // enrichment hop and reuse the poster/overview already shown in the modal.
-  const metaHint = {
-    title: query,
-    year: String(req.query.year || ''),
-    posterUrl: String(req.query.posterUrl || ''),
-    overview: String(req.query.overview || ''),
-    genre: String(req.query.genre || ''),
-  };
-  const hasMeta = Boolean(metaHint.posterUrl || metaHint.overview);
   if (hasMeta) args.push('--meta-json', JSON.stringify(metaHint));
 
   const proc = spawn(VENV_PYTHON, args, { env: { ...process.env, PYTHONUNBUFFERED: '1' } });
@@ -817,6 +848,9 @@ router.get('/search', async (req: Request, res: Response) => {
 
     try {
       const data = JSON.parse(stdout);
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        setSearchCache(cacheKey, data);
+      }
       res.json(data);
     } catch (err) {
       res.status(500).json({ error: 'Failed to parse media search output' });
@@ -846,8 +880,18 @@ router.get('/enhanced', async (req: Request, res: Response) => {
   };
   const hasMeta = Boolean(metaHint.posterUrl || metaHint.overview);
 
+  const cacheKey = `enhanced:${query.toLowerCase()}:${audio.toLowerCase()}:${metaHint.year}`;
+  const cached = getSearchCache(cacheKey);
+  if (cached) {
+    res.json(cached);
+    return;
+  }
+
   try {
     const output = await searchMediaEnhanced(query, audio, hasMeta ? metaHint : null);
+    if (Array.isArray(output.results) && output.results.length > 0) {
+      setSearchCache(cacheKey, output);
+    }
     res.json(output);
   } catch (err) {
     console.error(`[JackIn Media] Enhanced search error: ${(err as Error).message}`);
