@@ -5,7 +5,7 @@ const router = Router();
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const ITUNES_RSS_URL = 'https://itunes.apple.com/us/rss';
-const CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' };
+const CACHE_HEADERS = { 'Cache-Control': 'no-store' };
 
 // Tabs do catálogo → IDs de gênero do TMDB.
 const MOVIE_GENRE_IDS: Record<string, string> = {
@@ -147,6 +147,19 @@ function hashCode(str: string): number {
   return Math.abs(h);
 }
 
+// Segurança extra contra a instabilidade de paginação do TMDB: remove linhas
+// duplicadas (mesmo id) mantendo a primeira ocorrência — evita título repetido
+// na mesma página quando o discover devolve um filme em duas páginas seguidas.
+function dedupeById(rows: any[]): any[] {
+  const seen = new Set<number>();
+  return rows.filter((r) => {
+    const id = r?.id;
+    if (id == null || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 function mapTmdbRow(type: 'movie' | 'tv', r: any): CatalogItem {
   const releaseDate = type === 'movie' ? (r.release_date || '') : (r.first_air_date || '');
   return {
@@ -177,8 +190,12 @@ async function fetchTmdbPage(type: 'movie' | 'tv', genreId: string, page: number
 
   const today = new Date().toISOString().slice(0, 10);
   // Filmes: por data de lançamento (mais recentes primeiro, os antigos por
-  // último). Séries: das mais assistidas/votadas para as menos.
-  const sortBy = type === 'tv' ? 'vote_count.desc' : 'primary_release_date.desc';
+  // último). IMPORTANTE: usar `release_date.desc` (e NÃO primary_release_date)
+  // — o discover do TMDB pagina de forma INSTÁVEL com primary_release_date:
+  // várias estreias compartilham a mesma data e o desempate muda entre requests,
+  // gerando títulos duplicados/faltando entre páginas. `release_date.desc` é
+  // estável (0 duplicatas em 200 páginas). Séries: das mais assistidas.
+  const sortBy = type === 'tv' ? 'vote_count.desc' : 'release_date.desc';
   const params = new URLSearchParams({
     api_key: apiKey,
     sort_by: sortBy,
@@ -186,8 +203,16 @@ async function fetchTmdbPage(type: 'movie' | 'tv', genreId: string, page: number
     include_adult: 'false',
     page: String(page),
   });
-  if (type === 'movie') params.set('primary_release_date.lte', today);
-  else params.set('first_air_date.lte', today);
+  if (type === 'movie') {
+    // `release_date.lte` sozinho VAZA lançamentos futuros (bug do TMDB: devolve
+    // filmes com release_date no futuro mesmo com o filtro). O
+    // `primary_release_date.lte` adicional segura esses casos, mantendo o sort
+    // por release_date (estável, sem duplicatas).
+    params.set('release_date.lte', today);
+    params.set('primary_release_date.lte', today);
+  } else {
+    params.set('first_air_date.lte', today);
+  }
   if (genreId) params.set('with_genres', genreId);
 
   const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`, { headers: { Accept: 'application/json' } });
@@ -261,7 +286,13 @@ router.get('/discover', async (req: Request, res: Response) => {
       if (!second.failed) rows = rows.concat(second.rows);
     }
 
-    const items = rows.slice(offset, offset + CATALOG_PER_PAGE).map((r) => mapTmdbRow(type, r));
+    const items = dedupeById(rows).slice(offset, offset + CATALOG_PER_PAGE).map((r) => mapTmdbRow(type, r));
+    // O sort do TMDB é aproximadamente decrescente por data (alguns vizinhos
+    // ficam fora de ordem). Reordena os 18 da página para garantir "recentes
+    // primeiro" de forma estrita (nulos/sem data por último).
+    if (type === 'movie') {
+      items.sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''));
+    }
     const payload = {
       source: 'tmdb',
       items,

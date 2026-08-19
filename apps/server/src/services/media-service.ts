@@ -344,7 +344,7 @@ async function convertSidecarToVtt(sidecarPath: string, outVtt: string, projectI
     args.push('-c:s', 'webvtt', '-f', 'webvtt', outVtt);
   }
   try {
-    await runFfmpeg(args, 0, () => {}, projectId);
+    await runFfmpeg(args, 0, () => { }, projectId);
     if (!fs.existsSync(outVtt)) return false;
     return fs.statSync(outVtt).size > 100;
   } catch (e) {
@@ -369,7 +369,7 @@ async function importSidecarSubtitles(projectId: string, projectDir: string, mas
     artifacts.subs['pt-br'] = artifactOf(out);
     updatePrepState(projectId, 'partial', { artifacts });
   } catch (e) {
-    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
     console.warn(`[JackIn] Sidecar import failed: ${(e as Error).message}`);
   }
 }
@@ -447,7 +447,7 @@ export function cancelPreparation(projectId: string): boolean {
   if (proc) {
     try {
       proc.kill('SIGKILL');
-    } catch {}
+    } catch { }
     activeFfmpegProcesses.delete(projectId);
     cancelled = true;
   }
@@ -462,11 +462,11 @@ export function cancelPreparation(projectId: string): boolean {
       const files = fs.readdirSync(projectDir);
       for (const f of files) {
         if (f.includes('.tmp-')) {
-          try { fs.unlinkSync(path.join(projectDir, f)); } catch {}
+          try { fs.unlinkSync(path.join(projectDir, f)); } catch { }
         }
       }
     }
-  } catch {}
+  } catch { }
 
   return cancelled;
 }
@@ -500,7 +500,7 @@ function runFfmpeg(args: string[], durationSec: number, onProgress: (pct: number
       const overTotal = now - startedAt > totalMs;
       if (!stalled && !overTotal) return;
       clearInterval(watchdog);
-      try { proc.kill('SIGKILL'); } catch {}
+      try { proc.kill('SIGKILL'); } catch { }
       if (projectId && activeFfmpegProcesses.get(projectId) === proc) {
         activeFfmpegProcesses.delete(projectId);
       }
@@ -791,10 +791,10 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
   try {
     for (const f of fs.readdirSync(projectDir)) {
       if (f.includes('.tmp-')) {
-        try { fs.unlinkSync(path.join(projectDir, f)); } catch {}
+        try { fs.unlinkSync(path.join(projectDir, f)); } catch { }
       }
     }
-  } catch {}
+  } catch { }
   const master = getProjectMedia(projectId)?.videoPath && fs.existsSync(getProjectMedia(projectId)!.videoPath!)
     ? getProjectMedia(projectId)!.videoPath!
     : findMasterFile(projectDir);
@@ -861,7 +861,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
       if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
       await runFfmpeg(buildMasterArgs(info, tmp), info.duration, (pct) => emitPrep(projectId, 5 + pct * 0.25, 'Gerando master.mp4 (Safari)...'), projectId);
       if (isAborted()) {
-        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
         return;
       }
       if (!fs.existsSync(tmp)) throw new Error('master.mp4 não foi gerado');
@@ -870,7 +870,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
       artifacts.master = artifactOf(out);
       updatePrepState(projectId, 'partial', { artifacts });
     } catch (e) {
-      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
       return fail(e);
     }
   }
@@ -885,7 +885,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
       if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
       await runFfmpeg(buildPlayableArgs(info, tmp), info.duration, (pct) => emitPrep(projectId, 30 + pct * 0.4, 'Gerando playable.mp4 (Chrome)...'), projectId);
       if (isAborted()) {
-        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
         return;
       }
       if (!fs.existsSync(tmp)) throw new Error('playable.mp4 não foi gerado');
@@ -894,7 +894,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
       artifacts.playable = artifactOf(out);
       updatePrepState(projectId, 'partial', { artifacts });
     } catch (e) {
-      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
       return fail(e);
     }
   }
@@ -915,7 +915,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
         if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
         await runFfmpeg(buildAudioVariantArgs(info, track.index, tmp), info.duration, (pct) => emitPrep(projectId, 70 + ((i + pct / 100) / langs.length) * 20, `Gerando variante de áudio (${lang})...`), projectId);
         if (isAborted()) {
-          try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+          try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
           return;
         }
         if (!fs.existsSync(tmp)) throw new Error(`audio_${lang}.mp4 não foi gerado`);
@@ -924,7 +924,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
         artifacts.audio[lang] = artifactOf(out);
         updatePrepState(projectId, 'partial', { artifacts });
       } catch (e) {
-        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
         return fail(e);
       }
       i++;
@@ -942,9 +942,9 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
     const tmp = out + tmpSuffix;
     emitPrep(projectId, 92, `Extraindo legenda (${lang})...`);
     try {
-      await runFfmpeg(['-y', '-i', info.path, '-map', `0:${s.index}`, '-c:s', 'webvtt', '-f', 'webvtt', tmp], info.duration, () => {}, projectId);
+      await runFfmpeg(['-y', '-i', info.path, '-map', `0:${s.index}`, '-c:s', 'webvtt', '-f', 'webvtt', tmp], info.duration, () => { }, projectId);
       if (isAborted()) {
-        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
         return;
       }
       if (!fs.existsSync(tmp) || fs.statSync(tmp).size < 20) throw new Error(`legenda ${lang} vazia`);
@@ -952,7 +952,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
       fs.renameSync(tmp, out);
       artifacts.subs[lang] = artifactOf(out);
     } catch (e) {
-      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { }
       // Legenda é não-crítica: segue sem falhar.
       console.warn(`[JackIn] Legenda ${lang} falhou: ${(e as Error).message}`);
     }

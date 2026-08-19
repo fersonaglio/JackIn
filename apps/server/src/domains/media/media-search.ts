@@ -683,8 +683,10 @@ export function reconcileMovieStatus(projectId: string): void {
   } catch {}
   const sourceUrl = fc?.sourceUrl;
 
-  // 1) Se já possui master.mp4 ou arquivo completo sem download aria2 pendente:
-  if (hasMaster || (videoFile && !hasIncompleteAria)) {
+  const isVideoValid = videoFile && fs.existsSync(videoFile) && fs.statSync(videoFile).size > 50_000_000;
+
+  // 1) Se já possui master.mp4 ou arquivo de vídeo real completo (>50MB) sem download aria2 pendente:
+  if (hasMaster || (isVideoValid && !hasIncompleteAria)) {
     console.log(`[JackIn Media] Reconciliado: download ${id} estava completo (${videoFile || masterFile})`);
     db.run(
       'UPDATE projects SET status = ?, error_message = NULL, progress_pct = 100, progress_status = ?, video_path = ? WHERE id = ?',
