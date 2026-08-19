@@ -1,411 +1,453 @@
 # JackIn
 
-**Cinema P2P self-hosted — busque, baixe, assista e transmita para a TV.**
+**Cinema P2P self-hosted — busque, baixe, assista e transmita para a sua TV.**
 
-> JackIn é a parte "Flix" de um monorepo privado, extraída e publicada como projeto autônomo e open source.
+> JackIn é um ecossistema completo de streaming pessoal e cinema P2P autônomo, open source e 100% self-hosted.
 
-![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue) ![Versão](https://img.shields.io/badge/vers%C3%A3o-0.1.0-orange) ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
-
----
-
-## Índice
-
-- [Sobre](#sobre)
-- [✨ Funcionalidades](#-funcionalidades)
-- [Arquitetura](#arquitetura)
-- [Stack](#stack)
-- [Estrutura do projeto](#estrutura-do-projeto)
-- [Como rodar local](#como-rodar-local)
-- [Docker](#docker)
-- [API](#api)
-- [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Google Cast](#google-cast)
-- [Segurança & Aviso legal](#segurança--aviso-legal)
-- [Roadmap](#roadmap)
-- [Licença](#licença)
-- [Agradecimentos](#agradecimentos)
+![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue) ![Versão](https://img.shields.io/badge/vers%C3%A3o-0.1.0-orange) ![Status](https://img.shields.io/badge/status-ativo-brightgreen) ![Node](https://img.shields.io/badge/Node.js-20%2B-green) ![Next.js](https://img.shields.io/badge/Next.js-16-black) ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 
 ---
 
-## Sobre
+## 📑 Índice
 
-O JackIn é um **cinema pessoal rodando na sua máquina**: ele busca torrents em múltiplos indexadores, baixa com segurança, organiza sua biblioteca de filmes e séries, reproduz em um player de cinema com faixas de áudio e legendas, e **transmite para a TV via Google Cast** — tudo self-hosted, gratuito e **sem login**.
-
-Nada de conta, nada de nuvem, nada de assinatura: o JackIn não hospeda conteúdo — ele apenas **localiza e baixa o que você decidir buscar**, e a responsabilidade sobre o uso é exclusivamente sua (veja o [aviso legal](#segurança--aviso-legal)).
-
----
-
-## ✨ Funcionalidades
-
-### 🔍 Busca multi-fonte
-- Consulta paralela em **The Pirate Bay (via apibay)**, **YTS**, **1337x (via FlareSolverr)**, **Nyaa**, **Prowlarr** e **sites brasileiros curados** (catálogos manuais de dublagens PT-BR).
-- Interpretação de consultas por LLM (opcional): "aquela saga do anel" vira "O Senhor dos Anéis" (`/api/media-search/enhanced`).
-- Preferência de áudio (dublado/dual), ranking por seeders, qualidade e disponibilidade PT-BR; opções organizadas em tiers (4K/1080p/720p).
-- Enriquecimento de metadados via **TMDB** (pôster/backdrop/sinopse, com fallback para o iTunes) e merge com o catálogo da Wikipedia.
-
-### 📚 Catálogo paginado (Filmes / Séries)
-- Páginas de **Filmes** (`/filmes`) e **Séries** (`/series`) com **15 títulos por página**, ordenados por **relevância e ano** — mais recentes primeiro, clássicos nas últimas páginas.
-- **Carregamento progressivo**: o catálogo cresce conforme você avança — perto do fim do que já foi baixado (~5 páginas), o próximo lote de títulos é buscado automaticamente e os clássicos novos entram nas últimas páginas.
-- **Pré-carregamento**: lote a lote (160 títulos, cacheado no servidor), paginação no cliente — troca de página instantânea; posters da próxima página são pré-carregados.
-- Paginação **janelada** (5 páginas antes + 5 depois, com primeira/última e reticências) sincronizada com a URL (`?page=2&genre=scifi`).
-- Fonte: **TMDB Discover** (relevância/popularidade de todas as eras), com fallback para o feed iTunes sem chave TMDB. Filtros por gênero (Ação, Ficção Científica, Animação) e Lançamentos.
-
-### 📥 Download seguro (Media Shield em 3 camadas)
-1. **Whitelist/blacklist de extensões** — apenas contêineres de vídeo conhecidos; `.exe`, `.scr`, `.zip`, `.iso` etc. são bloqueados.
-2. **Inspeção fail-closed via ffprobe** — o arquivo precisa ter vídeo + áudio (≥ estéreo) decodificáveis; qualquer falha de parse é rejeição.
-3. **Quarentena em vez de deleção** — arquivo reprovado vai para `*.quarantine`, nunca some silenciosamente.
-- **aria2 nativo** (download seletivo por índice, com cascata de magnets alternativos) com **fallback WebTorrent**; pausar, retomar e tentar novamente a partir da interface.
-- Guarda contra path traversal em nomes de arquivo do torrent.
-
-### 🎬 Player de cinema
-- Faixas de áudio selecionáveis (dublado PT, original, etc.), legendas **WebVTT** e **remux/transcode via FFmpeg** sob demanda.
-- Preparação automática por alvo: `master.mp4` (Safari) e `playable.mp4` (Chrome, H.264) com extração de legendas embutidas.
-- Classificação inteligente do arquivo: `direct` (sem re-encode), `remux` ou `transcode` — só re-codifica quando necessário.
-
-### 📺 Séries
-- Importação de **temporada inteira a partir de UM magnet pack** (`--select-file` por episódio, casamento exato de `SxxExx`), com retomada idempotente.
-- Agrupamento automático: todas as temporadas de uma série sob uma única entrada, com episódios organizados por temporada.
-
-### 🗂️ Biblioteca com progresso
-- Filmes e séries organizados em grade, com pôsteres, detalhes e **progresso de reprodução salvo** (retoma de onde parou, inclusive após transmitir para a TV).
-
-### 📡 Google Cast para TV (grátis)
-- Botão de transmitir no player usando o **Default Media Receiver** do Google — sem custo, sem app de receiver próprio.
-- Detecção automática do **IP da LAN** (`/api/lan-ip`) e redirecionamento das URLs de mídia para a rede local.
-- Legendas e áudio via **Cast tracks**; progresso sincronizado de volta para a biblioteca.
-
-### 🇧🇷 Legendas PT-BR
-- Busca automática no **OpenSubtitles** (hash oficial v3 do arquivo), convertida para WebVTT e servida pelo próprio servidor — também durante o Cast.
+- [Sobre o Projeto](#-sobre-o-projeto)
+- [✨ Principais Funcionalidades](#-principais-funcionalidades)
+- [🏗️ Arquitetura do Sistema](#️-arquitetura-do-sistema)
+- [💻 Stack Tecnológica](#-stack-tecnológica)
+- [📂 Estrutura do Monorepo](#-estrutura-do-monorepo)
+- [🚀 Como Executar Localmente](#-como-executar-localmente)
+- [🐳 Infraestrutura Docker (Opcional)](#-infraestrutura-docker-opcional)
+- [🔌 Referência Completa da API](#-referência-completa-da-api)
+- [⚙️ Variáveis de Ambiente](#️-variáveis-de-ambiente)
+- [📺 Google Cast (Transmissão para TV)](#-google-cast-transmissão-para-tv)
+- [🛡️ Segurança, Media Shield & Aviso Legal](#️-segurança-media-shield--aviso-legal)
+- [🗺️ Roadmap](#️-roadmap)
+- [📄 Licença](#-licença)
+- [💙 Agradecimentos](#-agradecimentos)
 
 ---
 
-## Arquitetura
+## 🎬 Sobre o Projeto
 
-O JackIn é um monorepo npm com três aplicações: web (Next.js), API (Express) e engine de mídia (Python), mais infraestrutura opcional via Docker.
+O **JackIn** transforma seu computador em um servidor de streaming pessoal de alta performance. Ele agrega múltiplos indexadores de mídia pública, realiza downloads seguros com validação de integridade por antivírus/ffprobe, cataloga seus filmes e séries, extrai legendas e faixas de áudio, e entrega uma experiência cinematográfica fluida no navegador ou direto na sua TV via Google Cast.
+
+* **100% Sem Login e Sem Nuvem:** Nada de contas, dados na nuvem ou assinaturas.
+* **Self-Hosted:** Seus arquivos, metadados e histórico permanecem exclusivamente no seu armazenamento local.
+* **Pronto para Uso:** Funciona imediatamente sem exigir chaves de API pagas ou configurações complexas.
+
+---
+
+## ✨ Principais Funcionalidades
+
+### 🔍 1. Busca Multi-Fonte Inteligente & Paralela
+* **Consulta Paralela com Isolamento de Falhas:** Varredura concorrente em **The Pirate Bay (apibay)**, **YTS**, **1337x (via FlareSolverr)**, **Nyaa**, **Prowlarr** e **sites brasileiros curados** (como *BaixeTorrents*, *MestreDosFilmes* e *LimonTorrents*).
+* **Classificação e Priorização de Áudio:** Reconhecimento automático de releases **Dublado PT-BR**, **Dual Áudio**, **Legendado PT-BR** e **Áudio Original**.
+* **Interpretação e Expansão de Consultas:** Normalização de títulos compostos (ex.: *"O Senhor dos Anéis: A Sociedade do Anel"* ↔ *"The Lord of the Rings: The Fellowship of the Ring"*), tratamento de franquias e remoção de termos ruído.
+* **Tiers de Qualidade e Ordenação:** Classificação de opções por resolução e fonte (**4K Ultra HD**, **1080p Full HD**, **720p HD**, **Outros**) com pontuação baseada em seeders reais e integridade.
+* **Metadados em Alta Definição:** Enriquecimento com pôsteres, backdrops, sinopses, notas e gêneros via **TMDB API** (com fallback automático para a **iTunes Store Search API**).
+
+### 📚 2. Catálogo Paginado (Filmes & Séries)
+* **Páginas Dedicadas:** Navegação fluida em `/filmes` e `/series` com **18 títulos por página**.
+* **Filtros Avançados por Gênero:** Ação, Ficção Científica, Animação, Comédia, Terror, Romance, Drama, Suspense, Documentário e muito mais.
+* **Paginação com Salto Direto:** Interface de paginação janelada com acesso direto a qualquer página, sincronizada via query parameters na URL (`?page=2&genre=scifi`).
+* **Carregamento Otimizado:** Pré-carregamento dinâmico de pôsteres e dados em cache no servidor para transições de página instantâneas.
+
+### 🛡️ 3. Media Shield & Download Resiliente (3 Camadas)
+* **Camada 1 — Filtragem Estrita de Extensões:** Whitelist de contêineres de vídeo válidos (`.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.m4v`, `.ts`, `.m2ts`) e bloqueio ativo de arquivos executáveis ou perigosos (`.exe`, `.scr`, `.bat`, `.vbs`, `.zip`, `.iso`, etc.).
+* **Camada 2 — Sondagem Fail-Closed com FFprobe:** O download só é aprovado se o contêiner tiver fluxos decodificáveis reais de vídeo e áudio (estéreo ou multicanal 5.1/7.1). Arquivos sem áudio ou corrompidos são rejeitados.
+* **Camada 3 — Quarentena Segura:** Arquivos reprovados são isolados em arquivos `*.quarantine` para diagnóstico, prevenindo perda de dados ou deleção acidental.
+* **Motor BitTorrent P2P com aria2:** Download multithread de alta performance com DHT/PEX e lista de trackers públicos.
+* **Cascata Inteligente de Fallback:** Se o magnet principal estiver inativo (0 seeders), o sistema tenta automaticamente os magnets alternativos coletados na busca.
+* **Auto-Retry & Controles:** Retentativas automáticas com backoff exponencial para falhas transitórias, além de suporte nativo para **Pausar**, **Retomar** e **Tentar Novamente**.
+
+### 🎬 4. Player de Cinema Avançado (CinemaPlayer)
+* **Reprodução Imersiva:** Player moderno construído em React 19 e framer-motion com tema escuro cinematográfico.
+* **Seleção de Faixas de Áudio & Legendas:** Alternância dinâmica entre múltiplos canais de áudio e legendas WebVTT extraídas ou baixadas.
+* **Streaming sob Demanda (HTTP 206 Range):** Reprodução instantânea com suporte a busca rápida na linha do tempo.
+* **Motor de Preparação de Mídia (`media-service.ts`):**
+  * `direct`: Transmissão direta sem overhead para arquivos compatíveis.
+  * `remux`: Reempacotamento ultra-rápido de contêiner sem recodificação de vídeo.
+  * `transcode`: Conversão sob demanda com suporte a aceleração por hardware (VideoToolbox no macOS).
+  * **Compensação HE-AAC:** Correção de priming delay para prevenir dessincronia de áudio e vídeo em navegadores.
+* **Atalhos de Teclado Completos:** Espaço (Play/Pause), Setas (Seek e Volume), `F` (Tela Cheia), `M` (Mudo), `J`/`L` (±10s).
+* **Legendas Automáticas OpenSubtitles:** Download sob demanda de legendas em português do Brasil sincronizadas via hash de arquivo.
+
+### 📺 5. Séries & Packs de Temporadas
+* **Importação de Temporada Completa:** Download seletivo de episódios individuais a partir de um único magnet pack de temporada (`--select-file`).
+* **Agrupamento Automático:** Unificação de todas as temporadas e episódios sob uma única entidade de série (`series_id`).
+* **Preparo Individual:** Processamento independente de episódios para que fiquem imediatamente prontos para reprodução.
+
+### 🗄️ 6. Biblioteca Pessoal & Histórico
+* **Grade da Biblioteca:** Gerenciamento de itens baixados, em andamento, pausados ou concluídos.
+* **Sincronização de Progresso:** Posição salva automaticamente em tempo real para retomar de onde parou em qualquer dispositivo.
+* **Histórico Detalhado:** Registro de itens assistidos com filtros, data e opção de limpeza.
+
+### 📡 7. Google Cast Integrado (Transmissão para TV)
+* **100% Gratuito:** Utiliza o *Google Default Media Receiver* — sem necessidade de conta de desenvolvedor do Google Cast ou app de receiver pago.
+* **Descoberta Automática de IP da LAN:** Roteamento automático da mídia substituindo `localhost` pelo IP local do servidor (`/api/lan-ip`).
+* **Trilhas de Áudio e Legendas na TV:** Transmissão de legendas WebVTT e seleção de áudio via Cast tracks.
+* **Sincronização Bidirecional:** O progresso assistido na TV é sincronizado de volta para a biblioteca do computador.
+
+---
+
+## 🏗️ Arquitetura do Sistema
 
 ```mermaid
-flowchart LR
-    subgraph Browser["Navegador (Chrome)"]
-        UI["Next.js :3000<br/>Interface PT-BR"]
-        CAST["Player + SDK Google Cast"]
+flowchart TB
+    subgraph Client["Cliente (Navegador Chrome / Web)"]
+        UI["Next.js 16 (Porta 3000)<br/>React 19 + Tailwind CSS v4"]
+        PLAYER["CinemaPlayer<br/>Áudio / Legendas / Controles"]
+        CAST_SDK["Google Cast Sender SDK"]
     end
 
-    subgraph Server["Node (Express 4 :3001)"]
-        API["/api/*<br/>media-search, media-library, lan-ip"]
-        DB[("sql.js / SQLite<br/>projetos, séries, progresso")]
-        DL["torrent-downloader.ts<br/>aria2 → WebTorrent"]
-        PREP["media-service.ts<br/>ffprobe → remux/transcode"]
+    subgraph Server["Servidor API (Node.js Express 4 :3001)"]
+        ROUTER["Rotas da API (/api/*)<br/>media-search, media-library, catalog, lan-ip"]
+        DB[("sql.js (SQLite WASM)<br/>projects, watch_history")]
+        PREP_SRV["media-service.ts<br/>ffprobe probe, remux, transcode, WebVTT"]
+        NET_SRV["network.ts<br/>Descoberta de IP LAN"]
     end
 
-    subgraph Py["Python (venv)"]
-        ENG["media_search_engine.py<br/>rank + merge + metadados"]
-        SHIELD["download_movie.py + media_shield.py<br/>cascata de magnets + 3 camadas"]
-        SUBS["subtitle_service.py<br/>OpenSubtitles PT-BR"]
+    subgraph PythonEngine["Motor Python (apps/python-services)"]
+        SEARCH_ENG["media_search_engine.py<br/>Busca Concorrente + Ranking + TMDB"]
+        DOWNLOADER["download_movie.py<br/>aria2c + Media Shield 3 Camadas"]
+        SUB_SRV["subtitle_service.py<br/>OpenSubtitles Hash Matcher"]
     end
 
-    subgraph Fontes["Fontes (paralelas)"]
-        TPB["apibay"]
-        YTS["YTS"]
-        X1337["1337x (FlareSolverr)"]
-        NYAA["Nyaa"]
-        PRW["Prowlarr"]
-        BR["Sites BR curados"]
+    subgraph Scrapers["Fontes de Mídia & Indexadores"]
+        APIBAY["The Pirate Bay (apibay)"]
+        YTS["YTS.MX (4K/1080p)"]
+        X1337["1337x (via FlareSolverr)"]
+        NYAA["Nyaa Tracker"]
+        PROWLARR["Prowlarr (Docker)"]
+        BR_SITES["Sites BR Curados (WordPress)"]
     end
 
-    UI --> API
-    UI --> CAST
-    API --> DB
-    API --> ENG
-    API --> DL
-    API --> PREP
-    API --> SUBS
-    ENG --> TPB & YTS & X1337 & NYAA & PRW & BR
-    DL --> SHIELD
-    CAST -->|"GET /api/lan-ip"| API
-    CAST -->|"HTTP (LAN) Range/206 + WebVTT"| PREP
-    CAST -->|"Default Media Receiver"| TV["TV / Chromecast"]
+    subgraph External["Serviços Externos & Dispositivos"]
+        TMDB["TMDB API / iTunes API"]
+        OPENSUB["OpenSubtitles REST API"]
+        CHROMECAST["Chromecast / Android TV<br/>(Default Media Receiver)"]
+    end
+
+    UI -->|"Requisições REST"| ROUTER
+    PLAYER -->|"Stream HTTP 206 Range"| PREP_SRV
+    CAST_SDK -->|"Transmite Mídia via LAN"| CHROMECAST
+    ROUTER --> DB
+    ROUTER -->|"Executa subprocessos"| SEARCH_ENG & DOWNLOADER & SUB_SRV
+    SEARCH_ENG --> Scrapers
+    SEARCH_ENG --> TMDB
+    DOWNLOADER -->|"Baixa via BitTorrent"| Scrapers
+    SUB_SRV --> OPENSUB
+    NET_SRV -->|"Fornece IP da LAN"| CAST_SDK
+    PREP_SRV -->|"Serve H.264 + WebVTT"| CHROMECAST
 ```
 
-### Fluxos principais
-
-**1. Busca** — o cliente chama a API do Next.js, que consulta o catálogo (Wikipedia) em paralelo com a engine Express `/api/media-search/enhanced`. A engine dispara o Python, que consulta **todas as fontes em paralelo** com isolamento de falha (uma fonte fora do ar nunca derruba as outras), merge por infohash, ranking e enriquecimento TMDB/iTunes. Timeout rígido de 180s e kill do processo se o cliente desconectar.
-
-**2. Download** — `POST /api/media-search/download` cria o projeto no SQLite e dispara o worker Python: tenta magnets em **cascata** (aborta candidato lento após ~90s, limpa parciais e parte para o próximo), baixa com aria2 e passa pelo **Media Shield** antes de renomear para `original.<ext>`. Para séries, `import-season` baixa seletivamente cada episódio de um pack único.
-
-**3. Preparação e streaming** — `prepareProject` sonda o arquivo com ffprobe, classifica (`direct`/`remux`/`transcode`), gera os artefatos por alvo (`master.mp4`, `playable.mp4`, legendas `subs_*.vtt`) e o player consome o vídeo via **Range requests (HTTP 206)**.
-
-**4. Cast** — o player busca `/api/lan-ip`, reescreve a URL da mídia trocando `localhost` pelo IP da LAN e forçando `target=h264` (único codec do receiver padrão), anexa legendas WebVTT + faixa de áudio como **Cast tracks** e a TV baixa a mídia direto do servidor. O progresso volta ao servidor a cada ~3,5s.
-
 ---
 
-## Stack
+## 💻 Stack Tecnológica
 
-| Camada | Tecnologia | Papel |
+| Camada | Tecnologia | Propósito |
 |---|---|---|
-| Frontend | **Next.js 16** (App Router) + **React 19** | Interface PT-BR, rotas de catálogo/API |
-| UI | **Tailwind CSS v4** + **framer-motion** | Estilo e animações |
-| API | **Express 4 + TypeScript** (tsx) | Servidor de mídia, biblioteca e busca |
-| Banco | **sql.js** (SQLite via WASM) | Projetos, séries, episódios, progresso |
-| Engine de mídia | **Python 3.11+** | Busca multi-fonte, download, shield, legendas |
-| Torrent | **aria2** (primário) + **WebTorrent** (fallback) | Download de magnets com seleção de arquivo |
-| Mídia | **FFmpeg / ffprobe** | Inspeção, remux, transcode, WebVTT |
-| Agregação | **Prowlarr** (Docker, opcional) | Indexadores unificados via API |
-| Anti-bot | **FlareSolverr** (Docker, opcional) | Bypass de Cloudflare no 1337x |
-| Cast | **Google Cast SDK** (Default Media Receiver) | Transmissão para TV, gratuita |
-| Metadados | **TMDB** (opcional) / **iTunes RSS** | Pôsteres, backdrops e sinopses |
-| Legendas | **OpenSubtitles** (opcional) | Legendas PT-BR automáticas |
+| **Frontend** | **Next.js 16 (App Router)** + **React 19** | Interface web responsiva, renderização otimizada e rotas de catálogo |
+| **Estilização** | **Tailwind CSS v4** + **framer-motion** | Design system moderno com micro-interações fluidas |
+| **Backend API** | **Express 4** + **TypeScript (tsx)** | Servidor de API REST, gerenciamento de projetos e streaming de mídia |
+| **Banco de Dados** | **sql.js (SQLite)** | Armazenamento local persistido em arquivo (`data/jackin.db`) |
+| **Engine de Mídia** | **Python 3.11+** | Scraping concorrente, expansão de consultas, Media Shield e automação |
+| **Downloader P2P** | **aria2** (nativo) + **WebTorrent** (fallback) | Download BitTorrent de alta velocidade com suporte a seleção de arquivos |
+| **Processamento Audiovisual** | **FFmpeg** & **FFprobe** | Inspeção técnica de faixas, remuxing em tempo real, transcodificação e legendas |
+| **Agregação de Torrents** | **Prowlarr** (Opcional via Docker) | Unificação e gestão de indexadores adicionais |
+| **Bypass Anti-Bot** | **FlareSolverr** (Opcional via Docker) | Resolução de desafios Cloudflare em fontes protegidas |
+| **Transmissão para TV** | **Google Cast SDK** | Streaming direto para Smart TVs e Chromecasts |
+| **Metadados & Legendas** | **TMDB API**, **iTunes API**, **OpenSubtitles** | Pôsteres, sinopses e legendas sincronizadas em português |
 
 ---
 
-## Estrutura do projeto
+## 📂 Estrutura do Monorepo
 
 ```
 JackIn/
 ├── apps/
-│   ├── web/                        # Frontend — Next.js 16 (porta 3000)
+│   ├── web/                              # Frontend Next.js 16
+│   │   ├── src/
+│   │   │   ├── app/                      # Páginas: /, /filmes, /series, /search, /biblioteca
+│   │   │   │   └── api/                  # Rotas Next.js (catálogo, itunes)
+│   │   │   ├── components/               # Componentes modulares
+│   │   │   │   ├── layout/               # Header, Sidebar, AppShell
+│   │   │   │   ├── media/                # CinemaPlayer, MediaCard, SearchBar, DownloadDock, modais...
+│   │   │   │   └── ui/                   # Modais de confirmação, botões, diálogos
+│   │   │   ├── hooks/                    # useCast, useCatalog, useMediaExplorer...
+│   │   │   ├── lib/                      # cast.ts, api.ts, catalogSearch.ts...
+│   │   │   └── types/                    # media.ts, cast.d.ts...
+│   │   └── e2e/                          # Testes E2E com Playwright
+│   ├── server/                           # Backend Express + TypeScript
 │   │   └── src/
-│   │       ├── app/                # Páginas: /, /filmes, /series, /search, /media
-│   │       │   └── api/            # Rotas Next: /api (catálogo), /api/itunes
-│   │       ├── components/
-│   │       │   ├── layout/         # AppShell, Sidebar, Header
-│   │       │   ├── media/          # CinemaPlayer, LibraryGrid, DownloadDock,
-│   │       │   │                   # SearchResults*, TorrentOption*, modais...
-│   │       │   └── ui/             # DeleteDialog
-│   │       ├── hooks/              # useCast, useCatalog, useMediaExplorer...
-│   │       ├── lib/                # cast.ts, wikipedia.ts, catalogSearch.ts
-│   │       ├── types/              # media.ts, cast.d.ts
-│   │       └── e2e/                # Playwright: search, catalog, download, cast
-│   ├── server/                     # API — Express 4 + TS (porta 3001)
-│   │   └── src/
-│   │       ├── domains/media/      # media-search, media-search-llm,
-│   │       │                       # torrent-downloader, trackers
-│   │       └── services/           # media-service (prepare/transcode),
-│   │                               # network (LAN IP), progress-events,
-│   │                               # language-map, binary-paths
-│   └── python-services/            # Engine Python (venv)
-│       ├── core/                   # telemetry_utils
-│       └── modules/media/          # media_search_engine, download_movie,
-│                                   # media_shield, subtitle_service,
-│                                   # sources*, matcher, normalize, query_expansion
-├── data/                           # Runtime: SQLite + projetos (gitignored)
-│   └── projects/<id>/              # original.*, master.mp4, playable.mp4, subs_*.vtt
-├── dev.js                          # Launcher simultâneo dev:server + dev:web
-├── docker-compose.yml              # Prowlarr + FlareSolverr (infra opcional)
-├── .env.example                    # Modelo de configuração (sem segredos)
-├── tsconfig.base.json
-├── LICENSE                         # MIT
-└── package.json                    # npm workspaces (apps/*)
+│   │       ├── db/                       # Inicialização e persistência do SQLite (sql.js)
+│   │       ├── domains/
+│   │       │   ├── library/              # Gerenciamento de biblioteca, catálogo e histórico
+│   │       │   └── media/                # Busca de mídia, downloader e agendamento de retries
+│   │       └── services/                 # media-service (FFmpeg), network (LAN IP), progress-events
+│   └── python-services/                  # Motor de busca e download em Python
+│       └── modules/media/                # media_search_engine, download_movie, media_shield,
+│                                         # sources_*, normalize, matcher, subtitle_service...
+├── data/                                 # Diretório de execução (SQLite + arquivos baixados)
+│   ├── jackin.db                         # Banco de dados local SQLite
+│   └── projects/<id>/                    # Arquivos master.mp4, playable.mp4, subs_*.vtt, thumbnail.jpg
+├── dev.js                                # Script de inicialização simultânea dos serviços
+├── docker-compose.yml                    # Configuração de serviços de apoio (Prowlarr, FlareSolverr)
+├── .env.example                          # Modelo de variáveis de ambiente
+├── tsconfig.base.json                    # Configuração base de TypeScript
+├── package.json                          # Configuração do monorepo npm workspaces
+└── LICENSE                               # Licença MIT
 ```
 
 ---
 
-## Como rodar local
+## 🚀 Como Executar Localmente
 
-### Pré-requisitos
+### 📋 Pré-requisitos
 
-| Dependência | Versão | Observação |
+| Ferramenta | Versão Mínima | Finalidade |
 |---|---|---|
-| Node.js | **20+** | Runtime da web e da API |
-| Python | **3.11+** | Engine de busca/download (`requests` e `tqdm` no `requirements.txt`) |
-| FFmpeg + ffprobe | recente | Remux/transcode e inspeção (`FFMPEG_BIN`/`FFPROBE_BIN` se não estiverem no PATH) |
-| aria2 | recente | Download nativo de alta velocidade (opcional — sem ele, cai para WebTorrent) |
-| Docker (opcional) | — | Prowlarr + FlareSolverr para indexadores e bypass de Cloudflare |
+| **Node.js** | **20.x ou superior** | Execução do frontend web e servidor Express |
+| **Python** | **3.11 ou superior** | Execução do motor de busca e validação de mídia |
+| **FFmpeg & FFprobe** | Versão recente | Inspeção de arquivos, remux e transcodificação |
+| **aria2** | Versão recente (`aria2c`) | Downloader BitTorrent de alta velocidade |
+| **Docker** *(Opcional)* | Versão recente | Execução do Prowlarr e FlareSolverr |
 
-### Passo a passo
+> 💡 **Dica (macOS via Homebrew):** `brew install node python ffmpeg aria2`  
+> 💡 **Dica (Ubuntu/Debian via apt):** `sudo apt update && sudo apt install -y nodejs npm python3 python3-venv ffmpeg aria2`
+
+---
+
+### 🛠️ Instalação Passo a Passo
 
 ```bash
-# 1. Instalar dependências (workspaces npm)
+# 1. Clone o repositório
+git clone https://github.com/fersonaglio/JackIn.git
+cd JackIn
+
+# 2. Instale as dependências do monorepo
 npm install
 
-# 2. Criar o ambiente Python da engine de busca/download
+# 3. Configure o ambiente virtual Python
 python3 -m venv .venv
 .venv/bin/pip install -r apps/python-services/requirements.txt
-#    Se o Python não estiver no caminho esperado, defina PYTHON_BIN no .env
 
-# 3. Configurar variáveis de ambiente
+# 4. Crie o arquivo de ambiente a partir do modelo
 cp .env.example .env
-#    → edite apenas o que for usar (tudo funciona vazio; veja a tabela abaixo)
-
-# 4. Subir a API (porta 3001)
-npm run dev:server
-
-# 5. Em outro terminal, subir a web (porta 3000)
-npm run dev:web
+# (Opcional) Adicione sua TMDB_API_KEY no .env para pôsteres e metadados completos
 ```
 
-Ou, com um único comando (launcher `dev.js`, encerra ambos no Ctrl+C):
+---
+
+### ▶️ Iniciando o Projeto
+
+Para rodar todo o ecossistema com um único comando (frontend + backend sincronizados com encerramento automático em `Ctrl+C`):
 
 ```bash
 npm run dev:all
 ```
 
-Abra **http://localhost:3000**. A primeira busca já funciona sem configuração adicional; indexadores extras (Prowlarr/FlareSolverr) e chaves de metadados/legendas são opcionais.
-
-### Testes
+Ou execute individualmente em terminais separados:
 
 ```bash
-# Frontend (Vitest)
-npm test -w apps/web
+# Terminal 1 — Servidor API (Porta 3001)
+npm run dev:server
 
-# API (Vitest)
-npm test -w apps/server
-
-# Engine Python (unitários de busca)
-python3 apps/python-services/modules/media/test_search_unit.py
+# Terminal 2 — Frontend Web (Porta 3000)
+npm run dev:web
 ```
 
-Também há specs de E2E com Playwright em `apps/web/e2e/` (busca, catálogo, download e Cast).
+Acesse **[http://localhost:3000](http://localhost:3000)** no seu navegador.
 
 ---
 
-## Docker
+### 🧪 Executando Testes
 
-O `docker-compose.yml` sobe a **infraestrutura opcional** (indexadores e anti-bot). A web e a API rodam localmente via npm — o container só agrega fontes para o engine.
+```bash
+# Testes unitários do Frontend (Vitest)
+npm test -w apps/web
+
+# Testes unitários do Servidor API (Vitest)
+npm test -w apps/server
+
+# Testes unitários do Motor de Busca Python
+python3 apps/python-services/modules/media/test_search_unit.py
+
+# Testes de Ponta a Ponta E2E (Playwright)
+npx playwright test -c apps/web/playwright.config.ts
+```
+
+---
+
+## 🐳 Infraestrutura Docker (Opcional)
+
+Para expandir o alcance das buscas com indexadores adicionais e bypass automatizado de proteções Cloudflare:
 
 ```bash
 docker compose up -d
 ```
 
-| Serviço | Imagem | Porta | Finalidade |
+| Serviço | Porta | Descrição |
+|---|---|---|
+| **Prowlarr** | `9696` | Agregador de indexadores de torrents (configure `PROWLARR_URL` e `PROWLARR_API_KEY` no `.env`) |
+| **FlareSolverr** | `8191` | Serviço proxy para resolução de desafios Cloudflare em sites como o 1337x (`FLARESOLVERR_URL`) |
+
+---
+
+## 🔌 Referência Completa da API
+
+A API HTTP do JackIn opera por padrão em `http://localhost:3001/api`.
+
+### 🔍 Busca & Downloads — `/api/media-search`
+
+| Método | Endpoint | Descrição | Parâmetros / Body |
 |---|---|---|---|
-| `prowlarr` | `lscr.io/linuxserver/prowlarr:latest` | `9696` | Agregador de indexadores (defina `PROWLARR_URL`/`PROWLARR_API_KEY` no `.env`) |
-| `flaresolverr` | `ghcr.io/flaresolverr/flaresolverr:latest` | `8191` | Resolve desafios Cloudflare (1337x); defina `FLARESOLVERR_URL` |
+| `GET` | `/api/media-search/search` | Busca paralela multi-fonte | `q`, `audio` (`dub`, `dual`, `ptbr`, `original`, `any`), `year`, `genre` |
+| `GET` | `/api/media-search/enhanced` | Busca enriquecida com normalização TMDB | `q`, `audio`, `year`, `genre` |
+| `POST` | `/api/media-search/download` | Inicia o download de um filme ou episódio | `{ title, quality, sourceUrl, posterUrl, altSourceUrls, requirePt, seriesTitle, seasonNumber, episodeNumber }` |
+| `POST` | `/api/media-search/retry/:projectId` | Força a retentativa de download/preparo | ID do projeto |
+| `POST` | `/api/media-search/pause/:projectId` | Pausa o download ativo | ID do projeto |
+| `POST` | `/api/media-search/resume/:projectId` | Retoma o download pausado | ID do projeto |
+| `POST` | `/api/media-search/subtitles/:projectId` | Busca legendas PT-BR no OpenSubtitles | ID do projeto |
+| `POST` | `/api/media-search/import-season` | Importa temporada completa via pack | `{ seriesTitle, seasonNumber, magnetUrl, episodes: [...] }` |
 
 ---
 
-## API
+### 📚 Biblioteca & Histórico — `/api/media-library` e `/api/projects`
 
-Base: `http://localhost:3001/api` (configurável via `NEXT_PUBLIC_API_URL`). Todas as respostas seguem um envelope `{ success/error, data?, ... }` consistente. As rotas de busca podem levar dezenas de segundos (multi-fonte) e retornam opções de download por tier de qualidade.
+| Método | Endpoint | Descrição | Parâmetros / Body |
+|---|---|---|---|
+| `GET` | `/api/projects` | Lista todos os projetos da biblioteca | `?type=movie` ou `?type=series` |
+| `GET` | `/api/projects/:id` | Retorna os detalhes de um projeto específico | ID do projeto |
+| `DELETE` | `/api/projects/:id` | Remove o projeto e exclui arquivos do disco | `?deleteFiles=true` |
+| `GET` | `/api/projects/series/:seriesId` | Retorna episódios agrupados de uma série | ID da série |
+| `DELETE` | `/api/projects/series/:seriesId` | Exclui todos os episódios de uma série | `?deleteFiles=true` |
+| `GET` | `/api/projects/history/all` | Retorna o histórico de reprodução | — |
+| `DELETE` | `/api/projects/history/:id` | Remove um item do histórico | ID do item |
+| `GET` | `/api/projects/:id/progress` | Consulta o progresso salvo (tempo em segundos) | ID do projeto |
+| `PUT` | `/api/projects/:id/progress` | Salva o progresso de reprodução | `{ position: number }` |
+| `PUT` | `/api/projects/:id/watched` | Marca/desmarca projeto como assistido | `{ watched: boolean }` |
 
-### Busca e downloads — `/api/media-search`
+---
 
-| Rota | Método | Descrição |
+### 🎥 Streaming & Mídia — `/api/projects/:id/*`
+
+| Método | Endpoint | Descrição |
 |---|---|---|
-| `/api/media-search/search` | GET | Busca multi-fonte (`q`, `audio=dub`, `ptTitle`, `year`, `posterUrl`, `overview`, `genre`). Timeout rígido de 180s |
-| `/api/media-search/enhanced` | GET | Mesma busca com interpretação de consulta por LLM; degrada para `/search` sem chave |
-| `/api/media-search/download` | POST | Cria o projeto e inicia o download (`title`, `sourceUrl`, `quality`, `posterUrl`, `seriesTitle`, `seasonNumber`, `episodeNumber`, `episodeTitle`) |
-| `/api/media-search/retry/:projectId` | POST | Tenta novamente: re-download ou re-prepare (se o vídeo já existe em disco) |
-| `/api/media-search/pause/:projectId` | POST | Pausa o download ativo (SIGSTOP no aria2 / pause no WebTorrent) |
-| `/api/media-search/resume/:projectId` | POST | Retoma o download (SIGCONT / resume) |
-| `/api/media-search/subtitles/:projectId` | POST | Busca legenda PT-BR no OpenSubtitles e grava `subs_ptbr.vtt` ao lado do vídeo |
-| `/api/media-search/import-season` | POST | Importa temporada completa de UM magnet pack (`seriesTitle`, `seasonNumber`, `magnetUrl`, `episodes[]`); baixa seletivamente cada episódio |
+| `GET` | `/api/projects/:id/video` | Stream de vídeo com suporte a **HTTP 206 Partial Content (Range)**. Suporta `?target=h264` e `?audio=<lang>` |
+| `GET` | `/api/projects/:id/tracks` | Lista faixas de áudio e legendas disponíveis no arquivo |
+| `GET` | `/api/projects/:id/subtitles` | Serve arquivo de legendas WebVTT (`?lang=pt-br`, `?lang=en`) |
+| `GET` | `/api/projects/:id/thumbnail` | Serve o pôster ou thumbnail do item |
+| `GET` | `/api/projects/:id/cast` | Valida e resolve o arquivo de mídia compatível para Google Cast |
 
-### Biblioteca — `/api/media-library`
+---
 
-| Rota | Descrição |
-|---|---|
-| `/api/media-library/projects` | Lista/gerencia projetos (filmes e episódios) |
-| `/api/media-library/series` | Série agrupada com temporadas e episódios (um `seriesId` por título) |
-| `/api/media-library/history` | Histórico de reprodução |
-| `/api/media-library/progress` | Salva/consulta progresso de reprodução |
-| `/api/media-library/watched` | Marca/consulta itens assistidos |
+### 🌐 Catálogo & Sistema — `/api/catalog` e `/api/lan-ip`
 
-### Reprodução — `/api/projects/:id`
-
-| Rota | Método | Descrição |
+| Método | Endpoint | Descrição |
 |---|---|---|
-| `/api/projects/:id/video` | GET | Stream de vídeo com **suporte a Range (206)**; parâmetros `target=h264\|hevc` e `audio=<lang>` |
-| `/api/projects/:id/tracks` | GET | Faixas de áudio disponíveis (player local e Cast) |
-| `/api/projects/:id/cast` | GET | Resolução do arquivo compatível com Cast (H.264 + áudio seguro: aac/mp3/ac3/eac3) |
-| `/api/projects/:id/subtitles` | GET | Legenda WebVTT (`?lang=pt-br` etc.) — usada pelo player e pelo Cast |
-| `/api/projects/:id/thumbnail` | GET | Pôster/miniatura do projeto |
-| `/api/catalog/discover` | GET | Catálogo paginável via TMDB Discover (`?type=movie\|tv&genre=action\|scifi\|animation&batch=8`), fallback iTunes |
+| `GET` | `/api/catalog/discover` | Catálogo paginável TMDB Discover (`?type=movie\|tv&genre=<key>&page=<num>`) |
+| `GET` | `/api/lan-ip` | Retorna o endereço IP principal da LAN e porta do servidor para o Google Cast |
+| `GET` | `/api/health` | Verificação de integridade do servidor |
 
-### Rede
+---
 
-| Rota | Método | Descrição |
+## ⚙️ Variáveis de Ambiente
+
+As configurações são definidas no arquivo `.env`. Veja a referência completa:
+
+| Variável | Padrão | Descrição |
 |---|---|---|
-| `/api/lan-ip` | GET | IP da LAN (prioriza `192.168.x` > `10.x` > `172.16-31.x`) + porta — usado pelo Google Cast |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:3001/api` | URL base da API consumida pelo frontend |
+| `PORT` | `3001` | Porta de escuta do servidor Express |
+| `TMDB_API_KEY` | *Vazio* | Chave da API do TMDB para metadados e pôsteres em alta definição *(Recomendado)* |
+| `OPENSUBTITLES_API_KEY` | *Vazio* | Chave da API do OpenSubtitles para busca automatizada de legendas |
+| `OPENSUBTITLES_USERNAME` | *Vazio* | Usuário da conta OpenSubtitles |
+| `OPENSUBTITLES_PASSWORD` | *Vazio* | Senha da conta OpenSubtitles |
+| `PROWLARR_URL` | `http://localhost:9696` | Endereço do servidor Prowlarr |
+| `PROWLARR_API_KEY` | *Vazio* | Chave de API do Prowlarr |
+| `FLARESOLVERR_URL` | *Vazio* | Endereço do FlareSolverr para resolução de Cloudflare (ex: `http://localhost:8191/v1`) |
+| `ENABLE_1337X` | `1` | Habilita/desabilita o scraper do 1337x (`1` ou `0`) |
+| `ENABLE_NYAA` | `1` | Habilita/desabilita o scraper do Nyaa (`1` ou `0`) |
+| `ENABLE_PROWLARR` | `1` | Habilita/desabilita a consulta ao Prowlarr (`1` ou `0`) |
+| `FFMPEG_BIN` | *Auto-detect* | Caminho customizado para o executável `ffmpeg` |
+| `FFPROBE_BIN` | *Auto-detect* | Caminho customizado para o executável `ffprobe` |
+| `ARIA2_BIN` | *Auto-detect* | Caminho customizado para o executável `aria2c` |
+| `PYTHON_BIN` | *Auto-detect* | Caminho customizado para o interpretador Python da venv |
+| `JACKIN_FAST_TRANSCODE` | *Vazio* | `1` para ativar aceleração por hardware VideoToolbox no macOS |
+| `P2P_INSECURE_SSL` | `0` | `1` para ignorar verificação de certificado SSL em scrapers de torrent |
 
 ---
 
-## Variáveis de ambiente
+## 📺 Google Cast (Transmissão para TV)
 
-Todas as variáveis são definidas no [`.env.example`](.env.example) — **nenhum valor secreto está versionado**. Tudo é opcional: sem chave alguma, o JackIn ainda busca nas fontes públicas e usa artwork do iTunes.
+O JackIn oferece transmissão nativa para televisores com suporte a Google Cast (Chromecast, Android TV, Google TV) de forma **100% gratuita**:
 
-| Variável | Obrigatória? | Descrição |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | Não | URL base da API consumida pela web (default `http://localhost:3001/api`) |
-| `TMDB_API_KEY` | Não | Metadados (pôsteres/backdrops); sem ela, fallback para o iTunes |
-| `ZEN_API_KEY` | Não | Interpretação de consultas por LLM em `/enhanced` (degrade silencioso) |
-| `OPENSUBTITLES_API_KEY` | Não | Legendas PT-BR automáticas (OpenSubtitles) |
-| `OPENSUBTITLES_USERNAME` | Não | Login OpenSubtitles |
-| `OPENSUBTITLES_PASSWORD` | Não | Senha OpenSubtitles |
-| `PROWLARR_URL` | Não | URL do Prowlarr (default `http://localhost:9696`) |
-| `PROWLARR_API_KEY` | Não | Chave de API do Prowlarr |
-| `FLARESOLVERR_URL` | Não | URL do FlareSolverr (ativado para o 1337x) |
-| `ENABLE_1337X` / `ENABLE_NYAA` / `ENABLE_PROWLARR` | Não | Liga/desliga scrapers (1/0) |
-| `FFMPEG_BIN` / `FFPROBE_BIN` / `ARIA2_BIN` | Não | Caminho dos binários (vazio = auto-detect via PATH) |
-| `P2P_TRACKERS` | Não | Trackers customizados (vazio = lista interna de fallback) |
-| `P2P_INSECURE_SSL` | Não | `1` desativa verificação SSL dos scrapers (usar com cautela) |
-| `JACKIN_FAST_TRANSCODE` | Não | `1` = transcode via VideoToolbox no macOS (mais rápido, qualidade menor) |
-| `E2E_LAN_IP` | Não | IP da LAN para testes e2e de Cast |
+1. Abra o JackIn em um navegador baseado em Chromium (como **Google Chrome** ou **Brave**) acessando `http://localhost:3000`.
+2. Inicie a reprodução de qualquer filme ou série no **CinemaPlayer**.
+3. Clique no ícone de **Transmitir (Google Cast)** na barra de controles do player.
+4. O player consulta automaticamente `/api/lan-ip`, obtém o IP da máquina na rede local e entrega a mídia em H.264 compatível com o Chromecast.
+5. Selecione faixas de áudio e ative legendas WebVTT diretamente na TV.
+6. O progresso é salvo continuamente no servidor — ao pausar na TV, você pode retomar no computador exatamente de onde parou.
+
+> 📌 **Nota:** Para o Cast funcionar, o computador servidor e a TV devem estar conectados à **mesma rede local (Wi-Fi/Ethernet)** e a porta `3001` deve estar liberada no firewall do sistema operacional.
 
 ---
 
-## Google Cast
+## 🛡️ Segurança, Media Shield & Aviso Legal
 
-Transmitir para a TV é **gratuito** e usa o **Default Media Receiver** do Google — nenhuma configuração de receiver é necessária.
-
-1. Abra o JackIn no **Chrome** em `http://localhost:3000` (o SDK do sender é Chrome e exige contexto seguro; `localhost` conta como seguro).
-2. Reproduza um item e clique no botão de transmitir no player.
-3. O player consulta `GET /api/lan-ip`, reescreve a URL da mídia com o **IP da LAN** (a TV baixa direto do servidor) e força `target=h264`.
-4. Legendas WebVTT e a faixa de áudio selecionada são anexadas como **Cast tracks**.
-5. O progresso é sincronizado de volta à biblioteca a cada ~3,5s — retome na TV ou no navegador de onde parou.
-
-### Requisitos e limitações
-
-- **Chrome** (desktop ou Android) — o SDK do sender não roda em Safari/Firefox.
-- O servidor precisa estar **acessível na LAN** na porta **3001** (liberar no firewall do macOS/roteador se necessário).
-- A TV recebe **H.264** (único codec garantido pelo receiver padrão) — o servidor entrega `playable.mp4` ou transcode quando preciso.
-- Não há suporte nativo a **Fire Stick / Fire TV** (que não usam o receiver padrão do Google).
-- Se a TV não aparecer, confirme que os dois dispositivos estão na mesma rede e que `http://<ip-da-lan>:3001/api/lan-ip` responde.
+### 🔒 Media Shield
+O JackIn implementa um escudo de segurança em três camadas para proteger o usuário de arquivos nocivos na rede BitTorrent:
+1. **Rejeição Preventiva:** Bloqueio imediato de extensões executáveis (`.exe`, `.bat`, `.cmd`, `.scr`, `.ps1`, `.msi`, `.jar`, `.iso`, etc.).
+2. **Inspeção de Mídia:** Validação estrita de fluxos decodificáveis com FFprobe antes de liberar qualquer arquivo para a biblioteca.
+3. **Quarentena Não-Destrutiva:** Arquivos inválidos são isolados em quarentena para inspeção e nunca são executados pelo sistema.
 
 ---
 
-## Segurança & Aviso legal
+### ⚠️ Aviso Legal & Termos de Uso
 
-> **IMPORTANTE — leia antes de usar.**
+> **IMPORTANTE: Leia atentamente antes de utilizar o software.**
 
-O JackIn **não hospeda, não distribui e não produz nenhum conteúdo protegido por direitos autorais**. Ele apenas **localiza** torrents em indexadores públicos e **baixa aquilo que o usuário explicitamente escolher buscar**, por decisão e responsabilidade exclusivas do usuário.
-
-- **Uso:** educacional e pessoal. Antes de baixar qualquer obra, verifique se você tem o direito de fazê-lo no seu país.
-- **Responsabilidade:** é do usuário respeitar a legislação local de copyright. O autor não se responsabiliza pelo uso indevido do software.
-- **Ferramentas de terceiros:** o JackIn integra indexadores (Pirate Bay, YTS, 1337x, Nyaa, Prowlarr) e serviços (TMDB, OpenSubtitles, Google Cast) operados por terceiros, sujeitos aos próprios termos e disponibilidade.
-- **Sem garantias:** o software é distribuído **no estado em que se encontra** (licença MIT), sem garantias de qualquer tipo, expressas ou implícitas.
-
----
-
-## Roadmap
-
-### 🎉 Watch party sincronizada *(planejada — não implementada)*
-Assistir juntos à distância, com reprodução sincronizada entre participantes:
-
-- **Máquina de estados inspirada no SyncPlay** (Jellyfin) — transições controladas de play/pause/seek com reconciliação de drift.
-- **Âncora de tempo compartilhada** — um relógio comum (e.g. tempo absoluto de mídia + offset de sessão) para todos os membros da sala.
-- **Código de 6 dígitos** — entrar em uma sala digitando um código curto, sem contas.
-
-### 🔧 Endurecimento
-- Busca e streaming: mais isolamento de fontes, retries com backoff e filtros de qualidade ainda mais rígidos.
-- Cache multi-tier (metadados, resultados de busca, probes) para reduzir latência e batidas em APIs externas.
+* O JackIn **não hospeda, não armazena em servidores próprios e não distribui qualquer conteúdo protegido por direitos autorais**.
+* O software atua exclusivamente como uma ferramenta de indexação técnica e agregação de dados públicos da rede BitTorrent P2P.
+* O download e a transmissão de qualquer obra audiovisual são de **responsabilidade exclusiva do usuário**. Verifique a legislação de direitos autorais aplicável no seu país antes de realizar o download de qualquer material.
+* O projeto destina-se a fins de **estudo, pesquisa, desenvolvimento tecnológico e uso pessoal**.
+* O software é fornecido sob os termos da **Licença MIT**, *"no estado em que se encontra"* (*AS IS*), sem garantias expressas ou implícitas quanto a funcionamento, disponibilidade de fontes de terceiros ou adequação a finalidades específicas.
 
 ---
 
-## Licença
+## 🗺️ Roadmap
 
-Distribuído sob a **licença MIT** — © 2026 Fernando Sonaglio. Veja o arquivo [LICENSE](LICENSE) para os termos completos.
+- [x] **Busca Multi-Fonte Paralela** (TPB, YTS, 1337x, Nyaa, Prowlarr, Sites BR)
+- [x] **Media Shield em 3 Camadas** com inspeção e quarentena
+- [x] **CinemaPlayer Completo** com suporte a áudio multicanal e legendas WebVTT
+- [x] **Google Cast Integrado** com descoberta de IP LAN e Cast tracks
+- [x] **Catálogo Paginado com Filtros por Gênero** (TMDB Discover)
+- [x] **Gerenciamento de Séries e Packs de Temporadas**
+- [x] **Histórico de Reprodução e Retomada de Posição**
+- [ ] **Watch Party Sincronizada (SyncPlay):** Salas com código de 6 dígitos para reprodução sincronizada entre múltiplos usuários sem necessidade de login.
+- [ ] **Cache Multi-Tier Distribuído:** Otimização adicional de latência para metadados e probes de mídia pesados.
+- [ ] **Integração com RealDebrid / Debrid-Link:** Suporte opcional a provedores de debrid para streaming direto sem semeadura P2P.
 
 ---
 
-## Agradecimentos
+## 📄 Licença
 
-O JackIn não reinventa a roda: ele **assimila padrões** de projetos excepcionais da comunidade. Obrigado a:
+Distribuído sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-- **Jellyfin** — pela máquina de estados do SyncPlay que inspira a watch party do roadmap;
-- **Stremio** — pela experiência de catálogo + addons que orienta o fluxo de busca;
-- **WebTorrent** — o fallback de download em JavaScript que mantém o JackIn funcional sem aria2;
-- **FlareSolverr** — o bypass de Cloudflare que mantém o 1337x acessível;
-- **Prowlarr** — o agregador de indexadores self-hosted;
-- **1337x, The Pirate Bay e YTS** — as fontes públicas que alimentam as buscas;
-- **TMDB** — pelos metadados que dão cara de cinema à biblioteca;
-- **OpenSubtitles** — pelas legendas PT-BR automáticas.
+Copyright © 2026 **Fernando Sonaglio**.
+
+---
+
+## 💙 Agradecimentos
+
+O JackIn se apoia nos padrões e inovações de projetos notáveis da comunidade open source:
+
+* **[FFmpeg](https://ffmpeg.org/)** — Pelo motor audiovisual que torna o streaming e a transcodificação possíveis.
+* **[aria2](https://aria2.github.io/)** — Pelo utilitário de download leve, rápido e multithread.
+* **[Jellyfin](https://jellyfin.org/)** — Pela inspiração em arquitetura de mídia self-hosted.
+* **[Stremio](https://www.stremio.com/)** — Pelos conceitos de agregação e catálogo modular.
+* **[FlareSolverr](https://github.com/FlareSolverr/FlareSolverr)** — Pelo bypass automatizado de proteções Cloudflare.
+* **[Prowlarr](https://prowlarr.com/)** — Pela gestão simplificada de indexadores torrent.
+* **[The Movie Database (TMDB)](https://www.themoviedb.org/)** — Pela base de metadados e pôsteres de alta qualidade.
+* **[OpenSubtitles](https://www.opensubtitles.com/)** — Pela disponibilização de legendas sincronizadas para o público brasileiro.
