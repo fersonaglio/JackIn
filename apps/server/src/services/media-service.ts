@@ -589,8 +589,11 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
     args.push('-c:a', 'copy');
   }
   const textSubs = info.subtitles.filter((s) => TEXT_SUB_CODECS.has(s.codec));
+  for (const s of textSubs) {
+    args.push('-map', `0:${s.index}`);
+  }
   if (textSubs.length > 0) {
-    args.push('-map', '0:s?', '-c:s', 'mov_text');
+    args.push('-c:s', 'mov_text');
   }
   args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '1024', '-f', 'mp4', outPath);
   return args;
@@ -624,8 +627,11 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
     args.push('-c:a', 'copy');
   }
   const textSubs = info.subtitles.filter((s) => TEXT_SUB_CODECS.has(s.codec));
+  for (const s of textSubs) {
+    args.push('-map', `0:${s.index}`);
+  }
   if (textSubs.length > 0) {
-    args.push('-map', '0:s?', '-c:s', 'mov_text');
+    args.push('-c:s', 'mov_text');
   }
   args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '1024', '-f', 'mp4', outPath);
   return args;
@@ -936,8 +942,7 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
     const tmp = out + tmpSuffix;
     emitPrep(projectId, 92, `Extraindo legenda (${lang})...`);
     try {
-      const subIdx = info.subtitles.filter((x) => TEXT_SUB_CODECS.has(x.codec)).indexOf(s);
-      await runFfmpeg(['-y', '-i', info.path, '-map', `0:s:${subIdx}`, '-c:s', 'webvtt', '-f', 'webvtt', tmp], info.duration, () => {}, projectId);
+      await runFfmpeg(['-y', '-i', info.path, '-map', `0:${s.index}`, '-c:s', 'webvtt', '-f', 'webvtt', tmp], info.duration, () => {}, projectId);
       if (isAborted()) {
         try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
         return;

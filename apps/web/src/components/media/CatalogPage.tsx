@@ -1,8 +1,7 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { buildPosterUrl } from '@/data/media';
-import { usePaginatedCatalog, CATALOG_PER_PAGE } from '@/hooks/usePaginatedCatalog';
+import { usePaginatedCatalog, clampPage } from '@/hooks/usePaginatedCatalog';
 import { useMediaExplorer } from '@/hooks/useMediaExplorer';
 import MediaCard from './MediaCard';
 import Pagination from './Pagination';
@@ -53,53 +52,30 @@ export default function CatalogPage({ type }: CatalogPageProps) {
 
   const genreKey = activeTab === 'all' ? '' : activeTab;
   const catalog = usePaginatedCatalog(type, genreKey);
-  const { page, totalPages, items, loading, loadingMore, error, setPage } = catalog;
+  const { page, totalPages, items, loading, error, setPage } = catalog;
 
-  // Aplica o ?page=N vindo da URL assim que os dados carregam. Quando ainda há
-  // mais conteúdo no servidor (hasMore), a página N da URL é respeitada além
-  // do que já foi carregado (o clique em "próxima" na borda dispara o lote).
-  const appliedUrlPageRef = useRef<string | null>(null);
+  // Aplica o ?page=N da URL, normalizado entre 1 e totalPages. O servidor
+  // devolve totalPages já na primeira resposta, então page=800 trava na última
+  // página válida sem cascata de requests.
+  const urlPage = pageParam ? parseInt(pageParam, 10) : 1;
   useEffect(() => {
-    if (loading) return;
-    const parsed = pageParam ? parseInt(pageParam, 10) : 1;
-    const numeric = Number.isFinite(parsed) ? parsed : 1;
-    const target = catalog.hasMore
-      ? Math.max(numeric, 1)
-      : Math.min(Math.max(numeric, 1), totalPages);
-    if (appliedUrlPageRef.current !== pageParam) {
-      appliedUrlPageRef.current = pageParam;
-      if (target !== page) setPage(target);
-    }
-  }, [loading, pageParam, totalPages, page, setPage, catalog.hasMore]);
-
-  // Prefetch dos posters da próxima página (dados já estão em memória para
-  // todas as páginas; só as imagens da página seguinte são aquecidas para a
-  // navegação ser instantânea sem sobrecarregar a rede).
-  useEffect(() => {
-    const nextStart = page * CATALOG_PER_PAGE;
-    const next = catalog.allItems.slice(nextStart, nextStart + CATALOG_PER_PAGE);
-    for (const it of next) {
-      const url = buildPosterUrl(it.posterPath, 'w500');
-      if (url) {
-        const img = new Image();
-        img.src = url;
-      }
-    }
-  }, [page, catalog.allItems]);
+    const target = Number.isFinite(urlPage) ? urlPage : 1;
+    const clamped = clampPage(target, totalPages);
+    if (clamped !== page) setPage(clamped);
+  }, [pageParam, totalPages, page, setPage]);
 
   const handleTab = (key: string) => {
-    appliedUrlPageRef.current = null;
     const base = type === 'movie' ? '/filmes' : '/series';
     router.push(key === 'all' ? base : `${base}?genre=${key}`);
   };
 
   const handlePageChange = (p: number) => {
-    setPage(p);
-    appliedUrlPageRef.current = String(p);
+    const clamped = clampPage(p, totalPages);
+    setPage(clamped);
     const base = type === 'movie' ? '/filmes' : '/series';
     const qs = new URLSearchParams();
     if (activeTab !== 'all') qs.set('genre', activeTab);
-    if (p > 1) qs.set('page', String(p));
+    if (clamped > 1) qs.set('page', String(clamped));
     router.replace(`${base}${qs.toString() ? `?${qs}` : ''}`);
   };
 
@@ -177,13 +153,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
                   <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType="lancamento" />
                 ))}
               </div>
-              <Pagination page={page} totalPages={totalPages} hasMore={catalog.hasMore} onChange={handlePageChange} />
-              {loadingMore && (
-                <div className="flex items-center justify-center gap-2 mt-4 text-zinc-400 text-xs">
-                  <span className="w-4 h-4 border-2 border-[#EF9F27] border-t-transparent rounded-full animate-spin" />
-                  Carregando mais títulos…
-                </div>
-              )}
+              <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />
             </>
           )}
 

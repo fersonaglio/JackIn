@@ -60,9 +60,14 @@ const TMDB_GENRE_NAMES: Record<string, string> = {
   '10768': 'Guerra & Política',
 };
 
-const DEFAULT_BATCH_PAGES = 8;
-const TMDB_PER_PAGE = 20;
-const MAX_BATCH_PAGES = 20;
+// Paginação direta: cada página do JackIn tem CATALOG_PER_PAGE títulos; o TMDB
+// devolve 20 por página (popularity.desc). Para servir a página N sem acumular
+// as anteriores, calculamos em qual página TMDB ela começa e o offset interno.
+// A ordem é ESTÁVEL porque usa o sort nativo do TMDB (popularity.desc) — sem
+// reordenação no cliente.
+export const CATALOG_PER_PAGE = 18;
+export const TMDB_PER_PAGE = 20;
+export const TMDB_MAX_PAGES = 500; // TMDB limita discover a 500 páginas (10k itens).
 
 export interface CatalogItem {
   tmdbId: number;
@@ -79,6 +84,56 @@ export interface CatalogItem {
   popularity: number;
 }
 
+// Janela TMDB para uma página JackIn. Puro e testável.
+export function tmdbWindow(
+  page: number,
+  perPage: number = CATALOG_PER_PAGE,
+  tmdbPerPage: number = TMDB_PER_PAGE
+): { tmdbPage: number; offset: number } {
+  const safe = Math.max(1, Math.floor(page) || 1);
+  const startItem = (safe - 1) * perPage;
+  return {
+    tmdbPage: Math.floor(startItem / tmdbPerPage) + 1,
+    offset: startItem % tmdbPerPage,
+  };
+}
+
+// Total de páginas JackIn a partir do total de páginas TMDB (cap 500). Puro.
+export function jackinTotalPages(
+  totalTmdbPages: number,
+  perPage: number = CATALOG_PER_PAGE,
+  tmdbPerPage: number = TMDB_PER_PAGE
+): number {
+  const capped = Math.min(Math.max(totalTmdbPages, 0), TMDB_MAX_PAGES);
+  return Math.max(1, Math.ceil((capped * tmdbPerPage) / perPage));
+}
+
+// ── Cache LRU em memória (TTL 1h) ─────────────────────────────────────────
+const catalogCache = new Map<string, { data: any; expires: number }>();
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 500;
+
+function cacheGet(key: string): any {
+  const entry = catalogCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expires) {
+    catalogCache.delete(key);
+    return undefined;
+  }
+  // Move para o fim (mais recente usado) — chave mais antiga sai primeiro.
+  catalogCache.delete(key);
+  catalogCache.set(key, entry);
+  return entry.data;
+}
+
+function cacheSet(key: string, data: any): void {
+  if (catalogCache.size >= CACHE_MAX_ENTRIES) {
+    const oldest = catalogCache.keys().next().value;
+    if (oldest !== undefined) catalogCache.delete(oldest);
+  }
+  catalogCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+}
+
 function resizeArt(url: string, size: string): string {
   return url.replace(/\/\d+x\d+bb\.(png|jpg)$/, `/${size}.$1`);
 }
@@ -92,71 +147,56 @@ function hashCode(str: string): number {
   return Math.abs(h);
 }
 
-// Descobre o catálogo no TMDB: traz os títulos mais relevantes (popularidade
-// desc, todas as eras) já lançados e com votos; o cliente reordena por ano desc
-// (recentes primeiro → clássicos no fim). Cursor-based: `startPage` é a página
-// do TMDB onde começar e `pages` quantas páginas de 20 buscar por lote.
-// Retorna `nextCursor` (próxima página do TMDB) e `hasMore`.
-async function fetchTmdbDiscover(
-  type: 'movie' | 'tv',
-  genreId: string,
-  startPage: number,
-  pages: number
-): Promise<{ items: CatalogItem[]; nextCursor: number; hasMore: boolean }> {
+function mapTmdbRow(type: 'movie' | 'tv', r: any): CatalogItem {
+  const releaseDate = type === 'movie' ? (r.release_date || '') : (r.first_air_date || '');
+  return {
+    tmdbId: r.id,
+    title: r.title || r.name || '',
+    originalTitle: r.original_title || r.original_name || r.title || r.name || '',
+    overview: r.overview || '',
+    posterPath: r.poster_path ? `${TMDB_IMG}/w500${r.poster_path}` : null,
+    backdropPath: r.backdrop_path ? `${TMDB_IMG}/w1280${r.backdrop_path}` : null,
+    year: releaseDate ? Number(releaseDate.slice(0, 4)) || null : null,
+    releaseDate: releaseDate || null,
+    rating: r.vote_average || 0,
+    genres: (r.genre_ids || []).map((g: number) => TMDB_GENRE_NAMES[String(g)] || String(g)),
+    type,
+    popularity: r.popularity || 0,
+  };
+}
+
+interface TmdbPageResult {
+  rows: any[];
+  totalPages: number;
+  failed: boolean;
+}
+
+async function fetchTmdbPage(type: 'movie' | 'tv', genreId: string, page: number): Promise<TmdbPageResult> {
   const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return { items: [], nextCursor: startPage, hasMore: false };
+  if (!apiKey) return { rows: [], totalPages: 0, failed: true };
 
   const today = new Date().toISOString().slice(0, 10);
-  const items: CatalogItem[] = [];
-  let lastLoadedPage = startPage - 1;
-  let totalPages = 0;
-  let failed = false;
+  // Filmes: mais populares primeiro. Séries: das mais assistidas/votadas para
+  // as menos (vote_count desc = maiores audiências no topo).
+  const sortBy = type === 'tv' ? 'vote_count.desc' : 'popularity.desc';
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    sort_by: sortBy,
+    vote_count_gte: '50',
+    include_adult: 'false',
+    page: String(page),
+  });
+  if (type === 'movie') params.set('primary_release_date.lte', today);
+  else params.set('first_air_date.lte', today);
+  if (genreId) params.set('with_genres', genreId);
 
-  for (let page = startPage; page < startPage + pages; page += 1) {
-    const params = new URLSearchParams({
-      api_key: apiKey,
-      sort_by: 'popularity.desc',
-      vote_count_gte: '50',
-      include_adult: 'false',
-      page: String(page),
-    });
-    if (type === 'movie') params.set('primary_release_date.lte', today);
-    else params.set('first_air_date.lte', today);
-    if (genreId) params.set('with_genres', genreId);
-
-    const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`, { headers: { Accept: 'application/json' } });
-    if (!res.ok) {
-      failed = true;
-      break;
-    }
-    const data = await res.json();
-    totalPages = data.total_pages || 0;
-    const rows: any[] = data.results || [];
-    if (rows.length === 0) break;
-
-    for (const r of rows) {
-      const releaseDate = type === 'movie' ? (r.release_date || '') : (r.first_air_date || '');
-      items.push({
-        tmdbId: r.id,
-        title: r.title || r.name || '',
-        originalTitle: r.original_title || r.original_name || r.title || r.name || '',
-        overview: r.overview || '',
-        posterPath: r.poster_path ? `${TMDB_IMG}/w500${r.poster_path}` : null,
-        backdropPath: r.backdrop_path ? `${TMDB_IMG}/w1280${r.backdrop_path}` : null,
-        year: releaseDate ? Number(releaseDate.slice(0, 4)) || null : null,
-        releaseDate: releaseDate || null,
-        rating: r.vote_average || 0,
-        genres: (r.genre_ids || []).map((g: number) => TMDB_GENRE_NAMES[String(g)] || String(g)),
-        type,
-        popularity: r.popularity || 0,
-      });
-    }
-    lastLoadedPage = page;
-  }
+  const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) return { rows: [], totalPages: 0, failed: true };
+  const data = await res.json();
   return {
-    items,
-    nextCursor: lastLoadedPage + 1,
-    hasMore: !failed && lastLoadedPage < totalPages,
+    rows: data.results || [],
+    totalPages: Math.min(data.total_pages || 0, TMDB_MAX_PAGES),
+    failed: false,
   };
 }
 
@@ -190,34 +230,69 @@ async function fetchItunes(type: 'movie' | 'tv', limit: number): Promise<Catalog
   });
 }
 
-// GET /api/catalog/discover?type=movie|tv&genre=action|comedy|scifi|...&cursor=1&pages=8
+// GET /api/catalog/discover?type=movie|tv&genre=action|comedy|...&page=1
+// Paginação direta: serve APENAS a página pedida (18 títulos) com salto O(1)
+// de requests (1–2 chamadas TMDB), sem acumular as páginas anteriores.
 router.get('/discover', async (req: Request, res: Response) => {
   const type = req.query.type === 'tv' ? 'tv' : 'movie';
   const genreKey = String(req.query.genre || '');
   const genreMap = type === 'tv' ? TV_GENRE_IDS : MOVIE_GENRE_IDS;
   const genreId = genreMap[genreKey] || '';
-  const cursor = Math.max(Number(req.query.cursor) || 1, 1);
-  const pages = Math.min(Math.max(Number(req.query.pages) || DEFAULT_BATCH_PAGES, 1), MAX_BATCH_PAGES);
+  const page = Math.max(Math.floor(Number(req.query.page) || 1), 1);
+
+  const cacheKey = `${type}:${genreKey}:${page}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    res.set(CACHE_HEADERS);
+    res.json(cached);
+    return;
+  }
 
   try {
-    let result = await fetchTmdbDiscover(type, genreId, cursor, pages);
-    let source = 'tmdb';
-    // Sem chave TMDB (ou falha) no primeiro lote → fallback iTunes (catálogo único).
-    if (result.items.length === 0 && cursor <= 1) {
-      const items = await fetchItunes(type, 100);
-      result = { items, nextCursor: 2, hasMore: false };
-      source = 'itunes';
+    const { tmdbPage, offset } = tmdbWindow(page);
+    const first = await fetchTmdbPage(type, genreId, tmdbPage);
+    if (first.failed) throw new Error('tmdb_failed');
+
+    let rows = first.rows;
+    const totalTmdbPages = first.totalPages;
+    // Página JackIn pode cruzar 2 páginas TMDB (offset 18 dentro de 20 itens).
+    if (rows.length > 0 && offset + CATALOG_PER_PAGE > rows.length && tmdbPage < totalTmdbPages) {
+      const second = await fetchTmdbPage(type, genreId, tmdbPage + 1);
+      if (!second.failed) rows = rows.concat(second.rows);
     }
+
+    const items = rows.slice(offset, offset + CATALOG_PER_PAGE).map((r) => mapTmdbRow(type, r));
+    const payload = {
+      source: 'tmdb',
+      items,
+      page,
+      totalPages: jackinTotalPages(totalTmdbPages),
+      totalResults: Math.min(totalTmdbPages, TMDB_MAX_PAGES) * TMDB_PER_PAGE,
+    };
+    cacheSet(cacheKey, payload);
     res.set(CACHE_HEADERS);
-    res.json({
-      source,
-      items: result.items,
-      nextCursor: result.nextCursor,
-      hasMore: result.hasMore,
-      totalResults: result.items.length,
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'catalog_error', message: (err as Error).message });
+    res.json(payload);
+  } catch {
+    // Sem chave TMDB (ou falha total) na página 1 → fallback iTunes (sem
+    // paginação real, serve a 1ª página do feed único).
+    if (page === 1) {
+      let items: CatalogItem[] = [];
+      try {
+        items = await fetchItunes(type, 100);
+      } catch {}
+      const payload = {
+        source: 'itunes',
+        items: items.slice(0, CATALOG_PER_PAGE),
+        page: 1,
+        totalPages: Math.max(1, Math.ceil(items.length / CATALOG_PER_PAGE)),
+        totalResults: items.length,
+      };
+      cacheSet(cacheKey, payload);
+      res.set(CACHE_HEADERS);
+      res.json(payload);
+      return;
+    }
+    res.status(500).json({ error: 'catalog_error', message: 'Falha ao carregar catálogo' });
   }
 });
 
