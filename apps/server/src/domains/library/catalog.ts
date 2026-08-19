@@ -176,9 +176,9 @@ async function fetchTmdbPage(type: 'movie' | 'tv', genreId: string, page: number
   if (!apiKey) return { rows: [], totalPages: 0, failed: true };
 
   const today = new Date().toISOString().slice(0, 10);
-  // Filmes: mais populares primeiro. Séries: das mais assistidas/votadas para
-  // as menos (vote_count desc = maiores audiências no topo).
-  const sortBy = type === 'tv' ? 'vote_count.desc' : 'popularity.desc';
+  // Filmes: por data de lançamento (mais recentes primeiro, os antigos por
+  // último). Séries: das mais assistidas/votadas para as menos.
+  const sortBy = type === 'tv' ? 'vote_count.desc' : 'primary_release_date.desc';
   const params = new URLSearchParams({
     api_key: apiKey,
     sort_by: sortBy,

@@ -633,7 +633,8 @@ export function indexPackEpisodesFromDisk(parentId: string): void {
   }
 }
 
-export function reconcileMovieStatus(projectId: string): void {  const db = getDb();
+export function reconcileMovieStatus(projectId: string): void {
+  const db = getDb();
   const row = db.exec(
     'SELECT id, status, video_path, faceless_config, title, project_type, episode_number FROM projects WHERE id = ?',
     [projectId]
@@ -641,12 +642,15 @@ export function reconcileMovieStatus(projectId: string): void {  const db = getD
   if (!row) return;
 
   const [id, status, videoPath, facelessConfigRaw, rawTitle, projectType, episodeNumber] = row as [string, string, string | null, string | null, string | null, string, number | null];
-  if (status !== 'downloading' && status !== 'preparing') return;
+  if (status !== 'downloading' && status !== 'preparing' && status !== 'error') return;
   if (runningDownloads.has(id)) return;
   if (isPreparing(id)) return;
 
   const projectDir = path.join(DATA_DIR, 'projects', id);
-  let videoFile: string | null = videoPath && fs.existsSync(videoPath) ? videoPath : null;
+  const masterFile = path.join(projectDir, 'master.mp4');
+  const hasMaster = fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000;
+
+  let videoFile: string | null = hasMaster ? masterFile : (videoPath && fs.existsSync(videoPath) ? videoPath : null);
   const aria2Files: string[] = [];
 
   const walk = (dir: string) => {
@@ -663,66 +667,57 @@ export function reconcileMovieStatus(projectId: string): void {  const db = getD
       } else if (e.name.endsWith('.aria2')) {
         aria2Files.push(p);
       } else if (/\.(mp4|mkv|webm|avi|mov|m4v|ts|m2ts)$/i.test(e.name)) {
-        if (!videoFile || fs.statSync(p).size > fs.statSync(videoFile).size) videoFile = p;
+        if (!p.includes('.tmp-') && (!videoFile || fs.statSync(p).size > fs.statSync(videoFile).size)) {
+          videoFile = p;
+        }
       }
     }
   };
   if (fs.existsSync(projectDir)) walk(projectDir);
 
-  // An .aria2 control file only means "still downloading" when it's NEWER than
-  // the completed video. An orphaned one must NOT flip a valid project back.
-  const hasIncomplete = !!videoFile && aria2Files.some(
-    (p) => fs.statSync(p).mtimeMs > fs.statSync(videoFile as string).mtimeMs
-  );
+  const hasIncompleteAria = aria2Files.length > 0;
 
-  if (videoFile && !hasIncomplete) {
-    console.log(`[JackIn Media] Reconciliado: download ${id} estava completo (${videoFile})`);
+  let fc: { sourceUrl?: string; quality?: string; posterUrl?: string; altSourceUrls?: string[] } | null = null;
+  try {
+    fc = facelessConfigRaw ? JSON.parse(facelessConfigRaw) : null;
+  } catch {}
+  const sourceUrl = fc?.sourceUrl;
+
+  // 1) Se já possui master.mp4 ou arquivo completo sem download aria2 pendente:
+  if (hasMaster || (videoFile && !hasIncompleteAria)) {
+    console.log(`[JackIn Media] Reconciliado: download ${id} estava completo (${videoFile || masterFile})`);
     db.run(
-      'UPDATE projects SET status = ?, progress_pct = 100, progress_status = ?, video_path = ? WHERE id = ?',
-      ['preparing', 'Concluído (recuperado)', videoFile, id]
+      'UPDATE projects SET status = ?, error_message = NULL, progress_pct = 100, progress_status = ?, video_path = ? WHERE id = ?',
+      ['preparing', 'Concluído (recuperado)', videoFile || masterFile, id]
     );
     persist();
-    // Pack de temporada completo: indexa os episódios do diretório (se o
-    // worker foi morto no meio antes de indexar), com dedup por episódio.
     if (projectType === 'series' && episodeNumber == null) {
       indexPackEpisodesFromDisk(id);
     }
     reconcileProjectMedia(id);
-  } else if (status === 'downloading') {
-    // Download interrompido no meio (servidor reiniciou) → retoma sozinho.
-    // O worker (aria2) continua do arquivo .aria2 salvo até finalizar.
-    let fc: { sourceUrl?: string; quality?: string; posterUrl?: string; altSourceUrls?: string[] } | null = null;
-    try {
-      fc = facelessConfigRaw ? JSON.parse(facelessConfigRaw) : null;
-    } catch {}
-    const sourceUrl = fc?.sourceUrl;
-    if (sourceUrl) {
-      console.log(`[JackIn Media] Auto-retry: retomando download interrompido ${id}`);
-      db.run(
-        'UPDATE projects SET status = ?, progress_status = ? WHERE id = ?',
-        ['downloading', 'Retomando automaticamente após reinício...', id]
-      );
-      persist();
-      startMovieDownload(id, {
-        sourceUrl,
-        title: rawTitle || 'Mídia',
-        quality: fc?.quality || '4K',
-        posterUrl: fc?.posterUrl || '',
-        altSourceUrls: fc?.altSourceUrls,
-      });
-    } else {
-      console.log(`[JackIn Media] Reconciliado: download ${id} interrompido sem fonte para retomar`);
-      db.run(
-        'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
-        ['error', 'Download interrompido (servidor reiniciou)', id]
-      );
-      persist();
-    }
+    return;
+  }
+
+  // 2) Se estava baixando ou possui .aria2 em andamento: retoma download
+  if (sourceUrl) {
+    console.log(`[JackIn Media] Auto-retry: retomando download interrompido ${id}`);
+    db.run(
+      'UPDATE projects SET status = ?, error_message = NULL, progress_status = ? WHERE id = ?',
+      ['downloading', 'Retomando automaticamente após reinício...', id]
+    );
+    persist();
+    startMovieDownload(id, {
+      sourceUrl,
+      title: rawTitle || 'Mídia',
+      quality: fc?.quality || '4K',
+      posterUrl: fc?.posterUrl || '',
+      altSourceUrls: fc?.altSourceUrls,
+    });
   } else {
-    console.log(`[JackIn Media] Reconciliado: download ${id} interrompido (sem arquivo completo)`);
+    console.log(`[JackIn Media] Reconciliado: download ${id} sem fonte para retomar`);
     db.run(
       'UPDATE projects SET status = ?, error_message = ? WHERE id = ?',
-      ['error', 'Download interrompido (servidor reiniciou)', id]
+      ['error', 'Download interrompido (sem fonte para retomar)', id]
     );
     persist();
   }
@@ -982,11 +977,28 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
   // Caso especial: download concluído mas com prepare falho (status 'error'
   // com arquivo no disco, ex.: ffprobe transitório na finalização). Não
   // re-baixar GBs à toa — re-dispara o pipeline de prepare. Se não houver
-  // master, cai no re-download normal abaixo.
+  // master ou se o download estiver incompleto (.aria2 ativo), cai no re-download/resume normal abaixo.
   if (status === 'preparing' || status === 'error') {
     const pm = getProjectMedia(projectId);
-    const master = pm?.videoPath && fs.existsSync(pm.videoPath) ? pm.videoPath : null;
-    if (master) {
+    const projectDir = path.join(DATA_DIR, 'projects', projectId);
+    const masterFile = path.join(projectDir, 'master.mp4');
+    const hasMaster = fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000;
+
+    let hasAria2 = false;
+    try {
+      const walk = (d: string) => {
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          if (e.isDirectory()) walk(path.join(d, e.name));
+          else if (e.name.endsWith('.aria2')) hasAria2 = true;
+        }
+      };
+      if (fs.existsSync(projectDir)) walk(projectDir);
+    } catch {}
+
+    const videoExists = pm?.videoPath && fs.existsSync(pm.videoPath);
+    const isComplete = hasMaster || (videoExists && !hasAria2);
+
+    if (isComplete) {
       try {
         db.run('UPDATE projects SET status = ?, error_message = NULL, prep_state = ? WHERE id = ?', ['preparing', 'none', projectId]);
         persist();
