@@ -736,6 +736,34 @@ def test_single_token_relevance_and_silo():
     )
 
 
+def test_build_options_never_offers_known_non_pt_as_dubbed():
+    """Um release conhecido (via ffprobe) como SEM áudio PT nunca pode ser
+    oferecido como opção dublada — mesmo que o nome carregue um marcador
+    "DUAL". O fallback de um pedido Dublado deve pular esse release."""
+    def t(name, h, seeds=30):
+        return {"name": name, "seeders": str(seeds), "size": str(4 * 1024 ** 3), "info_hash": h}
+
+    known_non_pt = "e" * 40
+    pt_dub = "d" * 40
+
+    # Conhecimento aprendido: known_non_pt foi verificado por ffprobe e não tem PT.
+    m._pt_knowledge = lambda h: ({"pt": False, "langs": ["eng"]} if h == known_non_pt else
+                                 {"pt": True, "langs": ["por"]} if h == pt_dub else None)
+
+    torrents = [
+        t("Movie.2024.1080p.DUAL.AUDIO", known_non_pt),   # nome ambiguo, mas conhecido sem PT
+        t("Movie.2024.1080p.DUBLADO", pt_dub),            # confirmado PT
+        t("Movie.2024.1080p", "f" * 40),                  # original
+    ]
+    opts = m.build_options(torrents)
+
+    dubbed = [o for o in opts if o["ptConfirmed"] or o["audioType"] in ("dual", "dub", "multi")]
+    check("dubbed option offered", any(o["ptConfirmed"] for o in dubbed))
+    check("known non-PT never offered as dubbed", all(o["sourceUrl"].find(known_non_pt) == -1 for o in dubbed))
+    check("known non-PT excluded from options entirely",
+          all(o["sourceUrl"].find(known_non_pt) == -1 for o in opts))
+
+
 def main():
     test_normalize_key()
     test_series_detection()
@@ -775,6 +803,7 @@ def main():
     test_title_case_display()
     test_display_dedup()
     test_single_token_relevance_and_silo()
+    test_build_options_never_offers_known_non_pt_as_dubbed()
 
     print("\n" + "=" * 40)
     if FAILURES:

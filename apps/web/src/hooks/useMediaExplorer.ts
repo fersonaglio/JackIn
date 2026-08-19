@@ -15,6 +15,7 @@ import {
 import type { CatalogItem } from '@/types/media';
 import { buildPosterUrl, buildBackdropUrl } from '@/data/media';
 import { groupSeriesSeasons } from '@/lib/seriesSeasons';
+import { buildAltSourceUrls } from '@/lib/mediaOptions';
 
 const APPROX_MIN_SCORE = 0.5;
 
@@ -238,10 +239,7 @@ export function useMediaExplorer() {
       try {
         const finalPosterUrl = posterUrl || selectedMovie?.posterUrl;
         const requirePt = option.ptConfirmed === true;
-        const altSourceUrls = (selectedMovie?.options ?? [])
-          .filter((o) => (requirePt ? o.ptConfirmed === true : true))
-          .map((o) => o.sourceUrl)
-          .filter((u: string): u is string => !!u && u !== option.sourceUrl);
+        const altSourceUrls = buildAltSourceUrls(selectedMovie?.options ?? [], option.sourceUrl, requirePt);
         await downloadMediaMovie(movieTitle, option.quality, option.sourceUrl, finalPosterUrl, altSourceUrls, undefined, undefined, requirePt);
         pollActiveProjects();
         setStartedItems((prev) => ({ ...prev, [key]: true }));

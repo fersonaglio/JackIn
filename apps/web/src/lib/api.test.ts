@@ -125,6 +125,20 @@ describe('download controls', () => {
     });
   });
 
+  it('sends requirePt=true in the body when the user picked a dubbed option', async () => {
+    mockFetchOk({ id: 'p1', title: 'Matrix', status: 'downloading', quality: '4K' });
+    await downloadMediaMovie('Matrix', '4K', 'magnet:?xt=abc', undefined, undefined, undefined, undefined, true);
+    const body = JSON.parse((vi.mocked(global.fetch).mock.calls[0][1] as { body: string }).body);
+    expect(body.requirePt).toBe(true);
+  });
+
+  it('omits requirePt when not requested (undefined dropped from JSON)', async () => {
+    mockFetchOk({ id: 'p1', title: 'Matrix', status: 'downloading', quality: '4K' });
+    await downloadMediaMovie('Matrix', '4K', 'magnet:?xt=abc');
+    const body = JSON.parse((vi.mocked(global.fetch).mock.calls[0][1] as { body: string }).body);
+    expect(body.requirePt).toBeUndefined();
+  });
+
   it('pauses a media download with POST', async () => {
     mockFetchOk({ id: 'p1', status: 'paused' });
     await pauseMediaDownload('p1');

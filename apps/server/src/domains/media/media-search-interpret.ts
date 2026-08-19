@@ -86,7 +86,7 @@ async function interpretViaTmdb(rawQuery: string): Promise<InterpretedQuery | nu
   const mdb = getMovieDb();
   if (!mdb) return null;
   try {
-    const res = await mdb.searchMulti({ query: rawQuery, language: 'pt-BR', include_adult: false });
+    const res = await mdb.searchMulti({ query: rawQuery, language: 'pt-BR', include_adult: false }, { timeout: 8000 });
     for (const r of res.results || []) {
       if (r.media_type === 'movie') {
         const m = r as MovieResult;
@@ -128,17 +128,24 @@ export async function interpretQuery(rawQuery: string): Promise<InterpretedQuery
     return hit.value;
   }
 
-  const tmdb = await interpretViaTmdb(rawQuery);
+  // Determinístico primeiro: o mapa curado é exato para títulos PT conhecidos,
+  // evitando que o TMDB devolva um spin-off ("senhor dos anéis" → "Os Anéis de
+  // Poder"). TMDB cobre o resto (títulos PT/EN fora do mapa + ano + tipo).
+  const translated = deterministicTranslate(rawQuery);
+  const hasDeterministic = fold(translated) !== fold(rawQuery);
 
   let result: InterpretedQuery;
-  if (tmdb && tmdb.canonicalTitle) {
-    result = tmdb;
+  if (hasDeterministic) {
+    result = { canonicalTitle: translated, ptTitle: rawQuery, confidence: 0.8 };
   } else {
-    // TMDB sem match/chave/offline: cai na tradução determinística PT→EN e
-    // devolve identidade quando nada casa (o engine então tenta o termo cru).
-    const translated = deterministicTranslate(rawQuery);
-    const engineTitle = fold(translated) !== fold(rawQuery) ? translated : rawQuery;
-    result = { canonicalTitle: engineTitle, confidence: 0 };
+    const tmdb = await interpretViaTmdb(rawQuery);
+    if (tmdb && tmdb.canonicalTitle && fold(tmdb.canonicalTitle) !== fold(rawQuery)) {
+      result = tmdb;
+    } else {
+      // TMDB sem match/chave/offline: devolve identidade (o engine então tenta
+      // o termo cru com suas próprias variações/expansão de query).
+      result = { canonicalTitle: rawQuery, confidence: 0 };
+    }
   }
 
   if ((result.confidence ?? 0) > 0) {
@@ -437,7 +444,10 @@ export async function searchMediaEnhanced(
     (interpret.confidence ?? 0) > 0 && interpret.canonicalTitle !== rawQuery
       ? interpret.canonicalTitle
       : deterministicTranslate(rawQuery);
-  const ptTitle = interpret?.ptTitle && interpret.ptTitle !== rawQuery ? interpret.ptTitle : '';
+  // Passa o título PT sempre que há interpretação (determinístico usa a query
+  // crua como título PT; TMDB usa o título PT oficial). Sem isso, torrents
+  // indexados só sob o título brasileiro ("O Senhor dos Anéis") são perdidos.
+  const ptTitle = (interpret?.confidence ?? 0) > 0 ? interpret?.ptTitle || '' : '';
 
   const { results } = await runEngine(engineQuery, audio, metaHint, ptTitle);
   const ranked = await rankCandidates(engineQuery, results, interpret);

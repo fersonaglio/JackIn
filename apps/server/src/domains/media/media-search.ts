@@ -149,7 +149,7 @@ const CURATED_SITE_RE = /limontorrents|baixetorrents|mestredosfilmes|filmeshdtor
 // Retorna até maxOptions magnets REAIS (apibay/1337x, sem curated/yts) para o
 // título, ordenados do mais confiável para o menos — usados como candidates em
 // cascata: se um magnet estiver morto, o worker tenta o próximo automaticamente.
-async function findBetterDownloadOptions(title: string, maxOptions: number = 4, requirePt: boolean = false): Promise<Partial<DownloadOptions>[]> {
+export async function findBetterDownloadOptions(title: string, maxOptions: number = 4, requirePt: boolean = false): Promise<Partial<DownloadOptions>[]> {
   const { searchMediaEnhanced } = await import('./media-search-interpret.js');
   const seen = new Set<string>();
   const results: Partial<DownloadOptions>[] = [];

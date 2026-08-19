@@ -415,6 +415,25 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
 _PT_AUDIO_LANGS = {"pt", "por", "pt-br", "ptbr", "bra", "braz"}
 
 
+def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
+    """Verifica o idioma real do áudio (via ffprobe) quando require_pt é True.
+
+    Retorna os idiomas detectados. Quando o usuário pediu Dublado e o arquivo
+    não carrega nenhuma faixa em português (ex.: o cascade de fallback baixou
+    um YTS/original no lugar do magnet PT morto), rejeita (fail-closed):
+    quarentena + RuntimeError — nunca entrega áudio em outra língua
+    silenciosamente.
+    """
+    langs = detect_audio_languages(file_path)
+    if require_pt and not any(lang in _PT_AUDIO_LANGS for lang in langs):
+        quarantine_file(file_path, f"sem áudio em português (idiomas detectados: {langs or 'nenhum'})")
+        raise RuntimeError(
+            "Download rejeitado: a fonte não contém áudio em português (Dublado). "
+            "O magnet 'Dublado' estava morto e o fallback baixou uma fonte legendada/em outra língua."
+        )
+    return langs
+
+
 def download_file_with_shield(urls: list, output_dir: Path, title: str, quality: str, require_pt: bool = False) -> Path:
     global _last_emitted_pct
     _last_emitted_pct = 0
@@ -571,14 +590,7 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
     # fonte viva — que pode ser YTS/original só em inglês. Entregar isso
     # silenciosamente viola o pedido explícito de áudio em português: rejeita
     # (fail-closed) para o auto-retry buscar uma fonte PT de verdade.
-    if require_pt:
-        langs = detect_audio_languages(target_path)
-        if not any(lang in _PT_AUDIO_LANGS for lang in langs):
-            quarantine_file(target_path, f"sem áudio em português (idiomas detectados: {langs or 'nenhum'})")
-            raise RuntimeError(
-                "Download rejeitado: a fonte não contém áudio em português (Dublado). "
-                "O magnet 'Dublado' estava morto e o fallback baixou uma fonte legendada/em outra língua."
-            )
+    verify_pt_audio(target_path, require_pt)
 
     # Camada 3: Extração de áudio limpo whisper_audio.wav para transcrição
     # (mono 16kHz é artefato de transcrição/Whisper — NÃO é o áudio do playback).
