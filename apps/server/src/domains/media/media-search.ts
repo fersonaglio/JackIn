@@ -167,8 +167,9 @@ export async function findBetterDownloadOptions(title: string, maxOptions: numbe
 
   // Tenta a busca com o título dado E com um fallback de título original
   // (ex.: "FormiguinhaZ" → "Antz"), já que o título PT costuma só achar
-  // magnets curados (seeders fantasmas) enquanto o original acha indexadores
-  // reais com seeders de verdade.
+  const cleanReqTitle = title.split(' (')[0].toLowerCase().replace(/[^a-z0-9]/gi, ' ').trim();
+  const reqWords = cleanReqTitle.split(/\s+/).filter((w) => w.length > 2);
+
   const fallbacks = [title, expandTitleFallback(title)];
   for (const t of fallbacks) {
     let out: any = { results: [] };
@@ -177,6 +178,21 @@ export async function findBetterDownloadOptions(title: string, maxOptions: numbe
     } catch {}
     for (const r of out.results || []) {
       if (!r.options || r.options.length === 0) continue;
+
+      // Proteção de franquia: quando a busca retorna múltiplos grupos, garante
+      // que só pegamos candidatos que correspondam ao filme/ano exato requisitado.
+      if (out.results.length > 1) {
+        const rTitleClean = (r.title || '').toLowerCase().replace(/[^a-z0-9]/gi, ' ');
+        const rOrigClean = (r.originalTitle || '').toLowerCase().replace(/[^a-z0-9]/gi, ' ');
+        const distinctiveWords = reqWords.filter(
+          (w) => !['piratas', 'pirates', 'caribe', 'caribbean', 'senhor', 'aneis', 'lord', 'rings', 'star', 'wars', 'harry', 'potter', 'filme', 'movie', 'part', 'parte'].includes(w)
+        );
+        if (distinctiveWords.length > 0) {
+          const matchDistinctive = distinctiveWords.some((w) => rTitleClean.includes(w) || rOrigClean.includes(w));
+          if (!matchDistinctive) continue;
+        }
+      }
+
       if (!posterUrl && r.posterUrl) posterUrl = r.posterUrl;
 
       // Opções reais (indexadores com seeders reais) têm prioridade total.
