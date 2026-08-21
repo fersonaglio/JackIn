@@ -702,7 +702,7 @@ export function reconcileMovieStatus(projectId: string): void {
 
   const hasIncompleteAria = aria2Files.length > 0;
 
-  let fc: { sourceUrl?: string; quality?: string; posterUrl?: string; altSourceUrls?: string[] } | null = null;
+  let fc: { sourceUrl?: string; quality?: string; posterUrl?: string; altSourceUrls?: string[]; requirePt?: boolean } | null = null;
   try {
     fc = facelessConfigRaw ? JSON.parse(facelessConfigRaw) : null;
   } catch {}
@@ -739,6 +739,7 @@ export function reconcileMovieStatus(projectId: string): void {
       quality: fc?.quality || '4K',
       posterUrl: fc?.posterUrl || '',
       altSourceUrls: fc?.altSourceUrls,
+      requirePt: fc?.requirePt === true,
     });
   } else {
     console.log(`[JackIn Media] Reconciliado: download ${id} sem fonte para retomar`);
@@ -1020,10 +1021,12 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
   // Retry manual zera o contador de auto-retry para um ciclo novo.
   autoRetryState.delete(projectId);
 
-  if (runningDownloads.has(projectId) || status === 'downloading') {
+  const hasActiveWorker = runningProcesses.has(projectId) && runningProcesses.get(projectId)?.exitCode === null;
+  if (hasActiveWorker) {
     res.status(409).json({ error: 'Download já em andamento' });
     return;
   }
+  runningDownloads.delete(projectId);
   // Prepare "em andamento" num projeto que já está em erro/cancelado é um
   // prepare PRESO (ex.: ffmpeg pendurado que nunca emitiu close) — o watchdog
   // do runFfmpeg eventualmente mata o processo, mas enquanto a entrada de
@@ -1038,10 +1041,9 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
       return;
     }
   }
-  // 'preparing' sem worker ativo = projeto preso (ex.: download completou mas o
-  // prepare nunca disparou). Permite retry: se o master já existe em disco,
-  // apenas re-dispara o prepare; senão, re-download completo.
-  if (status !== 'error' && status !== 'cancelled' && status !== 'preparing') {
+  // Permite retry se estiver com erro, cancelado, preparing preso, ou downloading sem worker ativo.
+  const isStalledDownloading = status === 'downloading' && !runningDownloads.has(projectId);
+  if (status !== 'error' && status !== 'cancelled' && status !== 'preparing' && !isStalledDownloading) {
     res.status(400).json({ error: `Status atual (${status}) não permite tentar novamente` });
     return;
   }
@@ -1102,6 +1104,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
           title: parsed.title || title,
           quality: parsed.quality || '4K',
           posterUrl: parsed.posterUrl || '',
+          altSourceUrls: Array.isArray(parsed.altSourceUrls) ? parsed.altSourceUrls : undefined,
           requirePt: parsed.requirePt === true,
         };
       }
@@ -1125,11 +1128,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
     return;
   }
 
-  // Claim the download slot NOW, before the async re-search below. The guard
-  // above already passed, but `findBetterDownloadOption` awaits for seconds;
-  // without claiming here, concurrent retry requests would all still see the
-  // old 'error' status, pass the guard and spawn duplicate workers on the same
-  // project (their progress then fights over one progress bar).
+  // Claim the download slot
   runningDownloads.add(projectId);
   db.run(
     'UPDATE projects SET status = ? WHERE id = ?',
@@ -1148,9 +1147,6 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
         } else {
           const st = fs.statSync(fullPath);
           if (st.isDirectory()) {
-            // YTS-style torrent subdirs ("The Emperors New Groove (2000) [2160p]...")
-            // are stale artifacts — clear them so reconcileMovieStatus doesn't
-            // see leftover state on the fresh retry.
             try { fs.rmSync(fullPath, { recursive: true, force: true }); } catch {}
           }
         }
@@ -1158,6 +1154,24 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
     }
   } catch (e) {
     console.error('[JackIn Media] Erro ao limpar arquivos parciais:', e);
+  }
+
+  // Busca novas fontes ativas (Torrentio + Trackers) antes de iniciar
+  try {
+    const altOpts = await findBetterDownloadOptions(opts.title, 4, opts.requirePt);
+    const real = altOpts.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl));
+    const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts!.sourceUrl);
+    const mergedAlts = [...new Set([...(opts.altSourceUrls || []), ...alts])];
+    if (real.length > 0) {
+      const best = real[0].sourceUrl!;
+      const reordered = [...new Set([best, ...(mergedAlts.filter((u) => u !== best))])];
+      const keepCurated = !reordered.includes(opts.sourceUrl) ? [...reordered, opts.sourceUrl] : reordered;
+      opts = { ...opts, sourceUrl: best, altSourceUrls: keepCurated };
+    } else if (mergedAlts.length > 0) {
+      opts = { ...opts, altSourceUrls: mergedAlts };
+    }
+  } catch (err) {
+    console.error('[JackIn Media] Erro ao buscar alternativas no retry:', err);
   }
 
   try {
@@ -1169,8 +1183,6 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
 
     startMovieDownload(projectId, opts);
   } catch (err) {
-    // Release the claim so the project doesn't stay stuck as 'downloading'
-    // forever with no worker behind it.
     runningDownloads.delete(projectId);
     const msg = `Falha ao iniciar download: ${(err as Error).message}`;
     try {
@@ -1184,42 +1196,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
     return;
   }
 
-  // Respond immediately to the frontend so retry never hits a 90s timeout
   res.json({ id: projectId, status: 'downloading', source: 'retry' });
-
-  // Async: seek better alternatives in cascade and attach them to project config
-  findBetterDownloadOptions(opts.title, 4, opts.requirePt)
-    .then((altOpts) => {
-      const real = altOpts.filter((o) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl));
-      const alts = altOpts.map((o) => o.sourceUrl!).filter((u) => u && u !== opts!.sourceUrl);
-      const mergedAlts = [...new Set([...(opts.altSourceUrls || []), ...alts])];
-      // Fonte real encontrada (indexador de verdade) vira primária — tentá-la
-      // primeiro evita o warmup morto no magnet fantasma a cada retry.
-      let retryOpts: DownloadOptions = { ...opts, altSourceUrls: mergedAlts };
-      if (real.length > 0 && opts.sourceUrl) {
-        const best = real[0].sourceUrl!;
-        const reordered = [...new Set([best, ...(mergedAlts.filter((u) => u !== best))])];
-        const keepCurated = !reordered.includes(opts.sourceUrl) ? [...reordered, opts.sourceUrl] : reordered;
-        retryOpts = { ...opts, sourceUrl: best, altSourceUrls: keepCurated };
-      }
-      if (mergedAlts.length > 0 || real.length > 0) {
-        try {
-          db.run(
-            'UPDATE projects SET faceless_config = ? WHERE id = ?',
-            [JSON.stringify({ sourceUrl: retryOpts.sourceUrl, title: retryOpts.title, quality: retryOpts.quality, posterUrl: retryOpts.posterUrl || '', altSourceUrls: retryOpts.altSourceUrls || [], requirePt: retryOpts.requirePt === true }), projectId]
-          );
-          persist();
-        } catch {}
-        // Se o worker primário já falhou antes das alternativas chegarem, refaz
-        if (!runningDownloads.has(projectId)) {
-          const st = db.exec('SELECT status FROM projects WHERE id = ?', [projectId])[0]?.values[0]?.[0];
-          if (st === 'error') {
-            startMovieDownload(projectId, retryOpts);
-          }
-        }
-      }
-    })
-    .catch(() => {});
 });
 
 // POST /api/media-search/pause/:projectId — pause a live torrent download. The
