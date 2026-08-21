@@ -261,6 +261,9 @@ def search_all(query: str) -> list:
 
     merged = {}
     fetchers = [fetch_apibay, fetch_yts, fetch_solidtorrents]
+    if _ENABLE_TORRENTIO:
+        from sources_torrentio import search_torrentio
+        fetchers.append(search_torrentio)
     if _ENABLE_1337X:
         fetchers.append(fetch_1337x)
     if _ENABLE_NYAA:
@@ -292,3 +295,4 @@ def search_all(query: str) -> list:
 from config import ENABLE_1337X as _ENABLE_1337X  # noqa: E402
 from config import ENABLE_NYAA as _ENABLE_NYAA  # noqa: E402
 from config import ENABLE_PROWLARR as _ENABLE_PROWLARR  # noqa: E402
+from config import ENABLE_TORRENTIO as _ENABLE_TORRENTIO  # noqa: E402

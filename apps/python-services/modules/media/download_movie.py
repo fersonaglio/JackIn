@@ -230,18 +230,35 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
     emit_progress(5, f"Conectando aos Seeders BitTorrent P2P ({quality})...", 18.0)
     aria2_bin = ARIA2_BIN
 
+    # Tabela DHT persistente para conexão ultra-rápida (milhares de nós já conhecidos)
+    dht_dir = output_dir.parent.parent
+    dht_file = dht_dir / "dht.dat"
+    dht6_file = dht_dir / "dht6.dat"
+
     cmd = [
         aria2_bin,
         "--seed-time=0",
         f"--bt-stop-timeout={stop_timeout}",
         "--timeout=25",
         "--connect-timeout=15",
+        "--bt-tracker-connect-timeout=4",
+        "--bt-tracker-timeout=8",
         "--max-download-limit=0",
-        "--bt-max-peers=200",
+        "--bt-max-peers=250",
         "--bt-request-peer-speed-limit=0",
         "--summary-interval=1",
         "--enable-dht=true",
+        "--enable-dht6=true",
+        f"--dht-file-path={dht_file}",
+        f"--dht-file-path6={dht6_file}",
+        "--dht-entry-point=router.bittorrent.com:6881",
+        "--dht-entry-point=dht.transmissionbt.com:6881",
+        "--dht-entry-point=router.utorrent.com:6881",
         "--enable-peer-exchange=true",
+        "--bt-min-crypto-level=none",
+        "--bt-require-crypto=false",
+        "--peer-id-prefix=-qB4600-",
+        "--user-agent=qBittorrent/4.6.0",
         "--bt-tracker=" + TRACKERS_COMMA,
         "--dir", str(output_dir),
         "--follow-torrent=mem",
@@ -296,28 +313,28 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
 
     try:
         while not download_done:
-            events = sel.select(timeout=2.0) if proc.stdout else []
+            events = sel.select(timeout=1.0) if proc.stdout else []
             now_t = time.time()
+            if proc.poll() is not None:
+                break
+
+            # Verificação periódica de avanço de dados (candidate morto):
+            # Se após 45s nenhum byte de vídeo foi transferido, aborta e vai para o próximo.
+            # Se já está perto do final (>=80%), dá tolerância estendida (240s).
+            no_advance = now_t - last_byte_advance
+            grace = 240 if peak_pct >= 80 else (60 if got_progress else 45)
+            if (time.time() - start_t) > 40 and no_advance > grace:
+                print(f"[JackIn DL] Rede BitTorrent sem avanço há {int(no_advance)}s (candidate sem seeders). Abortando para tentar próximo...", file=sys.stderr)
+                try: proc.kill()
+                except: pass
+                break
+
             if not events:
-                if proc.poll() is not None:
-                    break
                 # Feedback enquanto DHT/trackers procuram peers.
-                if time.time() - start_t > 25 and not got_progress:
+                if time.time() - start_t > 20 and not got_progress:
                     if now_t - last_emit_t >= 3:
                         last_emit_t = now_t
                         emit_progress(5, f"Procurando seeders P2P (DHT/trackers)... {int(time.time() - start_t)}s", 0)
-                # Candidate morto: após warmup de 30s, se NENHUM byte avançou
-                # nos últimos 45s, aborta e o próximo magnet da cascata entra.
-                # PERTO DO FIM (>=80%) a paciência é muito maior: seeders de
-                # conteúdo obscuro somem na última peça e voltam em minutos —
-                # abortar nessa hora zera o download inteiro (já perdemos 93%
-                # e 99% duas vezes).
-                no_advance = now_t - last_byte_advance
-                grace = 240 if peak_pct >= 80 else 45
-                if (time.time() - start_t) > 30 and no_advance > grace:
-                    print("Rede BitTorrent sem dados (candidate morto). Abortando.", file=sys.stderr)
-                    proc.kill()
-                    break
                 continue
 
             chunk = proc.stdout.read(4096)
@@ -331,15 +348,6 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                 line_str = line.strip()
                 if not line_str:
                     continue
-
-                # Conclusão REAL do arquivo: o aria2 imprime "(100%)" na linha de
-                # progresso quando o ARQUIVO de vídeo termina. MAS também imprime
-                # "(100%)" ao baixar só o metadata/torrent em memória (início).
-                # Para não travar a barra em 95% prematuramente, NÃO emitimos 95
-                # aqui — deixamos o progresso real subir via mapped_pct (8→95) e
-                # a verificação final de arquivos decide se o candidate vive.
-                # O loop sai sozinho quando o processo aria2 termina.
-                pass
 
                 if "(" in line_str and "%)" in line_str:
                     try:
@@ -366,11 +374,11 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                     except:
                         pass
                 elif "[#" in line_str and ("CN:" in line_str or "DL:" in line_str):
-                    got_progress = True
                     dl_now = parse_dl(line_str)
                     if dl_now > last_downloaded:
                         last_downloaded = dl_now
                         last_byte_advance = now_t
+                        got_progress = True
                     if now_t - last_emit_t >= 1.5:
                         last_emit_t = now_t
                         peers_part = _extract_token(line_str, "CN:")

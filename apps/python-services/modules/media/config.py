@@ -47,9 +47,12 @@ ARIA2_BIN = get_binary("aria2c")
 DEFAULT_TRACKERS = [
     "udp://tracker.opentrackr.org:1337/announce",
     "udp://open.demonii.com:1337/announce",
+    "udp://open.stealth.si:80/announce",
     "udp://tracker.openbittorrent.com:6969/announce",
+    "udp://tracker.openbittorrent.com:80/announce",
     "udp://exodus.desync.com:6969/announce",
     "udp://tracker.torrent.eu.org:451/announce",
+    "udp://explodie.org:6969/announce",
     "udp://ipv4.tracker.harry.lu:80/announce",
     "udp://tracker.moeking.me:6969/announce",
     "udp://tracker.tiny-vps.com:6969/announce",
@@ -58,6 +61,28 @@ DEFAULT_TRACKERS = [
     "udp://tracker.pirateparty.gr:6969/announce",
     "udp://tracker.gbitt.info:80/announce",
     "udp://tracker.bittor.pw:1337/announce",
+    "udp://tracker.altrosky.nl:2710/announce",
+    "udp://p4p.arenabg.com:1337/announce",
+    "udp://movies.zsw.ca:6969/announce",
+    "udp://retracker.lanta-net.ru:2710/announce",
+    "udp://vibe.community:6969/announce",
+    "udp://opentor.net:6969/announce",
+    "udp://tracker1.myporn.club:9337/announce",
+    "udp://tracker.srv00.com:6969/announce",
+    "udp://tracker.filemail.com:6969/announce",
+    "udp://tracker.ddunlimited.net:6969/announce",
+    "udp://tracker.dump.cl:6969/announce",
+    "udp://tracker.qu.ax:6969/announce",
+    "udp://tracker.swateam.org.uk:2710/announce",
+    "udp://tracker.zembed.com:6969/announce",
+    "udp://valakas.rollo.dnsabr.ru:2710/announce",
+    "udp://t1.leech.ie:1337/announce",
+    "udp://sanincode.com:6969/announce",
+    "udp://run.publictracker.xyz:6969/announce",
+    "udp://public.tracker.vraphim.com:6969/announce",
+    "udp://free-tracker.zooki.xyz:6969/announce",
+    "udp://bt1.archive.org:6969/announce",
+    "udp://bt2.archive.org:6969/announce",
 ]
 
 P2P_TRACKERS = (
@@ -86,6 +111,7 @@ INSECURE_SSL = os.environ.get("P2P_INSECURE_SSL", "0") == "1"
 ENABLE_1337X = os.environ.get("ENABLE_1337X", "1") == "1"
 ENABLE_NYAA = os.environ.get("ENABLE_NYAA", "1") == "1"
 ENABLE_PROWLARR = os.environ.get("ENABLE_PROWLARR", "1") == "1"
+ENABLE_TORRENTIO = os.environ.get("ENABLE_TORRENTIO", "1") == "1"
 PROWLARR_URL = os.environ.get("PROWLARR_URL", "http://localhost:9696")
 
 _GLOBAL_SESSION = None
