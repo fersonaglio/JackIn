@@ -1052,7 +1052,7 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
   // com arquivo no disco, ex.: ffprobe transitório na finalização). Não
   // re-baixar GBs à toa — re-dispara o pipeline de prepare. Se não houver
   // master ou se o download estiver incompleto (.aria2 ativo), cai no re-download/resume normal abaixo.
-  if (status === 'preparing' || status === 'error') {
+  if (status === 'preparing' || status === 'error' || isStalledDownloading) {
     const pm = getProjectMedia(projectId);
     const projectDir = path.join(DATA_DIR, 'projects', projectId);
     const masterFile = path.join(projectDir, 'master.mp4');
