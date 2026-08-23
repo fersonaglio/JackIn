@@ -309,6 +309,9 @@ TRANSLATIONS = {
     "wolverine": "wolverine",
     "logan": "logan",
     "avatar": "avatar",
+    "o mandaloriano e grogu": "The Mandalorian and Grogu",
+    "o mandaloriano": "The Mandalorian",
+    "mandaloriano": "mandalorian",
     # ── Typos comuns (mapeiam para o termo correto) ──
     "sennor dos anelis": "the lord of the rings",
     "sennor dos aneis": "the lord of the rings",
@@ -337,12 +340,18 @@ BLACKLIST_LANGS = {
 # Markers in a torrent name that CONFIRM Portuguese-Brazilian audio (not just
 # a generic "DUAL" which could be EN+ES/EN+FR). Only these are labelled PT-BR.
 PT_AUDIO_MARKERS = (
-    "DUBLADO", "DUBLADOS", "DUBLADO-PT", "DUB-PT", "DUB POR",
+    "DUBLADO", "DUBLADOS", "DUBLADO-PT", "DUB-PT", "DUB POR", "DUB-BR",
     "PT-BR", "PTBR", "PORTUGUES", "PORTUGUESE", "PORTUGUÊS", "BRAZILIAN",
+    "DUAL-BR", "AUDIO-PT", "DUAL-ANDREHSA", "DUAL-WOLVERDON", "DUAL-LAPUMIA",
+    "DUAL-STARCK", "DUAL-COMMANDER", "DUAL-BJ", "DUAL-FILMESVIATORRENTS",
+    "🇵🇹", "🇧🇷",
 )
 
 # Reverse (English -> Portuguese) translation map for query expansion
 REVERSE_TRANSLATIONS = {
+    "the mandalorian and grogu": "o mandaloriano e grogu",
+    "the mandalorian": "o mandaloriano",
+    "mandalorian": "mandaloriano",
     "treasure planet": "planeta do tesouro",
     "inside out": "divertida mente",
     "the incredibles": "os incriveis",

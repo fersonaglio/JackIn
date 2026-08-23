@@ -38,12 +38,15 @@ def detect_audio_info(file_name: str) -> str:
     name_upper = file_name.upper().replace(".", " ").replace("_", " ")
     info = classify_audio(file_name)
     has_es = any(tag in name_upper for tag in ["LATINO", "ESPANOL", "CASTELLANO"])
-    has_dolby = any(tag in name_upper for tag in ["ATMOS", "TRUEHD", "DTS-HD", "DTS", "DDP5", "DDP7"])
+    has_dolby = any(tag in name_upper for tag in ["ATMOS", "TRUEHD", "DTS-HD", "DTS", "DDP5", "DDP7", "DD+"])
+    has_7_1 = any(tag in name_upper for tag in ["7.1", "8CH", "7 1"])
     has_5_1 = any(tag in name_upper for tag in ["5.1", "6CH", "5 1"])
 
     parts = []
     if has_dolby:
-        parts.append("Dolby Atmos" if "ATMOS" in name_upper else "DTS-HD" if "DTS-HD" in name_upper else "Surround")
+        parts.append("Dolby Atmos" if "ATMOS" in name_upper else "TrueHD 7.1" if "TRUEHD" in name_upper else "DTS-HD" if "DTS-HD" in name_upper else "5.1 Surround" if ("DDP" in name_upper or "DD+" in name_upper) else "Surround")
+    elif has_7_1:
+        parts.append("7.1 Surround")
     elif has_5_1:
         parts.append("5.1")
     else:
@@ -63,7 +66,7 @@ def classify_audio(name: str) -> dict:
     """Classify the audio language/subtitle type from a torrent name.
 
     `ptConfirmed` is True ONLY when the name carries an explicit Portuguese
-    marker (DUBLADO, PT-BR, PORTUGUES...) — a bare "DUAL"/"MULTI" does NOT
+    marker (DUBLADO, PT-BR, PORTUGUES, 🇧🇷, 🇵🇹...) — a bare "DUAL"/"MULTI" does NOT
     confirm Portuguese, so it is labelled honestly as dual/multi.
 
     `hasPtSubtitles` is True when the release carries Portuguese subtitles:
@@ -75,12 +78,13 @@ def classify_audio(name: str) -> dict:
     """
     n = name.upper().replace(".", " ").replace("_", " ")
     has_dual = bool(re.search(r"\b(DUAL[ -]?AUDIO|DUAL)\b", n))
-    has_pt = any(tag in n for tag in PT_AUDIO_MARKERS)
+    has_pt_flag = "🇧🇷" in name or "🇵🇹" in name
+    has_pt = any(tag in n for tag in PT_AUDIO_MARKERS) or has_pt_flag
     has_leg = bool(re.search(r"\b(LEGENDADO|LEGENDADOS|SUBBED|SUBTITLED|SUBS)\b", n))
     has_pt_leg = bool(re.search(r"\b(LEGENDADO|LEGENDADOS)\b", n))
     has_multi = bool(re.search(r"\bMULTI[ -]?AUDIO|MULTI\b", n))
     has_es = bool(re.search(r"\b(LATINO|ESPANOL|CASTELLANO)\b", n))
-    has_pt_dual = bool(re.search(r"\bDUAL\s*ÁUDIO\b", n))
+    has_pt_dual = bool(re.search(r"\bDUAL\s*ÁUDIO\b", n)) or (has_pt_flag and has_dual)
 
     if has_dual or (has_pt and has_multi):
         audio_type = "dual"
@@ -632,13 +636,19 @@ def _dubbed_priority(t: dict) -> int:
     base = {"dual": 3, "dub": 2, "multi": 1}.get(at, 0)
     # Confirmed PT (name marker or learned from a previous download) always wins.
     if info.get("ptConfirmed"):
-        return base + 4
+        base += 4
     known = _pt_knowledge(t.get("info_hash"))
     if known is not None:
         if known.get("pt"):
-            return base + 5
-        return -5
-    return base
+            base += 5
+        else:
+            return -50
+    # Boost by quality tier (REMUX > 4K > 1080P > 720P) so top-quality dubs lead
+    q_tier = quality_tier(t.get("name", ""))
+    q_bonus = {"REMUX": 4, "4K": 3, "1080P": 2, "720P": 1}.get(q_tier, 0)
+    n_upper = t.get("name", "").upper()
+    surround = 1 if any(k in n_upper for k in ("5.1", "7.1", "ATMOS", "DTS", "TRUEHD", "DDP")) else 0
+    return base * 10 + q_bonus * 2 + surround
 
 def build_options(torrents: list, max_options: int = MAX_OPTIONS) -> list:
     """Build the option list guaranteeing dubbed + legendado + original

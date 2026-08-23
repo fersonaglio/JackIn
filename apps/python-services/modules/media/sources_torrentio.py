@@ -72,7 +72,14 @@ def search_torrentio(query: str, is_series_query: bool = False) -> list:
         return []
 
     cat = "series" if is_series_query else "movie"
-    stream_url = f"https://torrentio.strem.fun/stream/{cat}/{imdb_id}.json"
+    if is_series_query:
+        # Extract season if specified in query (e.g. "The Mandalorian S02" -> season 2)
+        sm = re.search(r"\bS(\d{1,2})\b", query, re.I) or re.search(r"\bSeason\s*(\d{1,2})\b", query, re.I)
+        season_num = int(sm.group(1)) if sm else 1
+        stream_url = f"https://torrentio.strem.fun/stream/series/{imdb_id}:{season_num}:1.json"
+    else:
+        stream_url = f"https://torrentio.strem.fun/stream/movie/{imdb_id}.json"
+
     data = None
     try:
         session = get_session()
@@ -101,11 +108,28 @@ def search_torrentio(query: str, is_series_query: bool = False) -> list:
 
         title_raw = s.get("title", "")
         lines = [l.strip() for l in title_raw.split("\n") if l.strip()]
-        name = lines[0] if lines else s.get("name", "")
+        name = lines[0] if lines else (s.get("name", "") or "Stream")
+
+        # Quality tag from s.get("name") (e.g. "Torrentio\n4k DV | HDR")
+        header_name = s.get("name", "")
+        if "\n" in header_name:
+            q_tag = header_name.split("\n")[-1].strip()
+            if q_tag and q_tag.lower() not in name.lower():
+                name = f"{name} [{q_tag}]"
+
         # If there are release detail lines with dub/sub hints or Portuguese flags, include them in the title
+        has_pt_flag = "🇵🇹" in title_raw or "🇧🇷" in title_raw
+        has_pt_text = any(k in title_raw.upper() for k in ("DUBLADO", "PORTUGU", "PT-BR", "BRA"))
+        has_dual_text = "DUAL" in title_raw.upper() or "MULTI" in title_raw.upper()
+
         for extra_line in lines[1:]:
             if any(k in extra_line.upper() for k in ("DUBLADO", "DUAL", "PORTUGU", "PT-BR", "BRA", "LEGENDADO")) or "🇵🇹" in extra_line or "🇧🇷" in extra_line:
                 name += f" [{extra_line}]"
+
+        if has_pt_flag and "[Dublado PT-BR]" not in name:
+            name += " [Dublado PT-BR]"
+        elif has_pt_text and has_dual_text and "Dual" not in name:
+            name += " [Dual Áudio]"
 
         # Parse seeders from "👤 55"
         seed_m = re.search(r"👤\s*(\d+)", title_raw)
