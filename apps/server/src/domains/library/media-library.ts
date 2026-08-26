@@ -104,10 +104,10 @@ router.get('/', (req: Request, res: Response) => {
           sizeBytes = statSync(vPath).size;
         } catch {}
       } else {
-        const defaultMaster = path.join(DATA_DIR, 'projects', r[0], 'master.mp4');
-        if (existsSync(defaultMaster)) {
+        const masterFile = findMasterFile(path.join(DATA_DIR, 'projects', r[0]));
+        if (masterFile && existsSync(masterFile)) {
           try {
-            sizeBytes = statSync(defaultMaster).size;
+            sizeBytes = statSync(masterFile).size;
           } catch {}
         }
       }
@@ -154,10 +154,10 @@ router.get('/series/:seriesId', (req: Request, res: Response) => {
         sizeBytes = statSync(vPath).size;
       } catch {}
     } else {
-      const defaultMaster = path.join(DATA_DIR, 'projects', row[0], 'master.mp4');
-      if (existsSync(defaultMaster)) {
+      const masterFile = findMasterFile(path.join(DATA_DIR, 'projects', row[0]));
+      if (masterFile && existsSync(masterFile)) {
         try {
-          sizeBytes = statSync(defaultMaster).size;
+          sizeBytes = statSync(masterFile).size;
         } catch {}
       }
     }

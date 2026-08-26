@@ -18,6 +18,14 @@ function formatHistoryDate(dateStr?: string | null): string {
   });
 }
 
+function formatBytes(bytes?: number | null): string {
+  if (!bytes || bytes <= 0) return '';
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) return `${gb.toFixed(2)} GB`;
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(0)} MB`;
+}
+
 interface LibraryGridProps {
   projects: Project[];
   filter: string;
@@ -194,7 +202,7 @@ function LibraryCard({
             {cleanTitle}
           </h4>
           <p className="text-[10px] text-zinc-500 font-mono font-semibold truncate">
-            {rawQuality}
+            {rawQuality}{project.sizeBytes ? ` · ${formatBytes(project.sizeBytes)}` : ''}
           </p>
         </div>
 
@@ -302,7 +310,8 @@ function SeriesCard({
               ? { text: 'Pausado', cls: 'bg-sky-500/20 border-sky-500/50 text-sky-300' }
               : { text: '📺 Série', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' };
 
-  const footerLine = `${b.summaryText || `${b.totalSeasons} temporada${b.totalSeasons !== 1 ? 's' : ''}`}${b.watchPercent > 0 ? ` · ${b.watchPercent}% assistido` : ''}`;
+  const totalFormatted = b.totalSizeBytes > 0 ? formatBytes(b.totalSizeBytes) : null;
+  const footerLine = `${b.summaryText || `${b.totalSeasons} temporada${b.totalSeasons !== 1 ? 's' : ''}`}${totalFormatted ? ` · ${totalFormatted}` : ''}${b.watchPercent > 0 ? ` · ${b.watchPercent}% assistido` : ''}`;
 
   const play = () => {
     if (!firstPlay) return;
