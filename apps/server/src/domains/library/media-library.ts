@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { getDb, persist, persistThrottled, DATA_DIR } from '../../db/schema.js';
-import { existsSync, rmSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, rmSync, readdirSync, readFileSync, mkdirSync, writeFileSync, statSync } from 'fs';
 import path from 'path';
 import { execSync, spawn } from 'child_process';
 import { progressEvents } from '../../services/progress-events.js';
@@ -96,6 +96,22 @@ router.get('/', (req: Request, res: Response) => {
           }
         }
       }
+
+      let sizeBytes: number | undefined = undefined;
+      const vPath = r[6] as string | null;
+      if (vPath && existsSync(vPath)) {
+        try {
+          sizeBytes = statSync(vPath).size;
+        } catch {}
+      } else {
+        const defaultMaster = path.join(DATA_DIR, 'projects', r[0], 'master.mp4');
+        if (existsSync(defaultMaster)) {
+          try {
+            sizeBytes = statSync(defaultMaster).size;
+          } catch {}
+        }
+      }
+
       return {
         id: r[0],
         youtubeUrl: r[1],
@@ -113,6 +129,7 @@ router.get('/', (req: Request, res: Response) => {
         watched: r[13] as number | null,
         progressPct,
         progressStatus,
+        sizeBytes,
       };
     })
   );
@@ -124,23 +141,41 @@ router.get('/series/:seriesId', (req: Request, res: Response) => {
   const result = db.exec(
     'SELECT id, title, status, error_message, created_at, ' +
     'COALESCE(project_type, \'movie\') as project_type, ' +
-    'season_number, episode_number, watch_progress, watched ' +
+    'season_number, episode_number, watch_progress, watched, video_path ' +
     'FROM projects WHERE series_id = ? ORDER BY season_number ASC, episode_number ASC',
     [seriesId]
   );
   const rows = result[0]?.values || [];
-  const episodes = rows.map((row: any[]) => ({
-    id: row[0],
-    title: row[1],
-    status: row[2],
-    errorMessage: row[3],
-    createdAt: row[4],
-    projectType: row[5],
-    seasonNumber: row[6] as number | null,
-    episodeNumber: row[7] as number | null,
-    watchProgress: row[8] as number | null,
-    watched: (row[9] as number) === 1,
-  }));
+  const episodes = rows.map((row: any[]) => {
+    let sizeBytes: number | undefined = undefined;
+    const vPath = row[10] as string | null;
+    if (vPath && existsSync(vPath)) {
+      try {
+        sizeBytes = statSync(vPath).size;
+      } catch {}
+    } else {
+      const defaultMaster = path.join(DATA_DIR, 'projects', row[0], 'master.mp4');
+      if (existsSync(defaultMaster)) {
+        try {
+          sizeBytes = statSync(defaultMaster).size;
+        } catch {}
+      }
+    }
+
+    return {
+      id: row[0],
+      title: row[1],
+      status: row[2],
+      errorMessage: row[3],
+      createdAt: row[4],
+      projectType: row[5],
+      seasonNumber: row[6] as number | null,
+      episodeNumber: row[7] as number | null,
+      watchProgress: row[8] as number | null,
+      watched: (row[9] as number) === 1,
+      sizeBytes,
+    };
+  });
   res.json(episodes);
 });
 

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { MovieSearchResult, MediaOption, SeriesSeason } from '@/lib/api';
 import TorrentOptionRow from './TorrentOptionRow';
@@ -18,6 +18,32 @@ interface MediaDetailModalProps {
   ptStrictRequest?: boolean;
   searchError?: string | null;
   onSuggestionClick?: (title: string) => void;
+}
+
+function parseSizeToBytes(sizeStr?: string | null): number {
+  if (!sizeStr) return 0;
+  const match = sizeStr.trim().match(/^([\d.,]+)\s*([KMGTP]?i?B)$/i);
+  if (!match) return 0;
+  const num = parseFloat(match[1].replace(',', '.'));
+  const unit = match[2].toUpperCase();
+  if (isNaN(num)) return 0;
+  if (unit.startsWith('T')) return num * 1024 * 1024 * 1024 * 1024;
+  if (unit.startsWith('G')) return num * 1024 * 1024 * 1024;
+  if (unit.startsWith('M')) return num * 1024 * 1024;
+  if (unit.startsWith('K')) return num * 1024;
+  return num;
+}
+
+function formatBytes(bytes?: number | null): string {
+  if (!bytes || bytes <= 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  let val = bytes;
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
+  return `${val.toFixed(val >= 10 || i === 0 ? 1 : 2)} ${units[i]}`;
 }
 
 const AUDIO_OPTIONS = [
@@ -169,6 +195,46 @@ export default function MediaDetailModal({
   // a plain catalog search gets a subtle info box instead.
   const strictPtRequest = ptStrictRequest && !!movie?.ptUnavailable;
 
+  // Calcula o tamanho total como um todo (para séries = soma das temporadas; para filmes = tamanho das opções)
+  const totalSizeSummary = useMemo(() => {
+    if (!movie) return null;
+    if (seasons && seasons.length > 0) {
+      let totalBytes = 0;
+      for (const season of seasons) {
+        const matching = season.options.filter(matchesAudioFilter);
+        const best = matching[0] || season.options[0];
+        if (best?.size) {
+          const b = parseSizeToBytes(best.size);
+          if (b > 0) totalBytes += b;
+        }
+      }
+      if (totalBytes > 0) {
+        return {
+          label: `${seasons.length} Temporada${seasons.length > 1 ? 's' : ''}`,
+          totalFormatted: formatBytes(totalBytes),
+          isSeries: true,
+        };
+      }
+    }
+
+    // Para filmes: pega o tamanho da melhor opção ou o range de tamanhos
+    const matchingOpts = (movie.options || []).filter(matchesAudioFilter);
+    const opts = matchingOpts.length > 0 ? matchingOpts : (movie.options || []);
+    const validSizes = opts.map((o) => parseSizeToBytes(o.size)).filter((b) => b > 0);
+    if (validSizes.length > 0) {
+      const min = Math.min(...validSizes);
+      const max = Math.max(...validSizes);
+      const totalFormatted = min === max ? formatBytes(min) : `${formatBytes(min)} – ${formatBytes(max)}`;
+      return {
+        label: 'Tamanho Estimado',
+        totalFormatted,
+        isSeries: false,
+      };
+    }
+
+    return null;
+  }, [movie, seasons, audioFilter]);
+
   return (
     <AnimatePresence>
       {isOpen && movie && (
@@ -233,6 +299,12 @@ export default function MediaDetailModal({
                       <span className="flex items-center gap-1 text-[#EF9F27] text-sm font-bold">
                         &#9733; {movie.rating}
                       </span>
+                      {totalSizeSummary && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#EF9F27]/15 border border-[#EF9F27]/40 text-[#EF9F27] text-[11px] font-mono font-bold uppercase flex items-center gap-1">
+                          <span>💾</span>
+                          <span>{totalSizeSummary.totalFormatted} {totalSizeSummary.isSeries ? 'Total' : ''}</span>
+                        </span>
+                      )}
                     </div>
                     <h2 id="modal-title" className="text-2xl md:text-4xl font-black text-zinc-100 tracking-tight">
                       {movie.title}
@@ -311,28 +383,38 @@ export default function MediaDetailModal({
                         <button
                           type="button"
                           onClick={() => setActiveSeason(0)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 ${
                             activeSeason === 0
                               ? 'bg-[#EF9F27] text-zinc-950 border-[#EF9F27]'
                               : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500'
                           }`}
                         >
-                          Todas
+                          <span>Todas</span>
+                          {totalSizeSummary?.isSeries && (
+                            <span className="text-[10px] opacity-80 font-mono">({totalSizeSummary.totalFormatted})</span>
+                          )}
                         </button>
-                        {seasons.map((s) => (
-                          <button
-                            key={s.seasonNumber}
-                            type="button"
-                            onClick={() => setActiveSeason(s.seasonNumber)}
-                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                              activeSeason === s.seasonNumber
-                                ? 'bg-[#EF9F27] text-zinc-950 border-[#EF9F27]'
-                                : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500'
-                            }`}
-                          >
-                            T{s.seasonNumber}
-                          </button>
-                        ))}
+                        {seasons.map((s) => {
+                          const sMatching = s.options.filter(matchesAudioFilter);
+                          const sBest = sMatching[0] || s.options[0];
+                          return (
+                            <button
+                              key={s.seasonNumber}
+                              type="button"
+                              onClick={() => setActiveSeason(s.seasonNumber)}
+                              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 ${
+                                activeSeason === s.seasonNumber
+                                  ? 'bg-[#EF9F27] text-zinc-950 border-[#EF9F27]'
+                                  : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500'
+                              }`}
+                            >
+                              <span>T{s.seasonNumber}</span>
+                              {sBest?.size && (
+                                <span className="text-[10px] opacity-75 font-mono">({sBest.size})</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-xs text-zinc-500">1 temporada</p>
@@ -355,7 +437,9 @@ export default function MediaDetailModal({
                         ) : (
                           <>
                             <span>
-                              Baixar todas as temporadas ({seasons.length}){audioFilter !== 'any' ? ` — ${AUDIO_OPTIONS.find((a) => a.value === audioFilter)?.label || ''}` : ''}
+                              Baixar todas as temporadas ({seasons.length})
+                              {totalSizeSummary?.isSeries ? ` · ${totalSizeSummary.totalFormatted}` : ''}
+                              {audioFilter !== 'any' ? ` — ${AUDIO_OPTIONS.find((a) => a.value === audioFilter)?.label || ''}` : ''}
                             </span>
                             <span>📥</span>
                           </>

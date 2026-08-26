@@ -137,10 +137,14 @@ export default function LibraryDetailModal({
   const movieProgress = movie?.watchProgress || 0;
 
   const sourceMagnet =
-    (target?.kind === 'movie' ? movie?.facelessConfig?.sourceUrl : undefined) ||
-    (target?.kind === 'movie' ? movie?.youtubeUrl : undefined);
+    (target?.kind === 'movie' ? (movie?.youtubeUrl || movie?.facelessConfig?.sourceUrl) : undefined) ||
+    (target?.episodes?.[0]?.youtubeUrl || target?.episodes?.[0]?.facelessConfig?.sourceUrl);
   const torrentInfo = parseMagnet(sourceMagnet);
-  const sizeBytes = target?.kind === 'movie' ? movie?.sizeBytes : undefined;
+  const totalSizeBytes =
+    target?.kind === 'movie'
+      ? (movie?.sizeBytes || 0)
+      : (target?.episodes?.reduce((sum, ep) => sum + (ep.sizeBytes || 0), 0) || 0);
+  const sizeBytes = totalSizeBytes > 0 ? totalSizeBytes : undefined;
   const downloadDate = target?.kind === 'movie' ? movie?.createdAt : undefined;
   // Série não tem "qualidade" única — oculta o badge para não mostrar "T1" etc.
   const qualityLabel = (target?.kind === 'movie' ? movie?.facelessConfig?.quality : undefined) || quality;
@@ -285,7 +289,7 @@ export default function LibraryDetailModal({
               <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#09090B]">
                 <div className="p-4 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                   {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {target.kind === 'series' && seriesBreakdown ? (
                       <>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
@@ -299,6 +303,12 @@ export default function LibraryDetailModal({
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
                           <p className="text-2xl font-black text-purple-400 tabular-nums">{seriesBreakdown.watchedCount}</p>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Assistidos</p>
+                        </div>
+                        <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
+                          <p className="text-2xl font-black text-[#EF9F27] tabular-nums">
+                            {totalSizeBytes > 0 ? formatBytes(totalSizeBytes) : '—'}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Tamanho Total</p>
                         </div>
                       </>
                     ) : (
@@ -326,6 +336,12 @@ export default function LibraryDetailModal({
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
                           <p className="text-2xl font-black text-zinc-100 tabular-nums">{quality}</p>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Qualidade</p>
+                        </div>
+                        <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
+                          <p className="text-2xl font-black text-[#EF9F27] tabular-nums">
+                            {totalSizeBytes > 0 ? formatBytes(totalSizeBytes) : (torrentInfo.size || '—')}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Tamanho Total</p>
                         </div>
                       </>
                     )}
@@ -588,12 +604,21 @@ export default function LibraryDetailModal({
                         seriesBreakdown.seasons.map((season) => {
                           const seasonWatched = season.episodes.filter((e) => e.watched === 1).length;
                           const pack = season.pack;
+                          const seasonSizeBytes =
+                            season.episodes.reduce((sum, ep) => sum + (ep.sizeBytes || 0), 0) + (season.pack?.sizeBytes || 0);
                           return (
                             <div key={season.seasonNumber} data-season-scroll={season.seasonNumber} className="space-y-2">
                               <div className="flex items-center justify-between pb-1 border-b border-zinc-800/60">
-                                <h4 className="text-xs font-black text-zinc-200 uppercase tracking-wider">
-                                  Temporada {season.seasonNumber}
-                                </h4>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-xs font-black text-zinc-200 uppercase tracking-wider">
+                                    Temporada {season.seasonNumber}
+                                  </h4>
+                                  {seasonSizeBytes > 0 && (
+                                    <span className="text-[10px] text-[#EF9F27] font-mono font-bold bg-[#EF9F27]/10 border border-[#EF9F27]/20 px-1.5 py-0.5 rounded">
+                                      {formatBytes(seasonSizeBytes)}
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-[10px] text-zinc-500 font-mono">
                                   {season.episodes.length > 0
                                     ? `${seasonWatched}/${season.episodes.length} assistidos`
@@ -619,9 +644,16 @@ export default function LibraryDetailModal({
                                       S{String(pack.seasonNumber ?? 1).padStart(2, '0')}
                                     </span>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-zinc-300 font-medium truncate">
-                                        Temporada {pack.seasonNumber} (completa)
-                                      </p>
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-xs text-zinc-300 font-medium truncate">
+                                          Temporada {pack.seasonNumber} (completa)
+                                        </p>
+                                        {pack.sizeBytes && pack.sizeBytes > 0 && (
+                                          <span className="text-[10px] text-zinc-400 font-mono font-bold bg-zinc-800 px-1.5 py-0.5 rounded">
+                                            {formatBytes(pack.sizeBytes)}
+                                          </span>
+                                        )}
+                                      </div>
                                       {pack.status === 'downloading' && (
                                         <div className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
                                           <div className="h-full bg-[#EF9F27] rounded-full" style={{ width: `${Math.min(100, Math.max(4, pack.progressPct || 0))}%` }} />
@@ -682,9 +714,16 @@ export default function LibraryDetailModal({
                                       </span>
 
                                       <div className="flex-1 min-w-0">
-                                        <p className={`text-xs truncate ${epWatched ? 'text-zinc-500' : 'text-zinc-200 font-medium'}`}>
-                                          {epTitle}
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                          <p className={`text-xs truncate ${epWatched ? 'text-zinc-500' : 'text-zinc-200 font-medium'}`}>
+                                            {epTitle}
+                                          </p>
+                                          {ep.sizeBytes && ep.sizeBytes > 0 && (
+                                            <span className="text-[10px] text-zinc-400 font-mono font-bold bg-zinc-800/80 px-1.5 py-0.5 rounded">
+                                              {formatBytes(ep.sizeBytes)}
+                                            </span>
+                                          )}
+                                        </div>
                                         {!epWatched && epProgress > 0 && epDone && (
                                           <div className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
                                             <div className="h-full bg-[#EF9F27] rounded-full" style={{ width: `${Math.min(100, (epProgress / 1800) * 100)}%` }} />
