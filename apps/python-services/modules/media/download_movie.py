@@ -419,6 +419,7 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
 
 
 _PT_AUDIO_LANGS = {"pt", "por", "pt-br", "ptbr", "bra", "braz"}
+_UND_AUDIO_LANGS = {"und", "", "mis"}
 
 
 def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
@@ -431,12 +432,15 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     silenciosamente.
     """
     langs = detect_audio_languages(file_path)
-    if require_pt and not any(lang in _PT_AUDIO_LANGS for lang in langs):
-        quarantine_file(file_path, f"sem áudio em português (idiomas detectados: {langs or 'nenhum'})")
-        raise RuntimeError(
-            "Download rejeitado: a fonte não contém áudio em português (Dublado). "
-            "O magnet 'Dublado' estava morto e o fallback baixou uma fonte legendada/em outra língua."
-        )
+    if require_pt:
+        has_pt = any(lang in _PT_AUDIO_LANGS for lang in langs)
+        has_und = not langs or all(lang in _UND_AUDIO_LANGS for lang in langs)
+        if not has_pt and not has_und:
+            quarantine_file(file_path, f"sem áudio em português (idiomas detectados: {langs or 'nenhum'})")
+            raise RuntimeError(
+                "Download rejeitado: a fonte não contém áudio em português (Dublado). "
+                "O magnet 'Dublado' estava morto e o fallback baixou uma fonte legendada/em outra língua."
+            )
     return langs
 
 

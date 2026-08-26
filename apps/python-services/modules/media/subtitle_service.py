@@ -72,10 +72,10 @@ def _login(api_key: str, username: str, password: str) -> str:
     return ""
 
 
-def _search(token: str, api_key: str, title: str = "", file_hash: str = "",
+def _search(token: str, api_key: str, languages: str = "pt-br,pob,por", title: str = "", file_hash: str = "",
             size: int = 0, season: str = "", episode: str = "") -> list:
     params = {
-        "languages": "pt-br,pob,por",
+        "languages": languages,
         "order_by": "download_count",
         "order_direction": "desc",
         "limit": "10",
@@ -155,8 +155,8 @@ def srt_to_vtt(raw: str, target_vtt: str) -> bool:
     return True
 
 
-def fetch_ptbr(video_path: str, out_dir: str, title: str = "",
-               season: str = "", episode: str = "") -> dict:
+def fetch_subtitle(video_path: str, out_dir: str, lang: str = "pt-br", title: str = "",
+                   season: str = "", episode: str = "") -> dict:
     api_key = os.environ.get("OPENSUBTITLES_API_KEY", "").strip()
     username = os.environ.get("OPENSUBTITLES_USERNAME", "").strip()
     password = os.environ.get("OPENSUBTITLES_PASSWORD", "").strip()
@@ -168,24 +168,33 @@ def fetch_ptbr(video_path: str, out_dir: str, title: str = "",
     if not os.path.exists(video_path):
         return {"ok": False, "error": "Arquivo de vídeo não encontrado", "code": "no_video"}
 
+    if lang in ["pt-br", "pob", "por", "pt"]:
+        query_langs = "pt-br,pob,por"
+        suffix = "ptbr"
+    elif lang in ["en", "eng", "en-us"]:
+        query_langs = "en,eng"
+        suffix = "en"
+    else:
+        query_langs = lang
+        suffix = lang.replace("-", "")
+
     file_hash = opensubtitles_hash(video_path)
     size = os.path.getsize(video_path)
     token = _login(api_key, username, password)
     if not token:
         return {"ok": False, "error": "Falha no login OpenSubtitles (usuário/senha inválidos?)", "code": "login_failed"}
 
-    candidates = _search(token, api_key, file_hash=file_hash, size=size)
+    candidates = _search(token, api_key, languages=query_langs, file_hash=file_hash, size=size)
     if not candidates and title:
-        candidates = _search(token, api_key, title=title, season=season, episode=episode)
+        candidates = _search(token, api_key, languages=query_langs, title=title, season=season, episode=episode)
 
     if not candidates:
-        return {"ok": False, "error": "Nenhuma legenda PT-BR encontrada",
+        return {"ok": False, "error": f"Nenhuma legenda {lang.upper()} encontrada",
                 "code": "not_found", "hash": file_hash}
 
-    target_vtt = str(pathlib.Path(out_dir) / "subs_ptbr.vtt")
+    target_vtt = str(pathlib.Path(out_dir) / f"subs_{suffix}.vtt")
     best = candidates[0]
     attributes = best.get("attributes", {})
-    file_id = attributes.get("files") and attributes[0]["file_id"] if attributes.get("files") else best.get("id")
     try:
         if isinstance(attributes.get("files"), list) and attributes["files"]:
             file_id = attributes["files"][0]["file_id"]
@@ -202,13 +211,19 @@ def fetch_ptbr(video_path: str, out_dir: str, title: str = "",
             "name": attributes.get("title", "") if attributes else ""}
 
 
+def fetch_ptbr(video_path: str, out_dir: str, title: str = "",
+               season: str = "", episode: str = "") -> dict:
+    return fetch_subtitle(video_path, out_dir, "pt-br", title, season, episode)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fetch PT-BR subtitle via OpenSubtitles")
+    parser = argparse.ArgumentParser(description="Fetch subtitles via OpenSubtitles")
     parser.add_argument("--video", type=str, required=True)
     parser.add_argument("--out-dir", type=str, required=True)
+    parser.add_argument("--lang", type=str, default="pt-br")
     parser.add_argument("--title", type=str, default="")
     parser.add_argument("--season", type=str, default="")
     parser.add_argument("--episode", type=str, default="")
     args = parser.parse_args()
-    result = fetch_ptbr(args.video, args.out_dir, args.title, args.season, args.episode)
+    result = fetch_subtitle(args.video, args.out_dir, args.lang, args.title, args.season, args.episode)
     print(json.dumps(result))

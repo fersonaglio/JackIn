@@ -1279,6 +1279,7 @@ router.post('/resume/:projectId', (req: Request, res: Response) => {
 // as subs_ptbr.vtt next to the video (served by GET /projects/:id/subtitles).
 router.post('/subtitles/:projectId', async (req: Request, res: Response) => {
   const projectId = String(req.params.projectId);
+  const lang = (req.body?.lang || req.query?.lang || 'pt-br') as string;
   const db = getDb();
   const row = db.exec(
     'SELECT video_path, title, status FROM projects WHERE id = ?',
@@ -1315,6 +1316,7 @@ router.post('/subtitles/:projectId', async (req: Request, res: Response) => {
     '--video', filePath,
     '--out-dir', projectDir,
     '--title', title || '',
+    '--lang', lang,
   ], { env: { ...process.env, PYTHONUNBUFFERED: '1' } });
 
   let stdout = '';

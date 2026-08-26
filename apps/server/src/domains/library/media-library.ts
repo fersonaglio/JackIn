@@ -630,13 +630,16 @@ router.get('/:id/tracks', (req: Request, res: Response) => {
   }
   const audio = [...audioByLang.values()];
 
-  // External PT-BR subtitle downloaded by the subtitle service. Quando existe,
-  // substitui a embutida do mesmo idioma (que costuma ser só FORÇADA) para o
-  // player expor uma única opção pt-br apontando para a versão completa.
+  // External subtitles downloaded by the subtitle service.
   if (existsSync(path.join(projectDir, 'subs_ptbr.vtt'))) {
     subtitles = subtitles
       .filter((s) => s.language !== 'pt-br')
       .concat({ index: -1, language: 'pt-br', codec: 'vtt' });
+  }
+  if (existsSync(path.join(projectDir, 'subs_en.vtt'))) {
+    subtitles = subtitles
+      .filter((s) => s.language !== 'en')
+      .concat({ index: -1, language: 'en', codec: 'vtt' });
   }
   // Legendas embutidas extraídas na ingestão (subs_<lang>.vtt).
   const prepSubLangs = Object.keys(pm?.artifacts?.subs || {});
@@ -672,10 +675,11 @@ router.get('/:id/subtitles', (req: Request, res: Response) => {
   const projectId = String(req.params.id);
   const targetLang = (req.query.lang as string) || 'pt-br';
 
-  // External PT-BR subtitle downloaded by the subtitle service wins over any
+  // External subtitle downloaded by the subtitle service wins over any
   // embedded stream — it is the most reliable, highest-quality option.
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
-  const externalVtt = path.join(projectDir, 'subs_ptbr.vtt');
+  const targetSuffix = targetLang === 'pt-br' ? 'ptbr' : targetLang;
+  const externalVtt = path.join(projectDir, `subs_${targetSuffix}.vtt`);
   if (existsSync(externalVtt)) {
     res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
     res.sendFile(path.resolve(externalVtt));
