@@ -37,7 +37,7 @@ export default function MediaExplorerOverlays({
   startedItems,
   itemToDelete,
   cinemaMedia,
-  audioPref = 'any',
+  audioPref = 'ptbr',
   searchError,
   onCloseModal,
   onCloseCinema,
@@ -62,7 +62,7 @@ export default function MediaExplorerOverlays({
         onDownload={onDownload}
         onDownloadAll={onDownloadAll}
         isSearchingTorrents={modalSearching}
-        initialAudioFilter="any"
+        initialAudioFilter={audioPref === 'ptbr' ? 'dub' : audioPref}
         ptStrictRequest={audioPref === 'ptbr'}
         onSuggestionClick={onSuggestionClick}
         searchError={searchError}

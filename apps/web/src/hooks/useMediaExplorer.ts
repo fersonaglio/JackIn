@@ -99,7 +99,7 @@ export function useMediaExplorer() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSearching, setModalSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [audioPref, setAudioPref] = useState<string>('any');
+  const [audioPref, setAudioPref] = useState<string>('ptbr');
   const [downloadingItems, setDownloadingItems] = useState<Record<string, boolean>>({});
   const [startedItems, setStartedItems] = useState<Record<string, boolean>>({});
   const [itemToDelete, setItemToDelete] = useState<DeleteTarget | null>(null);
@@ -238,7 +238,7 @@ export function useMediaExplorer() {
       setDownloadingItems((prev) => ({ ...prev, [key]: true }));
       try {
         const finalPosterUrl = posterUrl || selectedMovie?.posterUrl;
-        const requirePt = option.ptConfirmed === true;
+        const requirePt = option.ptConfirmed === true || option.audioType === 'dub' || option.audioType === 'dual' || option.audioType === 'multi' || audioPref === 'ptbr';
         const altSourceUrls = buildAltSourceUrls(selectedMovie?.options ?? [], option.sourceUrl, requirePt);
         await downloadMediaMovie(movieTitle, option.quality, option.sourceUrl, finalPosterUrl, altSourceUrls, undefined, undefined, requirePt);
         pollActiveProjects();

@@ -153,6 +153,33 @@ export default function LibraryDetailModal({
       ? movie!.id
       : target?.seriesId || target?.episodes?.[0]?.id || '';
 
+  const [imageError, setImageError] = useState(false);
+  const [dynamicPoster, setDynamicPoster] = useState<string | null>(null);
+
+  useEffect(() => {
+    setImageError(false);
+    setDynamicPoster(null);
+  }, [target]);
+
+  useEffect(() => {
+    if ((imageError || !posterExternal) && cleanName && !dynamicPoster) {
+      let isMounted = true;
+      fetch(`/api/itunes?q=${encodeURIComponent(cleanName)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (isMounted && data.results?.[0]?.posterUrl) {
+            setDynamicPoster(data.results[0].posterUrl);
+          }
+        })
+        .catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [imageError, posterExternal, cleanName, dynamicPoster]);
+
+  const activePoster = dynamicPoster || (posterExternal || (!imageError ? thumb(posterId) : null));
+
   const modalContent = (
     <AnimatePresence>
       {target && (
@@ -203,19 +230,32 @@ export default function LibraryDetailModal({
               {/* Banner / Poster — left side */}
               <div className="relative md:w-[280px] lg:w-[320px] md:shrink-0 shrink-0 bg-[#0c0d10] p-4 md:p-6 md:overflow-y-auto border-r border-zinc-800/60">
                 <div className="relative aspect-[2/3] w-full rounded-2xl overflow-hidden border border-zinc-800/80 shadow-2xl bg-zinc-900">
-                  <img
-                    src={posterExternal || thumb(posterId)}
-                    alt={cleanName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const el = e.currentTarget as HTMLImageElement;
-                      if (posterExternal && el.src !== thumb(posterId)) {
-                        el.src = thumb(posterId);
-                      } else {
-                        el.style.opacity = '0';
-                      }
-                    }}
-                  />
+                  {activePoster ? (
+                    <img
+                      src={activePoster}
+                      alt={cleanName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const el = e.currentTarget as HTMLImageElement;
+                        if (posterExternal && el.src !== thumb(posterId) && thumb(posterId)) {
+                          el.src = thumb(posterId);
+                        } else {
+                          setImageError(true);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-4 flex flex-col justify-between relative overflow-hidden">
+                      <div className="flex items-center justify-between z-10">
+                        <span className="text-2xl">🎬</span>
+                      </div>
+                      <div className="space-y-1 z-10 pb-2">
+                        <p className="text-[10px] text-[#EF9F27] font-mono font-bold uppercase tracking-wider">
+                          JackIn Library
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Série: navegação por temporada */}

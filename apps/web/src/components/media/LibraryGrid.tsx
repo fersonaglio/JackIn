@@ -43,7 +43,8 @@ function statusLabel(progressStatus?: string | null): string | null {
   return null;
 }
 
-function LibraryCard({  project,
+function LibraryCard({
+  project,
   onWatch,
   onDelete,
   onRetry,
@@ -56,17 +57,39 @@ function LibraryCard({  project,
   onOpenDetails: (p: Project) => void;
 }) {
   const [imageError, setImageError] = useState(false);
+  const [dynamicPoster, setDynamicPoster] = useState<string | null>(null);
   const isDone = project.status === 'done';
   const isDownloading = project.status === 'downloading';
   const isPreparing = project.status === 'preparing';
   const isWatched = project.watched === 1;
-  const hasProgress = !isWatched && (project.watchProgress || 0) > 0;  // Clean title & quality parsing
+  const hasProgress = !isWatched && (project.watchProgress || 0) > 0;
+  // Clean title & quality parsing
   const rawTitle = project.title || 'Mídia 4K';
   const match = rawTitle.match(/^(.*?)(?:\s*\((.*?)\))?$/);
   const cleanTitle = match ? match[1] : rawTitle;
   const rawQuality = match && match[2] ? match[2] : '4K';
 
+  const posterExternal = project.facelessConfig?.posterUrl;
   const thumbnailUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/projects/${project.id}/thumbnail`;
+
+  useEffect(() => {
+    if ((imageError || !posterExternal) && cleanTitle && !dynamicPoster) {
+      let isMounted = true;
+      fetch(`/api/itunes?q=${encodeURIComponent(cleanTitle)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (isMounted && data.results?.[0]?.posterUrl) {
+            setDynamicPoster(data.results[0].posterUrl);
+          }
+        })
+        .catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [imageError, posterExternal, cleanTitle, dynamicPoster]);
+
+  const activePoster = dynamicPoster || (posterExternal || (!imageError ? thumbnailUrl : null));
 
   return (
     <div
@@ -75,12 +98,18 @@ function LibraryCard({  project,
     >
       {/* Poster Image Container */}
       <div className="relative aspect-[2/3] bg-zinc-900 overflow-hidden">
-        {!imageError ? (
+        {activePoster ? (
           <img
-            src={thumbnailUrl}
+            src={activePoster}
             alt={cleanTitle}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImageError(true)}
+            onError={(e) => {
+              if (posterExternal && e.currentTarget.src !== thumbnailUrl && thumbnailUrl) {
+                e.currentTarget.src = thumbnailUrl;
+              } else {
+                setImageError(true);
+              }
+            }}
             loading="lazy"
           />
         ) : (
@@ -218,6 +247,7 @@ function SeriesCard({
   onOpenDetails: (target: LibraryDetailTarget) => void;
 }) {
   const [imageError, setImageError] = useState(false);
+  const [dynamicPoster, setDynamicPoster] = useState<string | null>(null);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   const b = breakdownSeries(series.episodes);
@@ -227,6 +257,25 @@ function SeriesCard({
   const posterId = series.seriesId || ready[0]?.id || series.episodes[0]?.id;
   const thumbnailUrl = posterId ? `${apiBase}/projects/${posterId}/thumbnail` : '';
   const firstPlay = ready.find((e) => e.watched !== 1) || ready[0];
+
+  useEffect(() => {
+    if ((imageError || !posterExternal) && series.title && !dynamicPoster) {
+      let isMounted = true;
+      fetch(`/api/itunes?q=${encodeURIComponent(series.title)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (isMounted && data.results?.[0]?.posterUrl) {
+            setDynamicPoster(data.results[0].posterUrl);
+          }
+        })
+        .catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [imageError, posterExternal, series.title, dynamicPoster]);
+
+  const activePoster = dynamicPoster || (posterExternal || (!imageError ? thumbnailUrl : null));
 
   const badge =
     b.allDone
@@ -258,9 +307,9 @@ function SeriesCard({
     >
       {/* Poster Image Container */}
       <div className="relative aspect-[2/3] bg-zinc-900 overflow-hidden">
-        {!imageError && (posterExternal || thumbnailUrl) ? (
+        {activePoster ? (
           <img
-            src={posterExternal || thumbnailUrl}
+            src={activePoster}
             alt={series.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
