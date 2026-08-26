@@ -302,9 +302,7 @@ function SeriesCard({
               ? { text: 'Pausado', cls: 'bg-sky-500/20 border-sky-500/50 text-sky-300' }
               : { text: '📺 Série', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' };
 
-  const footerLine = b.hasEpisodes
-    ? `${b.episodes.length} episódio${b.episodes.length !== 1 ? 's' : ''}${b.totalSeasons > 1 ? ` · ${b.totalSeasons} temporadas` : ''}${b.watchPercent > 0 ? ` · ${b.watchPercent}% assistido` : ''}`
-    : `${b.totalSeasons} temporada${b.totalSeasons !== 1 ? 's' : ''}${b.readySeasons > 0 && !b.allDone ? ` · ${b.readySeasons}/${b.totalSeasons} prontas` : ''}`;
+  const footerLine = `${b.summaryText || `${b.totalSeasons} temporada${b.totalSeasons !== 1 ? 's' : ''}`}${b.watchPercent > 0 ? ` · ${b.watchPercent}% assistido` : ''}`;
 
   const play = () => {
     if (!firstPlay) return;

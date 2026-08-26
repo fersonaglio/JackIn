@@ -426,19 +426,25 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
       // individualmente. O projeto pai vira um placeholder da temporada.
       if (episodes.length > 1) {
         try {
-          const parentRow = db.exec('SELECT series_id, season_number, title FROM projects WHERE id = ?', [id])[0]?.values[0];
+          const parentRow = db.exec('SELECT series_id, season_number, title, faceless_config FROM projects WHERE id = ?', [id])[0]?.values[0];
           const parentSeriesId = (parentRow?.[0] as string) || id;
-          const parentSeason = (parentRow?.[1] as number) || null;
           const parentTitle = (parentRow?.[2] as string) || opts.title;
+          const parentConfig = (parentRow?.[3] as string) || null;
 
-          const created = 0;
           for (const ep of episodes) {
             if (!ep.path || !fs.existsSync(ep.path)) continue;
+            // Evita duplicar episódio já existente
+            const existing = db.exec(
+              'SELECT id FROM projects WHERE (series_id = ? OR id = ?) AND season_number = ? AND episode_number = ?',
+              [parentSeriesId, id, ep.season, ep.episode]
+            )[0]?.values[0];
+            if (existing) continue;
+
             const epId = uuid();
             const epTitle = `${parentTitle.replace(/\s*\(T\d+\)\s*$/i, '')} S${String(ep.season).padStart(2, '0')}E${String(ep.episode).padStart(2, '0')}`;
             db.run(
-              'INSERT INTO projects (id, youtube_url, title, status, project_type, video_path, series_id, season_number, episode_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-              [epId, opts.sourceUrl, epTitle, 'preparing', 'series', ep.path, parentSeriesId, ep.season, ep.episode]
+              'INSERT INTO projects (id, youtube_url, title, status, project_type, video_path, series_id, season_number, episode_number, faceless_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [epId, opts.sourceUrl, epTitle, 'preparing', 'series', ep.path, parentSeriesId, ep.season, ep.episode, parentConfig]
             );
             persist();
             // Prepara cada episódio para playback (master/playable/áudio/legendas).
@@ -450,9 +456,24 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
             });
           }
           console.log(`[JackIn Media] Pack de temporada: indexados ${episodes.length} episódios do projeto ${id}`);
-          void created;
         } catch (epErr) {
           console.error('[JackIn Media] Erro ao indexar episódios do pack:', epErr);
+        }
+      } else if (episodes.length === 1) {
+        // Se o download contém apenas 1 arquivo com padrão SxxExx, ajusta o projeto existente
+        try {
+          const ep = episodes[0];
+          const parentRow = db.exec('SELECT episode_number FROM projects WHERE id = ?', [id])[0]?.values[0];
+          if (parentRow && parentRow[0] == null) {
+            db.run(
+              'UPDATE projects SET season_number = COALESCE(season_number, ?), episode_number = ? WHERE id = ?',
+              [ep.season, ep.episode, id]
+            );
+            persist();
+            console.log(`[JackIn Media] Episódio único detectado no download ${id}: S${ep.season}E${ep.episode}`);
+          }
+        } catch (singleEpErr) {
+          console.error('[JackIn Media] Erro ao associar episódio único:', singleEpErr);
         }
       }
       // Pré-processa TODOS os artefatos de playback (master/playable/variantes de

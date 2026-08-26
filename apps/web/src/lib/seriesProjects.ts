@@ -24,6 +24,8 @@ export interface SeasonInfo {
   watchPercent: number;
   /** Temporada 100% assistida. */
   allWatched: boolean;
+  /** Tamanho em bytes da temporada (evita duplicar pack se houver episódios indexados). */
+  sizeBytes: number;
 }
 
 export interface SeriesBreakdown {
@@ -52,6 +54,10 @@ export interface SeriesBreakdown {
   activeDownload: Project | null;
   /** % principal: do download ativo, ou da proporção de unidades prontas. */
   currentPercent: number;
+  /** Tamanho total consolidado em bytes da série sem duplicações. */
+  totalSizeBytes: number;
+  /** Texto resumido formatado para exibição nos cards da biblioteca. */
+  summaryText: string;
 }
 
 export function getProjectWatchPercent(p: Project, defaultDurationSeconds = 2700): number {
@@ -99,12 +105,15 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
     .sort((a, b) => a[0] - b[0])
     .map(([n, { episodes: eps, pack }]) => {
       const doneEpisodes = eps.filter(isDone).length;
-      const ready = pack ? isDone(pack) : eps.length > 0 && doneEpisodes === eps.length;
+      const ready = pack ? isDone(pack) : (eps.length > 0 && doneEpisodes === eps.length);
+
       let percent: number;
-      if (pack) {
-        percent = isDone(pack) ? 100 : (pack.progressPct ?? 0);
+      if (pack && isDone(pack)) {
+        percent = 100;
       } else if (eps.length > 0) {
         percent = Math.round((doneEpisodes / eps.length) * 100);
+      } else if (pack) {
+        percent = pack.progressPct ?? 0;
       } else {
         percent = 0;
       }
@@ -115,6 +124,12 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
         ? Math.round(seasonEpisodesWatchSum / eps.length)
         : (pack ? getProjectWatchPercent(pack, 5400) : 0);
       const seasonAllWatched = eps.length > 0 ? (eps.length > 0 && eps.every((e) => e.watched === 1)) : (pack ? pack.watched === 1 : false);
+
+      // Se há episódios indexados na temporada, usa a soma dos episódios para
+      // não duplicar o tamanho do pack com os episódios no disco.
+      const seasonSizeBytes = eps.length > 0
+        ? eps.reduce((sum, ep) => sum + (ep.sizeBytes || 0), 0)
+        : (pack?.sizeBytes || 0);
 
       return {
         seasonNumber: n,
@@ -127,6 +142,7 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
         watchedCount: seasonWatchedCount,
         watchPercent: seasonWatchPercent,
         allWatched: seasonAllWatched,
+        sizeBytes: seasonSizeBytes,
       };
     });
 
@@ -148,15 +164,32 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
     ? (episodes.length > 0 && episodes.every((e) => e.watched === 1))
     : (packs.length > 0 && packs.every((p) => p.watched === 1));
 
-  // Barra principal: enquanto houver transferência real em andamento, mostra o
-  // % do download ativo. Na fase de preparação (pós-download) o % do pack já é
-  // 100 mas nada está pronto ainda — aí mostra a proporção de unidades prontas.
+  // Tamanho total sem duplicação
+  const totalSizeBytes = seasons.reduce((sum, s) => sum + s.sizeBytes, 0);
+
+  // Texto resumido
+  let summaryText = '';
+  if (totalSeasons > 0) {
+    if (!hasEpisodes) {
+      summaryText = `${totalSeasons} temporada${totalSeasons !== 1 ? 's' : ''}${readySeasons > 0 && doneUnits < totalUnits ? ` · ${readySeasons}/${totalSeasons} prontas` : ''}`;
+    } else {
+      const allSeasonsHaveEpisodes = seasons.every((s) => s.episodes.length > 0);
+      if (allSeasonsHaveEpisodes) {
+        summaryText = `${episodes.length} episódio${episodes.length !== 1 ? 's' : ''}${totalSeasons > 1 ? ` · ${totalSeasons} temporadas` : ''}`;
+      } else {
+        summaryText = `${totalSeasons} temporadas · ${episodes.length} ep${episodes.length !== 1 ? 's' : ''} indexado${episodes.length !== 1 ? 's' : ''}`;
+      }
+    }
+  }
+
+  // Barra principal: enquanto houver transferência real em andamento de pack sem episódios,
+  // mostra o % do download ativo. Quando há episódios, mostra a proporção de unidades prontas.
   const activeDownload =
     sorted.find((p) => p.status === 'downloading') ||
     sorted.find((p) => p.status === 'preparing') ||
     null;
   const currentPercent =
-    activeDownload && activeDownload.status === 'downloading'
+    activeDownload && activeDownload.status === 'downloading' && !hasEpisodes
       ? (activeDownload.progressPct ?? 0)
       : totalUnits > 0
         ? Math.round((doneUnits / totalUnits) * 100)
@@ -182,12 +215,20 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
     allDone: totalUnits > 0 && doneUnits === totalUnits && !sorted.some(isActive),
     activeDownload,
     currentPercent,
+    totalSizeBytes,
+    summaryText,
   };
 }
 
-/** Chip curto de progresso por temporada para a dock: "T1 29 · T2 100". */
+/** Chip curto de progresso por temporada para a dock: "T1 29% · T2 ✓" ou "T1 (3/6) · T2 ✓". */
 export function seasonChips(seasons: SeasonInfo[]): string {
   return seasons
-    .map((s) => (s.percent >= 100 ? `T${s.seasonNumber} ✓` : `T${s.seasonNumber} ${s.percent}`))
+    .map((s) => {
+      if (s.ready || s.percent >= 100) return `T${s.seasonNumber} ✓`;
+      if (s.episodes.length > 0) {
+        return `T${s.seasonNumber} (${s.doneCount}/${s.totalCount})`;
+      }
+      return `T${s.seasonNumber} ${s.percent}%`;
+    })
     .join(' · ');
 }

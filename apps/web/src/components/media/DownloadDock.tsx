@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@/lib/api';
-import { pauseMediaDownload, resumeMediaDownload } from '@/lib/api';
+import { pauseMediaDownload, resumeMediaDownload, cancelProjectDownload } from '@/lib/api';
 import { breakdownSeries, seasonChips } from '@/lib/seriesProjects';
 
 interface DownloadDockProps {
@@ -90,6 +90,21 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
   const handleResume = async (p: Project) => {
     try { await resumeMediaDownload(p.id); } catch {}
   };
+  const handleCancelOrDismiss = async (p: any) => {
+    if (p.episodes?.length) {
+      p.episodes.forEach((e: Project) => handleDismiss(e.id));
+      for (const ep of p.episodes) {
+        if (ep.status === 'downloading' || ep.status === 'preparing' || ep.status === 'paused') {
+          cancelProjectDownload(ep.id).catch(() => {});
+        }
+      }
+    } else {
+      handleDismiss(p.id);
+      if (p.status === 'downloading' || p.status === 'preparing' || p.status === 'paused') {
+        cancelProjectDownload(p.id).catch(() => {});
+      }
+    }
+  };
 
   const visibleDownloads = projects.filter((p) => !dismissedIds.has(p.id));
   const downloadingItems = visibleDownloads.filter((p) => p.status === 'downloading' || p.status === 'preparing');
@@ -134,34 +149,64 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
   }, [visibleDownloads]);
 
   const hasActiveDownloads = downloadingItems.length > 0;
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [userMinimized, setUserMinimized] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const dockItemCount = groupedDownloads.singles.length + groupedDownloads.series.length;
   const activeDockCount = dockItemCount;
 
   useEffect(() => {
-    if (hasActiveDownloads) {
+    if (hasActiveDownloads && !userMinimized) {
       setIsExpanded(true);
     }
-  }, [hasActiveDownloads]);
+  }, [hasActiveDownloads, userMinimized]);
+
+  const handleMinimize = () => {
+    setUserMinimized(true);
+    setIsExpanded(false);
+  };
 
   if (visibleDownloads.length === 0) return null;
 
-  if (!isExpanded && !hasActiveDownloads) {
+  if (!isExpanded) {
     return (
-      <button
+      <motion.button
         type="button"
-        onClick={() => setIsExpanded(true)}
-        className="fixed bottom-6 right-6 z-45 w-13 h-13 rounded-full bg-zinc-950/95 hover:bg-zinc-900 border border-zinc-800 text-[#EF9F27] hover:text-amber-400 flex items-center justify-center shadow-2xl backdrop-blur-xl cursor-pointer transition-all active:scale-95 group"
-        title="Downloads"
+        initial={{ scale: 0.85, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.85, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+        onClick={() => {
+          setUserMinimized(false);
+          setIsExpanded(true);
+        }}
+        className="fixed bottom-6 right-6 z-45 h-12 px-4 rounded-2xl bg-zinc-950/95 hover:bg-zinc-900 border border-[#EF9F27]/40 hover:border-[#EF9F27] text-white flex items-center gap-2.5 shadow-2xl shadow-black/90 backdrop-blur-2xl cursor-pointer transition-all active:scale-95 group"
+        title="Abrir gerenciador de downloads"
+        aria-label="Abrir gerenciador de downloads"
       >
-        <span className="text-xl">📥</span>
-        {activeDockCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] bg-red-600 border border-zinc-950 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-lg">
+        {/* Animated Cinema Download Icon */}
+        <div className="relative flex items-center justify-center w-6 h-6 text-[#EF9F27]">
+          {hasActiveDownloads && (
+            <span className="absolute inset-0 rounded-full bg-[#EF9F27]/25 animate-ping" />
+          )}
+          <svg
+            className="w-5 h-5 transition-transform group-hover:translate-y-0.5 duration-200"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+        </div>
+
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <span className="font-black text-zinc-100 uppercase tracking-wider text-[11px]">Downloads</span>
+          <span className="px-2 py-0.5 rounded-full bg-[#EF9F27] text-zinc-950 font-black text-[10px] shadow-sm">
             {activeDockCount}
           </span>
-        )}
-      </button>
+        </div>
+      </motion.button>
     );
   }
 
@@ -187,16 +232,15 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
             </span>
           </div>
 
-          {!hasActiveDownloads && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(false)}
-              className="md:hidden text-zinc-500 hover:text-zinc-300 p-1 cursor-pointer"
-              title="Minimizar"
-            >
-              ✕
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleMinimize}
+            className="md:hidden text-zinc-500 hover:text-zinc-300 p-1 cursor-pointer"
+            title="Minimizar barra"
+            aria-label="Minimizar barra"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Scrollable / Spread Items Container */}
@@ -340,16 +384,15 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
         </div>
 
         {/* Desktop Collapse Button */}
-        {!hasActiveDownloads && (
-          <button
-            type="button"
-            onClick={() => setIsExpanded(false)}
-            className="hidden md:block text-zinc-500 hover:text-zinc-300 p-1.5 hover:bg-zinc-900 rounded-lg transition-colors pointer-events-auto ml-auto cursor-pointer shrink-0"
-            title="Minimizar barra"
-          >
-            ✕
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleMinimize}
+          className="hidden md:block text-zinc-500 hover:text-zinc-300 p-1.5 hover:bg-zinc-900 rounded-lg transition-colors pointer-events-auto ml-auto cursor-pointer shrink-0"
+          title="Minimizar barra"
+          aria-label="Minimizar barra"
+        >
+          ✕
+        </button>
       </motion.div>
     </div>
   );

@@ -488,6 +488,7 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
 
         target_pt = pt_idx if pt_idx is not None else 0
         print(f"[JackIn DL] 🔄 Otimizando áudio para Web (Track PT #{target_pt} -> Padrão AAC 5.1/Stereo)", file=sys.stderr)
+        emit_progress(97, "Otimizando áudio: definindo dublagem PT-BR como padrão...", 0)
         
         tmp_out = file_path.with_suffix(".reorder.tmp" + file_path.suffix)
         remux_cmd = [
@@ -502,7 +503,7 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
                 remux_cmd.extend(["-map", f"0:a:{i}", f"-c:a:{len(remux_cmd)//2}", "copy"])
         remux_cmd.extend(["-map", "0:s?", "-c:s", "copy", "-movflags", "+faststart", str(tmp_out)])
 
-        subprocess.run(remux_cmd, capture_output=True, check=True, timeout=180)
+        subprocess.run(remux_cmd, capture_output=True, check=True, timeout=600)
         if tmp_out.exists() and tmp_out.stat().st_size > 1000:
             os.replace(tmp_out, file_path)
             print(f"[JackIn DL] ✓ Áudio PT-BR e compatibilidade AAC concluídos com sucesso!", file=sys.stderr)
@@ -521,12 +522,13 @@ def extract_embedded_subtitles(file_path: Path, output_dir: Path):
             "-of", "json",
             str(file_path)
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=15)
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
         data = json.loads(res.stdout)
         subs = data.get("streams", [])
         if not subs:
             return
 
+        emit_progress(98, "Extraindo legendas para reprodução web...", 0)
         for s in subs:
             s_idx = s.get("index")
             lang = (s.get("tags", {}).get("language") or "und").lower()
@@ -542,7 +544,7 @@ def extract_embedded_subtitles(file_path: Path, output_dir: Path):
                 "-c:s", "webvtt",
                 str(out_vtt)
             ]
-            subprocess.run(sub_cmd, capture_output=True, timeout=30)
+            subprocess.run(sub_cmd, capture_output=True, timeout=60)
             if out_vtt.exists() and out_vtt.stat().st_size > 10:
                 print(f"[JackIn DL] 📝 Legenda extraída com sucesso: {out_vtt.name} ({lang})", file=sys.stderr)
     except Exception as e:
@@ -674,6 +676,21 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
                 try: full_f.unlink()
                 except: pass
             elif ext in ALLOWED_EXTENSIONS:
+                if "reorder.tmp" in file.lower():
+                    try: full_f.unlink()
+                    except: pass
+                    continue
+                # Remove amostras ou vídeos promocionais de sites (< 50MB) que não são a mídia principal
+                if full_f.stat().st_size < 50 * 1024 * 1024 and (
+                    "sample" in file.lower() or
+                    "promo" in file.lower() or
+                    "trailer" in file.lower() or
+                    "comandotorrents" in file.lower() or
+                    "bludv" in file.lower()
+                ):
+                    try: full_f.unlink()
+                    except: pass
+                    continue
                 video_files.append(full_f)
     video_files.sort(key=lambda f: f.stat().st_size, reverse=True)
     if not video_files:
@@ -800,8 +817,6 @@ def main():
                 if ext not in ALLOWED_EXTENSIONS:
                     continue
                 full = Path(root) / f
-                if full == final_video:
-                    continue
                 ep_paths.append(full)
         ep_paths.sort(key=lambda p: p.stat().st_size, reverse=True)
         for full in ep_paths:

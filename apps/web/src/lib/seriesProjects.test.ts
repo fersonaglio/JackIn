@@ -129,6 +129,22 @@ describe('breakdownSeries', () => {
     expect(b.watchPercent).toBe(38);
     expect(b.allWatched).toBe(false);
   });
+
+  it('calcula tamanho consolidado sem duplicar pack com episódios indexados', () => {
+    const projects = [
+      // S1: apenas pack de 1.17 GB (1170000000)
+      project({ id: 'p1', title: 'Loki (T1)', status: 'done', seriesId: 's', seasonNumber: 1, sizeBytes: 1170000000 }),
+      // S2: pack de 1.17 GB E episódio indexado de 1.17 GB -> tamanho da S2 deve ser 1.17 GB (apenas o ep), não 2.34 GB!
+      project({ id: 'p2', title: 'Loki (T2)', status: 'done', seriesId: 's', seasonNumber: 2, sizeBytes: 1170000000 }),
+      project({ id: 'e1', title: 'Loki S02E01', status: 'done', seriesId: 's', seasonNumber: 2, episodeNumber: 1, sizeBytes: 1170000000 }),
+    ];
+    const b = breakdownSeries(projects);
+    expect(b.seasons[0].sizeBytes).toBe(1170000000);
+    expect(b.seasons[1].sizeBytes).toBe(1170000000);
+    // Total consolidado = S1 (1.17) + S2 (1.17) = 2.34 GB (não 3.51 GB)
+    expect(b.totalSizeBytes).toBe(2340000000);
+    expect(b.summaryText).toBe('2 temporadas · 1 ep indexado');
+  });
 });
 
 describe('seasonChips', () => {
@@ -138,6 +154,6 @@ describe('seasonChips', () => {
       project({ id: 't2', status: 'done', seriesId: 's', seasonNumber: 2, progressPct: 100 }),
     ];
     const { seasons } = breakdownSeries(projects);
-    expect(seasonChips(seasons)).toBe('T1 29 · T2 ✓');
+    expect(seasonChips(seasons)).toBe('T1 29% · T2 ✓');
   });
 });

@@ -136,14 +136,15 @@ export default function LibraryDetailModal({
   const movieWatched = !!movie && movie.watched === 1;
   const movieProgress = movie?.watchProgress || 0;
 
+  const seriesEpisodes = target?.kind === 'series' ? target.episodes : [];
   const sourceMagnet =
     (target?.kind === 'movie' ? (movie?.youtubeUrl || movie?.facelessConfig?.sourceUrl) : undefined) ||
-    (target?.episodes?.[0]?.youtubeUrl || target?.episodes?.[0]?.facelessConfig?.sourceUrl);
+    (seriesEpisodes[0]?.youtubeUrl || seriesEpisodes[0]?.facelessConfig?.sourceUrl);
   const torrentInfo = parseMagnet(sourceMagnet);
   const totalSizeBytes =
     target?.kind === 'movie'
       ? (movie?.sizeBytes || 0)
-      : (target?.episodes?.reduce((sum, ep) => sum + (ep.sizeBytes || 0), 0) || 0);
+      : (seriesBreakdown?.totalSizeBytes ?? 0);
   const sizeBytes = totalSizeBytes > 0 ? totalSizeBytes : undefined;
   const downloadDate = target?.kind === 'movie' ? movie?.createdAt : undefined;
   // Série não tem "qualidade" única — oculta o badge para não mostrar "T1" etc.
@@ -151,11 +152,11 @@ export default function LibraryDetailModal({
   const posterExternal =
     target?.kind === 'movie'
       ? movie?.facelessConfig?.posterUrl
-      : target?.episodes?.find((e) => e.facelessConfig?.posterUrl)?.facelessConfig?.posterUrl;
+      : seriesEpisodes.find((e) => e.facelessConfig?.posterUrl)?.facelessConfig?.posterUrl;
   const posterId =
     target?.kind === 'movie'
       ? movie!.id
-      : target?.seriesId || target?.episodes?.[0]?.id || '';
+      : target?.seriesId || seriesEpisodes[0]?.id || '';
 
   const [imageError, setImageError] = useState(false);
   const [dynamicPoster, setDynamicPoster] = useState<string | null>(null);
@@ -298,12 +299,14 @@ export default function LibraryDetailModal({
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
                           <p className="text-2xl font-black text-emerald-400 tabular-nums">{seriesBreakdown.availableCount}</p>
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Disponíveis</p>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">
+                            {seriesBreakdown.hasEpisodes ? 'Disponíveis' : 'Prontas'}
+                          </p>
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
                           <p className="text-2xl font-black text-purple-400 tabular-nums">{seriesBreakdown.watchPercent}%</p>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">
-                            Assistido ({seriesBreakdown.watchedCount}/{seriesBreakdown.episodes.length || seriesBreakdown.totalUnits})
+                            Assistido ({seriesBreakdown.watchedCount}/{seriesBreakdown.hasEpisodes ? seriesBreakdown.episodes.length : seriesBreakdown.totalSeasons})
                           </p>
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
@@ -395,7 +398,7 @@ export default function LibraryDetailModal({
                   )}
 
                   {/* Detailed info — size, torrent, date */}
-                  {(target.kind === 'movie' || target.episodes[0]) && (
+                  {(target.kind === 'movie' || seriesEpisodes[0]) && (
                     <div className="space-y-3">
                       <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                         <span className="w-4 h-4 rounded-full bg-zinc-800 flex items-center justify-center text-[9px]">ℹ️</span>
@@ -608,8 +611,7 @@ export default function LibraryDetailModal({
                         seriesBreakdown.seasons.map((season) => {
                           const seasonWatched = season.episodes.filter((e) => e.watched === 1).length;
                           const pack = season.pack;
-                          const seasonSizeBytes =
-                            season.episodes.reduce((sum, ep) => sum + (ep.sizeBytes || 0), 0) + (season.pack?.sizeBytes || 0);
+                          const seasonSizeBytes = season.sizeBytes;
                           return (
                             <div key={season.seasonNumber} data-season-scroll={season.seasonNumber} className="space-y-2">
                               <div className="flex items-center justify-between pb-1 border-b border-zinc-800/60">
