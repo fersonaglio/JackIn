@@ -993,15 +993,33 @@ router.post('/:id/resume', async (req: Request, res: Response) => {
 
 router.put('/:id/progress', (req: Request, res: Response) => {
   const id = String(req.params.id);
-  const { position } = req.body;
+  const { position, duration } = req.body;
   if (typeof position !== 'number' || position < 0) {
     res.status(400).json({ error: 'position must be a non-negative number' });
     return;
   }
   const db = getDb();
-  db.run('UPDATE projects SET watch_progress = ? WHERE id = ?', [position, id]);
-  persistThrottled(5000);
-  if (position >= 60) {
+  let isWatchedUpdate: number | null = null;
+  if (typeof duration === 'number' && duration > 0) {
+    const ratio = position / duration;
+    if (ratio >= 0.90) {
+      isWatchedUpdate = 1;
+    } else if (ratio < 0.80) {
+      const curWatched = db.exec('SELECT watched FROM projects WHERE id = ?', [id])[0]?.values[0]?.[0];
+      if (curWatched === 1) {
+        isWatchedUpdate = 0;
+      }
+    }
+  }
+
+  if (isWatchedUpdate !== null) {
+    db.run('UPDATE projects SET watch_progress = ?, watched = ? WHERE id = ?', [position, isWatchedUpdate, id]);
+  } else {
+    db.run('UPDATE projects SET watch_progress = ? WHERE id = ?', [position, id]);
+  }
+
+  persistThrottled(10000);
+  if (position >= 60 || isWatchedUpdate === 1) {
     recordWatchHistory(id);
   }
   const mins = Math.floor(position / 60);

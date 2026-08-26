@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@/lib/api';
-import { breakdownSeries } from '@/lib/seriesProjects';
+import { breakdownSeries, getProjectWatchPercent } from '@/lib/seriesProjects';
 
 export type LibraryDetailTarget =
   | { kind: 'movie'; project: Project }
@@ -301,8 +301,10 @@ export default function LibraryDetailModal({
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Disponíveis</p>
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
-                          <p className="text-2xl font-black text-purple-400 tabular-nums">{seriesBreakdown.watchedCount}</p>
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">Assistidos</p>
+                          <p className="text-2xl font-black text-purple-400 tabular-nums">{seriesBreakdown.watchPercent}%</p>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">
+                            Assistido ({seriesBreakdown.watchedCount}/{seriesBreakdown.episodes.length || seriesBreakdown.totalUnits})
+                          </p>
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
                           <p className="text-2xl font-black text-[#EF9F27] tabular-nums">
@@ -315,10 +317,10 @@ export default function LibraryDetailModal({
                       <>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
                           <p className="text-2xl font-black text-zinc-100 tabular-nums">
-                            {movieWatched ? '✓' : movieProgress > 0 ? formatProgress(movieProgress) : '—'}
+                            {movieWatched ? '100%' : movie && movieProgress > 0 ? `${getProjectWatchPercent(movie, 5400)}%` : '—'}
                           </p>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mt-0.5">
-                            {movieWatched ? 'Visto' : movieProgress > 0 ? 'Progresso' : 'Status'}
+                            {movieWatched ? '✓ Visto' : movieProgress > 0 ? 'Progresso' : 'Status'}
                           </p>
                         </div>
                         <div className="bg-[#121317] border border-[#202226] rounded-2xl p-4 text-center">
@@ -348,14 +350,14 @@ export default function LibraryDetailModal({
                   </div>
 
                   {/* Movie progress bar */}
-                  {target.kind === 'movie' && isMovieDone && !movieWatched && movieProgress > 0 && (
+                  {target.kind === 'movie' && isMovieDone && !movieWatched && movieProgress > 0 && movie && (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                        <span>Você parou em {formatProgress(movieProgress)}</span>
+                        <span>Você parou em {formatProgress(movieProgress)} ({getProjectWatchPercent(movie, 5400)}% assistido)</span>
                         <span>{movieProgress >= 3600 ? 'Restando ~' + formatProgress(Math.max(0, 5400 - movieProgress)) : ''}</span>
                       </div>
                       <div className="w-full h-2 bg-[#1A1B20] rounded-full overflow-hidden">
-                        <div className="h-full bg-[#EF9F27] rounded-full" style={{ width: `${Math.min(100, (movieProgress / 5400) * 100)}%` }} />
+                        <div className="h-full bg-[#EF9F27] rounded-full transition-all duration-300" style={{ width: `${getProjectWatchPercent(movie, 5400)}%` }} />
                       </div>
                     </div>
                   )}
@@ -382,10 +384,10 @@ export default function LibraryDetailModal({
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
                         <span>{seriesBreakdown.watchedCount} de {seriesBreakdown.episodes.length} episódios assistidos</span>
-                        <span>{Math.round((seriesBreakdown.watchedCount / seriesBreakdown.episodes.length) * 100)}%</span>
+                        <span className="text-purple-400 font-bold">{seriesBreakdown.watchPercent}% concluído</span>
                       </div>
                       <div className="w-full h-2 bg-[#1A1B20] rounded-full overflow-hidden">
-                        <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(seriesBreakdown.watchedCount / seriesBreakdown.episodes.length) * 100}%` }} />
+                        <div className="h-full bg-purple-500 rounded-full transition-all duration-300" style={{ width: `${seriesBreakdown.watchPercent}%` }} />
                       </div>
                     </div>
                   )}
@@ -614,14 +616,19 @@ export default function LibraryDetailModal({
                                     Temporada {season.seasonNumber}
                                   </h4>
                                   {seasonSizeBytes > 0 && (
-                                    <span className="text-[10px] text-[#EF9F27] font-mono font-bold bg-[#EF9F27]/10 border border-[#EF9F27]/20 px-1.5 py-0.5 rounded">
+                                    <span className="text-[10px] text-zinc-400 font-mono font-bold bg-zinc-800/80 px-2 py-0.5 rounded-full">
                                       {formatBytes(seasonSizeBytes)}
+                                    </span>
+                                  )}
+                                  {season.episodes.length > 0 && (season.watchPercent ?? 0) > 0 && (
+                                    <span className="text-[10px] text-purple-400 font-mono font-bold bg-purple-500/10 border border-purple-500/25 px-2 py-0.5 rounded-full">
+                                      {season.watchPercent}% assistido
                                     </span>
                                   )}
                                 </div>
                                 <span className="text-[10px] text-zinc-500 font-mono">
                                   {season.episodes.length > 0
-                                    ? `${seasonWatched}/${season.episodes.length} assistidos`
+                                    ? `${season.watchedCount}/${season.episodes.length} eps assistidos`
                                     : pack
                                       ? pack.status === 'done'
                                         ? 'pronto'
@@ -699,6 +706,7 @@ export default function LibraryDetailModal({
                                 {season.episodes.map((ep) => {
                                   const epWatched = ep.watched === 1;
                                   const epProgress = ep.watchProgress || 0;
+                                  const epWatchPct = getProjectWatchPercent(ep);
                                   const epTitle = ep.title || `Episódio ${ep.episodeNumber || '?'}`;
                                   const epDone = ep.status === 'done';
                                   const sb = statusBadge(ep);
@@ -726,16 +734,18 @@ export default function LibraryDetailModal({
                                         </div>
                                         {!epWatched && epProgress > 0 && epDone && (
                                           <div className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
-                                            <div className="h-full bg-[#EF9F27] rounded-full" style={{ width: `${Math.min(100, (epProgress / 1800) * 100)}%` }} />
+                                            <div className="h-full bg-[#EF9F27] rounded-full transition-all duration-300" style={{ width: `${epWatchPct}%` }} />
                                           </div>
                                         )}
                                       </div>
 
                                       <div className="flex items-center gap-2 shrink-0">
                                         {epWatched ? (
-                                          <span className="text-[10px] text-emerald-400 font-bold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">✓ Visto</span>
+                                          <span className="text-[10px] text-purple-400 font-bold px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/30">✓ 100% Visto</span>
                                         ) : epProgress > 0 && epDone ? (
-                                          <span className="text-[10px] text-[#EF9F27] font-bold px-2 py-0.5 rounded bg-[#EF9F27]/10 border border-[#EF9F27]/20">Continuar</span>
+                                          <span className="text-[10px] text-[#EF9F27] font-bold px-2 py-0.5 rounded bg-[#EF9F27]/10 border border-[#EF9F27]/20">
+                                            Continuar ({epWatchPct}%)
+                                          </span>
                                         ) : null}
 
                                         {epDone ? (

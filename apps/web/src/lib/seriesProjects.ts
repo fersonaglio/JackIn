@@ -18,6 +18,12 @@ export interface SeasonInfo {
   totalCount: number;
   /** Progresso de download da temporada, 0–100. */
   percent: number;
+  /** Quantidade de episódios assistidos (>= 90%) na temporada. */
+  watchedCount: number;
+  /** Porcentagem assistida da temporada, 0–100. */
+  watchPercent: number;
+  /** Temporada 100% assistida. */
+  allWatched: boolean;
 }
 
 export interface SeriesBreakdown {
@@ -34,6 +40,10 @@ export interface SeriesBreakdown {
   /** Linhas prontas para assistir: episódios done + packs done. */
   availableCount: number;
   watchedCount: number;
+  /** Porcentagem assistida da série como um todo, 0–100. */
+  watchPercent: number;
+  /** Série 100% assistida. */
+  allWatched: boolean;
   anyDownloading: boolean;
   anyPaused: boolean;
   anyPreparing: boolean;
@@ -42,6 +52,14 @@ export interface SeriesBreakdown {
   activeDownload: Project | null;
   /** % principal: do download ativo, ou da proporção de unidades prontas. */
   currentPercent: number;
+}
+
+export function getProjectWatchPercent(p: Project, defaultDurationSeconds = 2700): number {
+  if (p.watched === 1) return 100;
+  const prog = p.watchProgress || 0;
+  if (prog <= 0) return 0;
+  const pct = Math.round((prog / defaultDurationSeconds) * 100);
+  return Math.min(89, Math.max(1, pct));
 }
 
 function isDone(p: Project): boolean {
@@ -90,6 +108,14 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
       } else {
         percent = 0;
       }
+
+      const seasonWatchedCount = eps.filter((e) => e.watched === 1).length;
+      const seasonEpisodesWatchSum = eps.reduce((sum, ep) => sum + getProjectWatchPercent(ep), 0);
+      const seasonWatchPercent = eps.length > 0
+        ? Math.round(seasonEpisodesWatchSum / eps.length)
+        : (pack ? getProjectWatchPercent(pack, 5400) : 0);
+      const seasonAllWatched = eps.length > 0 ? (eps.length > 0 && eps.every((e) => e.watched === 1)) : (pack ? pack.watched === 1 : false);
+
       return {
         seasonNumber: n,
         episodes: eps,
@@ -98,6 +124,9 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
         doneCount: pack ? (isDone(pack) ? 1 : 0) : doneEpisodes,
         totalCount: pack ? 1 : eps.length,
         percent,
+        watchedCount: seasonWatchedCount,
+        watchPercent: seasonWatchPercent,
+        allWatched: seasonAllWatched,
       };
     });
 
@@ -110,6 +139,14 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
 
   const totalUnits = hasEpisodes ? episodes.length : packs.length;
   const doneUnits = hasEpisodes ? episodes.filter(isDone).length : donePacks;
+
+  const totalEpisodesWatchSum = episodes.reduce((sum, ep) => sum + getProjectWatchPercent(ep), 0);
+  const watchPercent = hasEpisodes
+    ? (episodes.length > 0 ? Math.round(totalEpisodesWatchSum / episodes.length) : 0)
+    : (packs.length > 0 ? Math.round(packs.reduce((sum, p) => sum + getProjectWatchPercent(p, 5400), 0) / packs.length) : 0);
+  const allWatched = hasEpisodes
+    ? (episodes.length > 0 && episodes.every((e) => e.watched === 1))
+    : (packs.length > 0 && packs.every((p) => p.watched === 1));
 
   // Barra principal: enquanto houver transferência real em andamento, mostra o
   // % do download ativo. Na fase de preparação (pós-download) o % do pack já é
@@ -137,6 +174,8 @@ export function breakdownSeries(projects: Project[]): SeriesBreakdown {
     doneUnits,
     availableCount,
     watchedCount,
+    watchPercent,
+    allWatched,
     anyDownloading: sorted.some(isActive),
     anyPaused: sorted.some((p) => p.status === 'paused'),
     anyPreparing: sorted.some((p) => p.status === 'preparing'),

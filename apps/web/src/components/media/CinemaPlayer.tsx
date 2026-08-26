@@ -203,7 +203,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
 
     lastSavedPosRef.current = pos;
-    saveWatchProgress(projectId, pos).catch(() => {});
+    saveWatchProgress(projectId, pos, el.duration).catch(() => {});
 
     if (el.duration > 0) {
       const next = nextWatchedState(pos / el.duration, watchedRef.current);
@@ -242,7 +242,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       if (el && !el.paused && !el.ended && el.currentTime > 1) {
         saveProgressNow();
       }
-    }, 3000);
+    }, 10000);
     return () => {
       if (progressSaveRef.current) {
         clearInterval(progressSaveRef.current);
@@ -258,7 +258,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       if (progressSaveRef.current) clearInterval(progressSaveRef.current);
       const el = videoRef.current;
       if (el && projectId && el.currentTime > 1) {
-        saveWatchProgress(projectId, el.currentTime).catch(() => {});
+        saveWatchProgress(projectId, el.currentTime, el.duration).catch(() => {});
       }
     };
   }, [projectId]);
@@ -341,7 +341,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     // Salva a posição final (100%) antes de marcar assistido — senão o
     // watch_progress fica no último tick (alguns segundos antes do fim).
     if (el && projectId && el.duration > 0 && !isNaN(el.duration)) {
-      saveWatchProgress(projectId, el.duration).catch(() => {});
+      saveWatchProgress(projectId, el.duration, el.duration).catch(() => {});
     }
     watchedRef.current = true;
     markWatched(projectId, true).catch(() => {});
@@ -366,7 +366,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     setResumePosition(0);
     const el = videoRef.current;
     if (el) el.currentTime = 0;
-    if (projectId) saveWatchProgress(projectId, 0).catch(() => {});
+    if (projectId) saveWatchProgress(projectId, 0, el?.duration).catch(() => {});
     el?.play().then(() => setIsPlaying(true)).catch(() => {});
   }, [projectId]);
 

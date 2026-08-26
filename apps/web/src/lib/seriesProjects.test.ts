@@ -110,6 +110,25 @@ describe('breakdownSeries', () => {
     const b = breakdownSeries(projects);
     expect(b.currentPercent).toBe(50);
   });
+
+  it('calcula porcentagem assistida por episódio, temporada e série como um todo', () => {
+    const projects = [
+      // S1: 2 eps -> E1 assistido (100%), E2 no meio (1350s de 2700s = 50%) -> Temporada 1 = 75%
+      project({ id: 'e1', title: 'Show S01E01', status: 'done', seriesId: 's', seasonNumber: 1, episodeNumber: 1, watched: 1 }),
+      project({ id: 'e2', title: 'Show S01E02', status: 'done', seriesId: 's', seasonNumber: 1, episodeNumber: 2, watchProgress: 1350, watched: 0 }),
+      // S2: 2 eps -> E1 não assistido (0%), E2 não assistido (0%) -> Temporada 2 = 0%
+      project({ id: 'e3', title: 'Show S02E01', status: 'done', seriesId: 's', seasonNumber: 2, episodeNumber: 1, watched: 0 }),
+      project({ id: 'e4', title: 'Show S02E02', status: 'done', seriesId: 's', seasonNumber: 2, episodeNumber: 2, watched: 0 }),
+    ];
+    const b = breakdownSeries(projects);
+    expect(b.watchedCount).toBe(1);
+    expect(b.seasons[0].watchPercent).toBe(75);
+    expect(b.seasons[0].allWatched).toBe(false);
+    expect(b.seasons[1].watchPercent).toBe(0);
+    // Série total: (100 + 50 + 0 + 0) / 4 = 37.5 -> 38%
+    expect(b.watchPercent).toBe(38);
+    expect(b.allWatched).toBe(false);
+  });
 });
 
 describe('seasonChips', () => {

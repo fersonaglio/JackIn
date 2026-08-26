@@ -248,10 +248,10 @@ export async function fetchPtBrSubtitles(projectId: string): Promise<{ ok: boole
   });
 }
 
-export async function saveWatchProgress(projectId: string, position: number): Promise<{ ok: boolean }> {
+export async function saveWatchProgress(projectId: string, position: number, duration?: number): Promise<{ ok: boolean }> {
   return fetchApi<{ ok: boolean }>(`/projects/${projectId}/progress`, {
     method: 'PUT',
-    body: JSON.stringify({ position }),
+    body: JSON.stringify({ position, duration }),
   });
 }
 

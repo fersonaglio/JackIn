@@ -4,7 +4,7 @@ import type { Project, WatchHistoryItem } from '@/lib/api';
 import { getSeriesEpisodes, getWatchHistory, deleteWatchHistoryItem, deleteSeries } from '@/lib/api';
 import DeleteDialog from '@/components/ui/DeleteDialog';
 import LibraryDetailModal, { type LibraryDetailTarget } from './LibraryDetailModal';
-import { breakdownSeries } from '@/lib/seriesProjects';
+import { breakdownSeries, getProjectWatchPercent } from '@/lib/seriesProjects';
 import { seriesBaseTitle } from '@/lib/seriesSeasons';
 
 function formatHistoryDate(dateStr?: string | null): string {
@@ -142,7 +142,7 @@ function LibraryCard({
                         : 'bg-red-500/20 border-red-500/50 text-red-400'
             }`}
           >
-            {isWatched ? '✓ Visto' : hasProgress ? 'Continuar' : isDone ? 'Pronto' : isDownloading ? `${project.progressPct || 0}%` : isPreparing ? 'Preparando' : 'Erro'}
+            {isWatched ? '✓ 100% Visto' : hasProgress ? `Continuar (${getProjectWatchPercent(project, 5400)}%)` : isDone ? 'Pronto' : isDownloading ? `${project.progressPct || 0}%` : isPreparing ? 'Preparando' : 'Erro'}
           </span>
         </div>
 
@@ -173,7 +173,7 @@ function LibraryCard({
             <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
               <div
                 className="bg-[#EF9F27] h-full rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, Math.max(5, ((project.watchProgress || 0) / 7200) * 100))}%` }}
+                style={{ width: `${getProjectWatchPercent(project, 5400)}%` }}
               />
             </div>
           </div>
@@ -278,16 +278,20 @@ function SeriesCard({
   const activePoster = dynamicPoster || (posterExternal || (!imageError ? thumbnailUrl : null));
 
   const badge =
-    b.allDone
-      ? { text: '✓ Pronto', cls: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' }
-      : b.anyDownloading
-        ? { text: b.anyPreparing && !series.episodes.some((e) => e.status === 'downloading') ? 'Preparando' : 'Baixando', cls: 'bg-[#EF9F27]/20 border-[#EF9F27]/50 text-[#EF9F27] animate-pulse' }
-        : b.anyPaused
-          ? { text: 'Pausado', cls: 'bg-sky-500/20 border-sky-500/50 text-sky-300' }
-          : { text: '📺 Série', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' };
+    b.allWatched
+      ? { text: '✓ 100% Visto', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' }
+      : b.watchPercent > 0
+        ? { text: `Assistido ${b.watchPercent}%`, cls: 'bg-purple-500/20 border-purple-500/40 text-purple-300' }
+        : b.allDone
+          ? { text: '✓ Pronto', cls: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' }
+          : b.anyDownloading
+            ? { text: b.anyPreparing && !series.episodes.some((e) => e.status === 'downloading') ? 'Preparando' : 'Baixando', cls: 'bg-[#EF9F27]/20 border-[#EF9F27]/50 text-[#EF9F27] animate-pulse' }
+            : b.anyPaused
+              ? { text: 'Pausado', cls: 'bg-sky-500/20 border-sky-500/50 text-sky-300' }
+              : { text: '📺 Série', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' };
 
   const footerLine = b.hasEpisodes
-    ? `${b.episodes.length} episódio${b.episodes.length !== 1 ? 's' : ''}${b.totalSeasons > 1 ? ` · ${b.totalSeasons} temporadas` : ''}${watchedCount > 0 ? ` · ${watchedCount} assistido${watchedCount !== 1 ? 's' : ''}` : ''}`
+    ? `${b.episodes.length} episódio${b.episodes.length !== 1 ? 's' : ''}${b.totalSeasons > 1 ? ` · ${b.totalSeasons} temporadas` : ''}${b.watchPercent > 0 ? ` · ${b.watchPercent}% assistido` : ''}`
     : `${b.totalSeasons} temporada${b.totalSeasons !== 1 ? 's' : ''}${b.readySeasons > 0 && !b.allDone ? ` · ${b.readySeasons}/${b.totalSeasons} prontas` : ''}`;
 
   const play = () => {
@@ -340,7 +344,7 @@ function SeriesCard({
         </div>
 
         {/* Download progress overlay while seasons are being fetched */}
-        {b.anyDownloading && !b.allDone && (
+        {b.anyDownloading && !b.allDone ? (
           <div className="absolute bottom-0 inset-x-0 bg-zinc-950/90 p-2.5 backdrop-blur-md border-t border-zinc-800/80 space-y-1.5 z-20">
             <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
               <div
@@ -354,7 +358,16 @@ function SeriesCard({
                 : `${b.readySeasons}/${b.totalSeasons} temporadas prontas`}
             </p>
           </div>
-        )}
+        ) : b.watchPercent > 0 ? (
+          <div className="absolute bottom-0 inset-x-0 bg-zinc-950/90 p-2 backdrop-blur-md border-t border-zinc-800/80 z-20">
+            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-purple-500 h-full rounded-full transition-all duration-300"
+                style={{ width: `${b.watchPercent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Footer Info & Actions */}
