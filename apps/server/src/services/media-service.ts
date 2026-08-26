@@ -19,6 +19,8 @@ export interface MediaStreamInfo {
   pixFmt?: string;
   bitDepth?: number;
   fps?: number;
+  width?: number;
+  height?: number;
   channels?: number;
   channelLayout?: string;
   sampleRate?: number;
@@ -179,6 +181,8 @@ export function probeMedia(filePath: string): Promise<MediaInfo> {
             pixFmt: s.pix_fmt || undefined,
             bitDepth: s.bits_per_raw_sample ? Number(s.bits_per_raw_sample) : undefined,
             fps: s.avg_frame_rate && s.avg_frame_rate !== '0/0' ? evalFps(s.avg_frame_rate) : undefined,
+            width: s.width ? Number(s.width) : undefined,
+            height: s.height ? Number(s.height) : undefined,
             channels: s.channels !== undefined ? Number(s.channels) : undefined,
             channelLayout: s.channel_layout || undefined,
             sampleRate: s.sample_rate ? Number(s.sample_rate) : undefined,

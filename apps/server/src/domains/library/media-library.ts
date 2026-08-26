@@ -685,7 +685,41 @@ router.get('/:id/tracks', (req: Request, res: Response) => {
     }
   }
 
-  res.json({ audio, subtitles });
+  const mediaInfo = info ? {
+    duration: info.duration,
+    sizeBytes: info.sizeBytes,
+    hdr: info.hdr,
+    dvProfile: info.dvProfile,
+    format: (info.formatNames || []).join(', '),
+    video: info.video ? {
+      codec: info.video.codec,
+      profile: info.video.profile,
+      width: info.video.width,
+      height: info.video.height,
+      fps: info.video.fps,
+      bitDepth: info.video.bitDepth,
+      pixFmt: info.video.pixFmt,
+      bitRate: info.video.bitRate,
+    } : null,
+    audioStreams: (info.audio || []).map((a) => ({
+      index: a.index,
+      language: codeToLang[a.language || ''] || a.language || 'und',
+      codec: a.codec,
+      channels: a.channels,
+      channelLayout: a.channelLayout,
+      sampleRate: a.sampleRate,
+      bitRate: a.bitRate,
+      title: a.title,
+    })),
+    subtitlesStreams: (info.subtitles || []).map((s) => ({
+      index: s.index,
+      language: codeToLang[s.language || ''] || s.language || 'und',
+      codec: s.codec,
+      title: s.title,
+    })),
+  } : null;
+
+  res.json({ audio, subtitles, mediaInfo });
 });
 
 // Cast (Chromecast) — resolve o arquivo cast-safe (h264 + áudio cast-safe)

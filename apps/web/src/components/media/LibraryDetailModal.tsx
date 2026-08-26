@@ -368,7 +368,9 @@ export default function LibraryDetailModal({
                       <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
                         <span>
                           {seriesBreakdown.hasEpisodes
-                            ? `${seriesBreakdown.doneUnits} de ${seriesBreakdown.totalUnits} episódios prontos`
+                            ? seriesBreakdown.doneUnits === seriesBreakdown.totalUnits
+                              ? `${seriesBreakdown.doneUnits} episódios prontos (baixando mais…)`
+                              : `${seriesBreakdown.doneUnits} de ${seriesBreakdown.totalUnits} episódios prontos`
                             : `${seriesBreakdown.readySeasons} de ${seriesBreakdown.totalSeasons} temporadas prontas`}
                         </span>
                         <span>{seriesBreakdown.currentPercent}%</span>
@@ -644,8 +646,8 @@ export default function LibraryDetailModal({
                               </div>
 
                               <div className="space-y-2">
-                                {/* Pack da temporada (ex.: "Love, Death & Robots (T1)") */}
-                                {pack && (
+                                {/* Pack da temporada: apenas se ainda não há episódios individuais */}
+                                {pack && season.episodes.length === 0 && (
                                   <div className="flex items-center gap-3 bg-[#15161B] border border-[#EF9F27]/15 rounded-xl p-3">
                                     <span className="text-[10px] font-bold text-zinc-400 w-12 text-right tabular-nums shrink-0 font-mono">
                                       S{String(pack.seasonNumber ?? 1).padStart(2, '0')}

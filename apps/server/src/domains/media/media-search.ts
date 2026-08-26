@@ -717,6 +717,11 @@ export function reconcileMovieStatus(projectId: string): void {
 
   const isVideoValid = videoFile && fs.existsSync(videoFile) && fs.statSync(videoFile).size > 50_000_000;
 
+  // Para séries, sempre indexa qualquer episódio que já tenha terminado de baixar no disco
+  if (projectType === 'series' && episodeNumber == null) {
+    indexPackEpisodesFromDisk(id);
+  }
+
   // 1) Se já possui master.mp4 ou arquivo de vídeo real completo (>50MB) sem download aria2 pendente:
   if (hasMaster || (isVideoValid && !hasIncompleteAria)) {
     console.log(`[JackIn Media] Reconciliado: download ${id} estava completo (${videoFile || masterFile})`);
@@ -725,9 +730,6 @@ export function reconcileMovieStatus(projectId: string): void {
       ['preparing', 'Concluído (recuperado)', videoFile || masterFile, id]
     );
     persist();
-    if (projectType === 'series' && episodeNumber == null) {
-      indexPackEpisodesFromDisk(id);
-    }
     reconcileProjectMedia(id);
     return;
   }
@@ -1527,4 +1529,17 @@ router.post('/import-season', async (req: Request, res: Response) => {
   res.status(201).json({ ok: true, seriesId, season, created: created.map((c) => ({ id: c.id, code: c.code })) });
 });
 
+// POST /api/media-search/reconcile-all
+router.post('/reconcile-all', (req: Request, res: Response) => {
+  const db = getDb();
+  const rows = db.exec(
+    "SELECT id FROM projects WHERE project_type = 'series' OR status IN ('downloading', 'preparing', 'error')"
+  )[0]?.values || [];
+  for (const r of rows) {
+    reconcileMovieStatus(r[0] as string);
+  }
+  res.json({ ok: true, reconciled: rows.length });
+});
+
 export default router;
+

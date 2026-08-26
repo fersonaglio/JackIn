@@ -72,6 +72,57 @@ const SUBTITLE_CODEC_LABEL: Record<string, string> = {
 };
 const subtitleCodecLabel = (codec: string) => SUBTITLE_CODEC_LABEL[codec] || codec.toUpperCase() || '?';
 
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i >= 2 ? 2 : 0)} ${units[i]}`;
+}
+
+function formatDurationDetailed(sec?: number): string {
+  if (!sec || sec <= 0) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+export interface TechnicalMediaInfo {
+  duration?: number;
+  sizeBytes?: number;
+  hdr?: string;
+  dvProfile?: number;
+  format?: string;
+  video?: {
+    codec?: string;
+    profile?: string;
+    width?: number;
+    height?: number;
+    fps?: number;
+    bitDepth?: number;
+    pixFmt?: string;
+    bitRate?: number;
+  } | null;
+  audioStreams?: Array<{
+    index: number;
+    language: string;
+    codec: string;
+    channels?: number;
+    channelLayout?: string;
+    sampleRate?: number;
+    bitRate?: number;
+    title?: string;
+  }>;
+  subtitlesStreams?: Array<{
+    index: number;
+    language: string;
+    codec: string;
+    title?: string;
+  }>;
+}
+
 export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClose, episodeList, onEpisodeChange }: CinemaPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +155,8 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   const [audioLanguage, setAudioLanguage] = useState<string>('pt-br');
   const [subtitleTrack, setSubtitleTrack] = useState<'off' | 'pt-br' | 'en' | 'es'>('off');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'tracks' | 'info'>('tracks');
+  const [technicalInfo, setTechnicalInfo] = useState<TechnicalMediaInfo | null>(null);
   const [availableTracks, setAvailableTracks] = useState<string[]>([]);
   const [availableSubtitles, setAvailableSubtitles] = useState<string[]>([]);
   const [audioTracks, setAudioTracks] = useState<AudioTrackInfo[]>([]);
@@ -153,7 +206,12 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
   }, []);
 
+  const lastProjectIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    const isNewProject = projectId !== lastProjectIdRef.current;
+    lastProjectIdRef.current = projectId;
+
     setHasError(false);
     setRetrying(false);
     setErrorReason('unknown');
@@ -163,17 +221,20 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setTracksLoaded(false);
-    setAvailableTracks([]);
-    isInitialMountRef.current = true;
-    savedTimeRef.current = 0;
-    setShowResumePrompt(false);
-    setResumePosition(0);
-    setCastMeta({ available: false, audioTracks: [] });
-    wasCastingRef.current = false;
-  }, [videoUrl]);
+
+    if (isNewProject) {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setTracksLoaded(false);
+      setAvailableTracks([]);
+      isInitialMountRef.current = true;
+      savedTimeRef.current = 0;
+      setShowResumePrompt(false);
+      setResumePosition(0);
+      setCastMeta({ available: false, audioTracks: [] });
+      wasCastingRef.current = false;
+    }
+  }, [videoUrl, projectId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -219,6 +280,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     getWatchProgress(projectId).then(({ position, watched }) => {
       watchedRef.current = watched;
       if (!position || position < 60) return;
+      if (videoRef.current && videoRef.current.currentTime > 5) return;
       setResumePosition(position);
       setShowResumePrompt(true);
       const el = videoRef.current;
@@ -377,24 +439,45 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     return url;
   }, []);
 
-  const reloadVideo = useCallback(() => {
+  const reloadVideo = useCallback((restorePos?: number) => {
     const el = videoRef.current;
     if (!el) return;
     setHasError(false);
-    el.load();
-    if (resumePosition > 0) {
-      el.currentTime = resumePosition;
+    const targetPos =
+      restorePos !== undefined && restorePos > 0
+        ? restorePos
+        : savedTimeRef.current > 0
+        ? savedTimeRef.current
+        : resumePosition > 0
+        ? resumePosition
+        : 0;
+
+    if (targetPos > 0) {
+      savedTimeRef.current = targetPos;
     }
-    el.play().then(() => setIsPlaying(true)).catch(() => { });
+
+    el.load();
+    el.play().then(() => setIsPlaying(true)).catch(() => {});
   }, [resumePosition]);
 
   const handleVideoError = useCallback(async () => {
     const errCode = videoRef.current?.error?.code;
     if (errCode === 1) return;
 
-    const currentPos = videoRef.current?.currentTime || 0;
-    if (currentPos > 0 && resumePosition === 0) {
-      setResumePosition(currentPos);
+    const bestPos =
+      currentTime > 1
+        ? currentTime
+        : lastSavedPosRef.current > 1
+        ? lastSavedPosRef.current
+        : savedTimeRef.current > 1
+        ? savedTimeRef.current
+        : resumePosition > 1
+        ? resumePosition
+        : 0;
+
+    if (bestPos > 0) {
+      savedTimeRef.current = bestPos;
+      setResumePosition(bestPos);
     }
 
     setHasError(true);
@@ -429,9 +512,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     retryTimerRef.current = setTimeout(() => {
       setRetrying(false);
-      reloadVideo();
-    }, reason === 'preparing' ? 3000 : 1000);
-  }, [videoUrl, reloadVideo, resumePosition, buildVideoUrl]);
+      reloadVideo(bestPos);
+    }, reason === 'preparing' ? 2500 : 1000);
+  }, [videoUrl, reloadVideo, resumePosition, currentTime, buildVideoUrl]);
 
   useEffect(() => {
     if (!isOpen || !projectId) return;
@@ -445,6 +528,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
         const subtitles = (data.subtitles || []) as SubtitleTrackInfo[];
         setAudioTracks(audio);
         setSubtitleTracks(subtitles);
+        if (data.mediaInfo) {
+          setTechnicalInfo(data.mediaInfo);
+        }
 
         const uniqueAudio = [...new Set<string>(audio.map(t => t.language))];
         setAvailableTracks(uniqueAudio);
@@ -543,15 +629,18 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   }, [subtitleTrack, isOpen]);
 
   const handleLoadedMetadata = () => {
-    setDuration(videoRef.current?.duration || 0);
+    const el = videoRef.current;
+    if (!el) return;
+    setDuration(el.duration || 0);
     if (showResumePrompt) {
-      videoRef.current?.pause();
+      el.pause();
       setIsPlaying(false);
       return;
     }
-    if (savedTimeRef.current > 0 && videoRef.current) {
+    const seekTarget = savedTimeRef.current > 0 ? savedTimeRef.current : (resumePosition > 0 ? resumePosition : 0);
+    if (seekTarget > 0 && seekTarget < (el.duration || Infinity)) {
       try {
-        videoRef.current.currentTime = savedTimeRef.current;
+        el.currentTime = seekTarget;
         savedTimeRef.current = 0;
       } catch {
         // stream without seek support — ignore
@@ -1092,10 +1181,10 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                   className="w-full max-w-md bg-[#0E0F12]/98 border border-[#202226] rounded-2xl shadow-2xl overflow-hidden"
                 >
                   {/* Header */}
-                  <div className="px-5 py-4 border-b border-[#202226] flex items-center justify-between">
+                  <div className="px-5 py-3.5 border-b border-[#202226] flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-black text-zinc-100 uppercase tracking-wider">Faixas disponíveis</h3>
-                      <p className="text-[10px] text-[#6B6E76] mt-0.5">Áudio e legendas deste arquivo</p>
+                      <h3 className="text-sm font-black text-zinc-100 uppercase tracking-wider">Configurações & Mídia</h3>
+                      <p className="text-[10px] text-[#6B6E76] mt-0.5">Ajuste de reprodução e dados técnicos do arquivo</p>
                     </div>
                     <button
                       type="button"
@@ -1107,173 +1196,331 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                     </button>
                   </div>
 
-                  <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                    {/* Reprodução — auto-continuar próximo episódio */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2.5">
-                        <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                          <span>⏭️</span> Reprodução
-                        </h4>
-                      </div>
+                  {/* Tabs Selector */}
+                  <div className="px-5 pt-3.5 pb-1">
+                    <div className="flex items-center gap-1.5 p-1 bg-[#121316] rounded-xl border border-[#202226]">
                       <button
                         type="button"
-                        onClick={() => setAutoNextBoth(!autoNext)}
-                        className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 transition-colors"
+                        onClick={() => setSettingsTab('tracks')}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          settingsTab === 'tracks'
+                            ? 'bg-[#EF9F27] text-black shadow-md'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
                       >
-                        <span className="text-xs font-bold text-zinc-200">Reproduzir próximo automaticamente</span>
-                        <span
-                          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${autoNext ? 'bg-[#EF9F27]' : 'bg-zinc-700'}`}
-                        >
-                          <span
-                            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${autoNext ? 'left-[18px]' : 'left-0.5'}`}
-                          />
-                        </span>
+                        <span>🎧</span>
+                        <span>Áudio & Legendas</span>
                       </button>
-                      <p className="text-[9px] text-zinc-500 mt-1.5 leading-snug">
-                        {autoNext
-                          ? 'Ao terminar um episódio, o próximo entra automaticamente após 10s.'
-                          : 'Ao terminar um episódio, você escolhe se quer continuar.'}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSettingsTab('info')}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          settingsTab === 'info'
+                            ? 'bg-[#EF9F27] text-black shadow-md'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span>ℹ️</span>
+                        <span>Informações Técnicas</span>
+                      </button>
                     </div>
+                  </div>
 
-                    {/* Audio section */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2.5">
-                        <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                          <span>🎧</span> Áudio
-                        </h4>
-                        {audioTracks.length > 0 && (
-                          <span className="text-[9px] font-mono text-[#6B6E76]">{audioTracks.length} faixa(s)</span>
-                        )}
-                      </div>
-
-      {!tracksLoaded ? (
-        <p className="text-xs text-zinc-500 py-3">Detectando faixas...</p>
-      ) : audioTracks.length === 0 ? (
-        <p className="text-xs text-zinc-500 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl px-3.5">
-          Nenhuma faixa de áudio detectada neste arquivo.
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          {audioTracks.map((t, i) => (
-            <button
-              key={`${t.index}-${t.language}-${t.codec}-${i}`}
-              type="button"
-              onClick={() => { setAudioLanguage(t.language as 'pt-br' | 'en'); }}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${audioLanguage === t.language
-                  ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
-                  : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                }`}
-            >
-              <div className="min-w-0">
-                <p className={`text-xs font-bold ${audioLanguage === t.language ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
-                  {langLabel(t.language)}
-                </p>
-                <p className="text-[9px] font-mono text-[#6B6E76] mt-0.5 truncate">
-                  {[t.title, `#${t.index}`, audioCodecLabel(t.codec), t.channels > 0 ? `${t.channels} canais` : ''].filter(Boolean).join(' · ')}
-                </p>
-              </div>
-              {audioLanguage === t.language && (
-                <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tracksLoaded && audioTracks.length > 0 && !audioTracks.some((t) => t.language === 'pt-br' || t.language === 'pt') && (
-        <div className="mt-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-2.5">
-          <p className="text-[10px] text-amber-200/90 leading-snug">
-            Este episódio não possui faixa de áudio em <strong>português</strong> (só {audioTracks.map((t) => langLabel(t.language)).join(' e ')}).
-            Para assistir dublado, baixe a versão <strong>Dual Áudio / Dublado</strong> do título.
-          </p>
-        </div>
-      )}
-                    </div>
-
-                    {/* Subtitles section */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2.5">
-                        <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                          <span>💬</span> Legendas
-                        </h4>
-                        {subtitleTracks.length > 0 && (
-                          <span className="text-[9px] font-mono text-[#6B6E76]">{subtitleTracks.length} faixa(s)</span>
-                        )}
-                      </div>
-
-                      {!tracksLoaded ? (
-                        <p className="text-xs text-zinc-500 py-3">Detectando legendas...</p>
-                      ) : subtitleTracks.length === 0 ? (
-                        <p className="text-xs text-zinc-500 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl px-3.5">
-                          Nenhuma legenda embutida neste arquivo.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
+                  <div className="p-5 space-y-5 max-h-[58vh] overflow-y-auto custom-scrollbar">
+                    {settingsTab === 'tracks' ? (
+                      <>
+                        {/* Reprodução — auto-continuar próximo episódio */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                              <span>⏭️</span> Reprodução
+                            </h4>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => { setSubtitleTrack('off'); }}
-                            className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${subtitleTrack === 'off'
-                                ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
-                                : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                              }`}
+                            onClick={() => setAutoNextBoth(!autoNext)}
+                            className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 transition-colors"
                           >
-                            <p className={`text-xs font-bold ${subtitleTrack === 'off' ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
-                              Desativadas
-                            </p>
-                            {subtitleTrack === 'off' && <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>}
-                          </button>
-                          {subtitleTracks.map((t, i) => (
-                            <button
-                              key={`${t.index}-${t.language}-${t.codec}-${i}`}
-                              type="button"
-                              onClick={() => { setSubtitleTrack(t.language as any); }}
-                              className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${subtitleTrack === t.language
-                                  ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
-                                  : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                                }`}
+                            <span className="text-xs font-bold text-zinc-200">Reproduzir próximo automaticamente</span>
+                            <span
+                              className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${autoNext ? 'bg-[#EF9F27]' : 'bg-zinc-700'}`}
                             >
-                              <div className="min-w-0">
-                                <p className={`text-xs font-bold ${subtitleTrack === t.language ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
-                                  {langLabel(t.language)}
-                                </p>
-                                <p className="text-[9px] font-mono text-[#6B6E76] mt-0.5 truncate">
-                                  #{t.index} · {subtitleCodecLabel(t.codec)}
-                                </p>
-                              </div>
-                              {subtitleTrack === t.language && (
-                                <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>
-                              )}
-                            </button>
-                          ))}
+                              <span
+                                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${autoNext ? 'left-[18px]' : 'left-0.5'}`}
+                              />
+                            </span>
+                          </button>
+                          <p className="text-[9px] text-zinc-500 mt-1.5 leading-snug">
+                            {autoNext
+                              ? 'Ao terminar um episódio, o próximo entra automaticamente após 10s.'
+                              : 'Ao terminar um episódio, você escolhe se quer continuar.'}
+                          </p>
                         </div>
-                      )}
 
-                      <button
-                        type="button"
-                        onClick={handleFetchSubtitles}
-                        disabled={subtitleLoading}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#EF9F27]/10 hover:bg-[#EF9F27]/20 disabled:opacity-50 border border-[#EF9F27]/30 text-[#EF9F27] font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-                      >
-                        {subtitleLoading ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-[#EF9F27] border-t-transparent rounded-full animate-spin" />
-                            Buscando legenda PT-BR...
-                          </>
-                        ) : (
-                          <>⬇ Buscar legenda PT-BR (OpenSubtitles)</>
-                        )}
-                      </button>
-                      {subtitleMessage && (
-                        <p className="text-[10px] text-zinc-400 px-1">{subtitleMessage}</p>
-                      )}
-                    </div>
+                        {/* Audio section */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                              <span>🎧</span> Áudio
+                            </h4>
+                            {audioTracks.length > 0 && (
+                              <span className="text-[9px] font-mono text-[#6B6E76]">{audioTracks.length} faixa(s)</span>
+                            )}
+                          </div>
+
+                          {!tracksLoaded ? (
+                            <p className="text-xs text-zinc-500 py-3">Detectando faixas...</p>
+                          ) : audioTracks.length === 0 ? (
+                            <p className="text-xs text-zinc-500 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl px-3.5">
+                              Nenhuma faixa de áudio detectada neste arquivo.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {audioTracks.map((t, i) => (
+                                <button
+                                  key={`${t.index}-${t.language}-${t.codec}-${i}`}
+                                  type="button"
+                                  onClick={() => { setAudioLanguage(t.language as 'pt-br' | 'en'); }}
+                                  className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${audioLanguage === t.language
+                                      ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
+                                      : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                                    }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className={`text-xs font-bold ${audioLanguage === t.language ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
+                                      {langLabel(t.language)}
+                                    </p>
+                                    <p className="text-[9px] font-mono text-[#6B6E76] mt-0.5 truncate">
+                                      {[t.title, `#${t.index}`, audioCodecLabel(t.codec), t.channels > 0 ? `${t.channels} canais (${t.channels >= 6 ? '5.1' : t.channels === 2 ? 'Stereo' : 'Mono'})` : ''].filter(Boolean).join(' · ')}
+                                    </p>
+                                  </div>
+                                  {audioLanguage === t.language && (
+                                    <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {tracksLoaded && audioTracks.length > 0 && !audioTracks.some((t) => t.language === 'pt-br' || t.language === 'pt') && (
+                            <div className="mt-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-2.5">
+                              <p className="text-[10px] text-amber-200/90 leading-snug">
+                                Este episódio não possui faixa de áudio em <strong>português</strong> (só {audioTracks.map((t) => langLabel(t.language)).join(' e ')}).
+                                Para assistir dublado, baixe a versão <strong>Dual Áudio / Dublado</strong> do título.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Subtitles section */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                              <span>💬</span> Legendas
+                            </h4>
+                            {subtitleTracks.length > 0 && (
+                              <span className="text-[9px] font-mono text-[#6B6E76]">{subtitleTracks.length} faixa(s)</span>
+                            )}
+                          </div>
+
+                          {!tracksLoaded ? (
+                            <p className="text-xs text-zinc-500 py-3">Detectando legendas...</p>
+                          ) : subtitleTracks.length === 0 ? (
+                            <p className="text-xs text-zinc-500 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl px-3.5">
+                              Nenhuma legenda embutida neste arquivo.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <button
+                                type="button"
+                                onClick={() => { setSubtitleTrack('off'); }}
+                                className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${subtitleTrack === 'off'
+                                    ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
+                                    : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                                  }`}
+                              >
+                                <p className={`text-xs font-bold ${subtitleTrack === 'off' ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
+                                  Desativadas
+                                </p>
+                                {subtitleTrack === 'off' && <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>}
+                              </button>
+                              {subtitleTracks.map((t, i) => (
+                                <button
+                                  key={`${t.index}-${t.language}-${t.codec}-${i}`}
+                                  type="button"
+                                  onClick={() => { setSubtitleTrack(t.language as any); }}
+                                  className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${subtitleTrack === t.language
+                                      ? 'bg-[#EF9F27]/10 border-[#EF9F27]/40'
+                                      : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                                    }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className={`text-xs font-bold ${subtitleTrack === t.language ? 'text-[#EF9F27]' : 'text-zinc-200'}`}>
+                                      {langLabel(t.language)}
+                                    </p>
+                                    <p className="text-[9px] font-mono text-[#6B6E76] mt-0.5 truncate">
+                                      #{t.index} · {subtitleCodecLabel(t.codec)}
+                                    </p>
+                                  </div>
+                                  {subtitleTrack === t.language && (
+                                    <span className="text-[#EF9F27] text-xs font-black shrink-0">✓ ATUAL</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={handleFetchSubtitles}
+                            disabled={subtitleLoading}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#EF9F27]/10 hover:bg-[#EF9F27]/20 disabled:opacity-50 border border-[#EF9F27]/30 text-[#EF9F27] font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 mt-2"
+                          >
+                            {subtitleLoading ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-[#EF9F27] border-t-transparent rounded-full animate-spin" />
+                                Buscando legenda PT-BR...
+                              </>
+                            ) : (
+                              <>⬇ Buscar legenda PT-BR (OpenSubtitles)</>
+                            )}
+                          </button>
+                          {subtitleMessage && (
+                            <p className="text-[10px] text-zinc-400 px-1 mt-1.5">{subtitleMessage}</p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      /* Technical Details Tab */
+                      <div className="space-y-4">
+                        {/* Vídeo */}
+                        <div className="bg-zinc-900/60 border border-zinc-800/90 rounded-xl p-3.5 space-y-2.5">
+                          <h4 className="text-[11px] font-black text-[#EF9F27] uppercase tracking-wider flex items-center gap-2">
+                            <span>🎬</span> Vídeo & Resolução
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Resolução</span>
+                              <span className="font-bold text-zinc-200">
+                                {technicalInfo?.video?.width && technicalInfo?.video?.height
+                                  ? `${technicalInfo.video.width} × ${technicalInfo.video.height}`
+                                  : '1080p (Full HD)'}
+                              </span>
+                              <span className="text-[9px] text-[#EF9F27] block font-mono">
+                                {(technicalInfo?.video?.width || 0) >= 3800
+                                  ? '4K UHD'
+                                  : (technicalInfo?.video?.width || 0) >= 1900
+                                  ? '1080p Full HD'
+                                  : (technicalInfo?.video?.width || 0) >= 1200
+                                  ? '720p HD'
+                                  : 'SD / Web'}
+                              </span>
+                            </div>
+
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Codec & Perfil</span>
+                              <span className="font-bold text-zinc-200">
+                                {technicalInfo?.video?.codec?.toUpperCase() || 'H.264 / AVC'}
+                              </span>
+                              <span className="text-[9px] text-zinc-400 block truncate font-mono">
+                                {technicalInfo?.video?.profile || 'High Profile'}
+                              </span>
+                            </div>
+
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Taxa de Quadros (FPS)</span>
+                              <span className="font-bold text-zinc-200">
+                                {technicalInfo?.video?.fps ? `${technicalInfo.video.fps} fps` : '24.00 fps'}
+                              </span>
+                            </div>
+
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Faixa Dinâmica (HDR)</span>
+                              <span className="font-bold text-zinc-200">
+                                {technicalInfo?.hdr === 'hdr10'
+                                  ? 'HDR10'
+                                  : technicalInfo?.hdr === 'dv'
+                                  ? `Dolby Vision (P${technicalInfo.dvProfile || '7'})`
+                                  : technicalInfo?.hdr === 'hlg'
+                                  ? 'HLG'
+                                  : 'SDR (Rec. 709)'}
+                              </span>
+                              <span className="text-[9px] text-zinc-400 block font-mono">
+                                {technicalInfo?.video?.bitDepth ? `${technicalInfo.video.bitDepth}-bit color` : '8-bit'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Áudio Técnico */}
+                        <div className="bg-zinc-900/60 border border-zinc-800/90 rounded-xl p-3.5 space-y-2.5">
+                          <h4 className="text-[11px] font-black text-[#EF9F27] uppercase tracking-wider flex items-center gap-2">
+                            <span>🎧</span> Áudio em Reprodução
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Idioma Selecionado</span>
+                              <span className="font-bold text-zinc-200">{langLabel(audioLanguage)}</span>
+                              <span className="text-[9px] text-emerald-400 block font-mono">Trilha ativa</span>
+                            </div>
+
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Codec & Canais</span>
+                              {(() => {
+                                const currentTrack = audioTracks.find(t => t.language === audioLanguage) || audioTracks[0];
+                                return (
+                                  <>
+                                    <span className="font-bold text-zinc-200">
+                                      {audioCodecLabel(currentTrack?.codec || 'aac')}
+                                    </span>
+                                    <span className="text-[9px] text-zinc-400 block font-mono">
+                                      {currentTrack?.channels ? `${currentTrack.channels} canais (${currentTrack.channels >= 6 ? '5.1 Surround' : currentTrack.channels === 2 ? 'Stereo' : 'Mono'})` : 'Stereo 2.0'}
+                                    </span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Arquivo & Formato */}
+                        <div className="bg-zinc-900/60 border border-zinc-800/90 rounded-xl p-3.5 space-y-2.5">
+                          <h4 className="text-[11px] font-black text-[#EF9F27] uppercase tracking-wider flex items-center gap-2">
+                            <span>📁</span> Arquivo & Contêiner
+                          </h4>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Contêiner</span>
+                              <span className="font-bold text-zinc-200 uppercase truncate block">
+                                {technicalInfo?.format ? technicalInfo.format.split(',')[0] : 'MKV'}
+                              </span>
+                            </div>
+
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Tamanho</span>
+                              <span className="font-bold text-zinc-200 block">
+                                {formatBytes(technicalInfo?.sizeBytes)}
+                              </span>
+                            </div>
+
+                            <div className="bg-black/40 rounded-lg p-2 border border-zinc-800/60">
+                              <span className="text-[9px] text-zinc-500 font-mono block">Duração</span>
+                              <span className="font-bold text-zinc-200 block">
+                                {formatDurationDetailed(technicalInfo?.duration || duration)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Footer */}
                   <div className="px-5 py-3.5 border-t border-[#202226] bg-[#07080a]/50 flex items-center justify-between">
                     <span className="text-[9px] font-mono text-[#6B6E76]">
-                      Áudio: {langLabel(audioLanguage)} · Legendas: {subtitleTrack === 'off' ? 'Desativadas' : langLabel(subtitleTrack)}
+                      {settingsTab === 'tracks'
+                        ? `Áudio: ${langLabel(audioLanguage)} · Legendas: ${subtitleTrack === 'off' ? 'Desativadas' : langLabel(subtitleTrack)}`
+                        : `Mídia: ${technicalInfo?.video?.width ? `${technicalInfo.video.width}p` : '1080p'} · ${audioTracks.length} áudio(s) · ${subtitleTracks.length} legenda(s)`}
                     </span>
                     <button
                       type="button"

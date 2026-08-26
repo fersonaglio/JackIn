@@ -26,7 +26,7 @@ def detect_audio_languages(file_path: Path) -> list:
         cmd = [
             FFPROBE_BIN, "-v", "quiet",
             "-select_streams", "a",
-            "-show_entries", "stream=index:stream_tags=language",
+            "-show_entries", "stream=index:stream_tags=language,title",
             "-of", "json",
             str(file_path)
         ]
@@ -34,9 +34,13 @@ def detect_audio_languages(file_path: Path) -> list:
         data = json.loads(res.stdout)
         langs = set()
         for s in data.get("streams", []):
-            lang = (s.get("tags", {}).get("language") or "").lower()
+            tags = s.get("tags", {})
+            lang = (tags.get("language") or "").lower()
+            title = (tags.get("title") or "").lower()
             if lang:
                 langs.add(lang)
+            if any(w in title for w in ("portugues", "português", "dublado", "pt-br", "ptbr", "brazilian")):
+                langs.add("por")
         return sorted(langs)
     except Exception:
         return []
@@ -238,6 +242,12 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
     cmd = [
         aria2_bin,
         "--seed-time=0",
+        "--allow-overwrite=true",
+        "--auto-file-renaming=false",
+        "--max-connection-per-server=16",
+        "--split=16",
+        "--min-split-size=1M",
+        "--max-concurrent-downloads=8",
         f"--bt-stop-timeout={stop_timeout}",
         "--timeout=25",
         "--connect-timeout=15",
@@ -317,11 +327,10 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                 break
 
             # Verificação periódica de avanço de dados (candidate morto):
-            # Se após 45s nenhum byte de vídeo foi transferido, aborta e vai para o próximo.
-            # Se já está perto do final (>=80%), dá tolerância estendida (240s).
+            # Dá tolerância ampla (180s/300s) para alocação de arquivos em packs de séries.
             no_advance = now_t - last_byte_advance
-            grace = 240 if peak_pct >= 80 else (60 if got_progress else 45)
-            if (time.time() - start_t) > 40 and no_advance > grace:
+            grace = 300 if peak_pct >= 80 else (180 if got_progress else 90)
+            if (time.time() - start_t) > 90 and no_advance > grace:
                 print(f"[JackIn DL] Rede BitTorrent sem avanço há {int(no_advance)}s (candidate sem seeders). Abortando para tentar próximo...", file=sys.stderr)
                 try: proc.kill()
                 except: pass
@@ -396,16 +405,8 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
         except Exception:
             pass
 
-    # Verificar se obteve um arquivo de vídeo real (candidate vivo).
-    # O aria2 PRÉ-ALOCA o arquivo inteiro antes de baixar — um .aria2 pendente
-    # no diretório significa download INCOMPLETO (arquivo parcial com zeros),
-    # que o escudo anti-vírus rejeitaria como "corrompido". Só conta como
-    # candidate vivo quando não há controle .aria2 pendente.
-    pending_aria2 = False
-    for root, dirs, files in os.walk(output_dir):
-        for file in files:
-            if file.endswith(".aria2"):
-                pending_aria2 = True
+    # Verificar se obteve arquivos de vídeo válidos no diretório.
+    valid_videos = []
     for root, dirs, files in os.walk(output_dir):
         for file in files:
             ext = Path(file).suffix.lower()
@@ -413,12 +414,20 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             if ext in BLOCKED_EXTENSIONS:
                 try: full_f.unlink()
                 except: pass
-            elif ext in ALLOWED_EXTENSIONS and not pending_aria2:
-                return True
+            elif ext in ALLOWED_EXTENSIONS and full_f.stat().st_size > 30_000_000:
+                try:
+                    with open(full_f, "rb") as fh:
+                        head = fh.read(16)
+                        if (head[0] == 0x1a and head[1] == 0x45) or b"ftyp" in head:
+                            valid_videos.append(full_f)
+                except:
+                    pass
+    if valid_videos:
+        return True
     return False
 
 
-_PT_AUDIO_LANGS = {"pt", "por", "pt-br", "ptbr", "bra", "braz"}
+_PT_AUDIO_LANGS = {"pt", "por", "pob", "pt-br", "ptbr", "bra", "braz", "portuguese", "portugues", "dublado"}
 _UND_AUDIO_LANGS = {"und", "", "mis"}
 
 
@@ -553,39 +562,41 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
     main_video = video_files[0]
     print(f"[JackIn DL] Arquivo principal: {main_video} ({main_video.stat().st_size / (1024**3):.1f}GB)", file=sys.stderr)
 
-    # Mover de subdiretório YTS para a raiz (paths com colchetes quebram ffmpeg).
-    if main_video.parent != output_dir:
-        root_copy = output_dir / main_video.name
-        print(f"[JackIn DL] Movendo de subdiretório para raiz: {main_video.name}", file=sys.stderr)
-        if root_copy.exists():
-            root_copy.unlink()
-        try:
-            main_video.rename(root_copy)
-        except OSError:
-            import shutil
-            shutil.move(str(main_video), str(root_copy))
-        main_video = root_copy
-        for r_dir, d_dirs, _ in os.walk(output_dir, topdown=False):
-            for d_name in d_dirs:
-                try:
-                    os.rmdir(os.path.join(r_dir, d_name))
-                except OSError:
-                    pass
+    is_pack = len(video_files) > 1
+    if not is_pack:
+        # Mover de subdiretório para a raiz apenas quando filme único (evita quebrar estrutura de pastas de séries).
+        if main_video.parent != output_dir:
+            root_copy = output_dir / main_video.name
+            print(f"[JackIn DL] Movendo de subdiretório para raiz: {main_video.name}", file=sys.stderr)
+            if root_copy.exists():
+                root_copy.unlink()
+            try:
+                main_video.rename(root_copy)
+            except OSError:
+                import shutil
+                shutil.move(str(main_video), str(root_copy))
+            main_video = root_copy
+            for r_dir, d_dirs, _ in os.walk(output_dir, topdown=False):
+                for d_name in d_dirs:
+                    try:
+                        os.rmdir(os.path.join(r_dir, d_name))
+                    except OSError:
+                        pass
 
-    # Normaliza para master.<ext> mantendo a extensão real.
-    final_master = output_dir / f"master{main_video.suffix.lower()}"
-    if main_video != final_master:
-        if final_master.exists():
-            final_master.unlink()
-        try:
-            main_video.rename(final_master)
-        except OSError:
-            import shutil
-            shutil.copy2(str(main_video), str(final_master))
-            main_video.unlink()
-        main_video = final_master
+        # Normaliza para master.<ext> mantendo a extensão real apenas para filmes individuais.
+        final_master = output_dir / f"master{main_video.suffix.lower()}"
+        if main_video != final_master:
+            if final_master.exists():
+                final_master.unlink()
+            try:
+                main_video.rename(final_master)
+            except OSError:
+                import shutil
+                shutil.copy2(str(main_video), str(final_master))
+                main_video.unlink()
+            main_video = final_master
     target_path = main_video
-    print(f"[JackIn DL] Master intacto: {target_path} ({target_path.stat().st_size / (1024**3):.1f}GB)", file=sys.stderr)
+    print(f"[JackIn DL] Arquivo principal: {target_path} ({target_path.stat().st_size / (1024**3):.1f}GB)", file=sys.stderr)
 
     # Camada 2: Inspecionar e validar integridade do vídeo com FFprobe (Escudo Anti-Vírus)
     emit_progress(96, "Escudo de Segurança: Verificando integridade e filtrando malwares...", 0)

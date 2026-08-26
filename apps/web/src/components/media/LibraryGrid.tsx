@@ -285,7 +285,12 @@ function SeriesCard({
         : b.allDone
           ? { text: '✓ Pronto', cls: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' }
           : b.anyDownloading
-            ? { text: b.anyPreparing && !series.episodes.some((e) => e.status === 'downloading') ? 'Preparando' : 'Baixando', cls: 'bg-[#EF9F27]/20 border-[#EF9F27]/50 text-[#EF9F27] animate-pulse' }
+            ? {
+                text: b.anyPreparing && !series.episodes.some((e) => e.status === 'downloading')
+                  ? `Preparando${b.doneUnits > 0 ? ` (${b.doneUnits} prontos)` : ''}`
+                  : `Baixando${b.doneUnits > 0 ? `… ${b.doneUnits} prontos` : ''}`,
+                cls: 'bg-[#EF9F27]/20 border-[#EF9F27]/50 text-[#EF9F27] animate-pulse',
+              }
             : b.anyPaused
               ? { text: 'Pausado', cls: 'bg-sky-500/20 border-sky-500/50 text-sky-300' }
               : { text: '📺 Série', cls: 'bg-purple-500/30 border-purple-500/60 text-purple-300' };
@@ -354,7 +359,9 @@ function SeriesCard({
             </div>
             <p className="text-[10px] text-[#EF9F27] font-mono text-center font-bold">
               {b.hasEpisodes
-                ? `${b.doneUnits}/${b.totalUnits} episódios prontos`
+                ? b.doneUnits === b.totalUnits
+                  ? `${b.doneUnits} episódios prontos (baixando mais…)`
+                  : `${b.doneUnits}/${b.totalUnits} episódios prontos`
                 : `${b.readySeasons}/${b.totalSeasons} temporadas prontas`}
             </p>
           </div>
