@@ -41,3 +41,31 @@ export const TRACKERS_LIST: string[] = configured
   : FALLBACK_TRACKERS;
 
 export const TRACKERS_COMMA = TRACKERS_LIST.filter((t) => t.startsWith('udp://')).join(',');
+
+/**
+ * Enriquece um magnet link com todos os trackers UDP curados de alta performance,
+ * garantindo conexão rápida com peers mesmo em links com poucos trackers embutidos.
+ */
+export function enrichMagnetWithTrackers(magnetUri: string): string {
+  if (!magnetUri || !magnetUri.startsWith('magnet:?')) {
+    return magnetUri;
+  }
+  const parts = magnetUri.split('&');
+  const existingTrackers = new Set(
+    parts
+      .filter((p) => p.startsWith('tr='))
+      .map((p) => decodeURIComponent(p.replace('tr=', '')))
+  );
+
+  const udpTrackers = TRACKERS_LIST.filter((t) => t.startsWith('udp://'));
+  const newParams: string[] = [];
+
+  for (const tr of udpTrackers) {
+    if (!existingTrackers.has(tr)) {
+      newParams.push(`tr=${encodeURIComponent(tr)}`);
+    }
+  }
+
+  if (newParams.length === 0) return magnetUri;
+  return `${magnetUri}&${newParams.join('&')}`;
+}
