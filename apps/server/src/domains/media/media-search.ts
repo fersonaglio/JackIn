@@ -7,6 +7,7 @@ import { getDb, persist, persistThrottled, DATA_DIR } from '../../db/schema.js';
 import { progressEvents } from '../../services/progress-events.js';
 import { prepareProject, reconcileProjectMedia, isPreparing, cancelPreparation, getProjectMedia } from '../../services/media-service.js';
 import { searchMediaEnhanced } from './media-search-interpret.js';
+import { enrichMagnetWithTrackers } from './trackers.js';
 
 const router = Router();
 
@@ -260,7 +261,11 @@ function saveInitialPoster(projectDir: string, posterUrl: string) {
 
 function startMovieDownload(id: string, opts: DownloadOptions) {
   const db = getDb();
-  const { sourceUrl, title, quality, posterUrl, altSourceUrls } = opts;
+  const sourceUrl = enrichMagnetWithTrackers(opts.sourceUrl);
+  const title = opts.title;
+  const quality = opts.quality;
+  const posterUrl = opts.posterUrl;
+  const altSourceUrls = (opts.altSourceUrls || []).map((u) => enrichMagnetWithTrackers(u));
   const projectDir = path.join(DATA_DIR, 'projects', id);
   fs.mkdirSync(projectDir, { recursive: true });
   runningDownloads.add(id);

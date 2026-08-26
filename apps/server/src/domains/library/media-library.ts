@@ -704,17 +704,25 @@ router.get('/:id/tracks', async (req: Request, res: Response) => {
   }
   const audio = [...audioByLang.values()];
 
-  // External subtitles downloaded by the subtitle service.
-  if (existsSync(path.join(projectDir, 'subs_ptbr.vtt'))) {
-    subtitles = subtitles
-      .filter((s) => s.language !== 'pt-br')
-      .concat({ index: -1, language: 'pt-br', codec: 'vtt' });
+  // Escaneamento de arquivos de legendas WebVTT extraídos ou baixados
+  if (existsSync(projectDir)) {
+    try {
+      const files = readdirSync(projectDir);
+      for (const file of files) {
+        if (file.endsWith('.vtt')) {
+          let lang = 'und';
+          if (file.includes('pt') || file.includes('por') || file.includes('pob')) lang = 'pt-br';
+          else if (file.includes('en') || file.includes('eng')) lang = 'en';
+          else if (file.includes('es') || file.includes('spa')) lang = 'es';
+          
+          if (!subtitles.some((s) => s.language === lang)) {
+            subtitles.push({ index: -1, language: lang, codec: 'vtt' });
+          }
+        }
+      }
+    } catch {}
   }
-  if (existsSync(path.join(projectDir, 'subs_en.vtt'))) {
-    subtitles = subtitles
-      .filter((s) => s.language !== 'en')
-      .concat({ index: -1, language: 'en', codec: 'vtt' });
-  }
+
   // Legendas embutidas extraídas na ingestão (subs_<lang>.vtt).
   const prepSubLangs = Object.keys(pm?.artifacts?.subs || {});
   for (const lang of prepSubLangs) {

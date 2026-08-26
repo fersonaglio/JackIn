@@ -278,6 +278,7 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
         "--enable-peer-exchange=true",
         "--bt-min-crypto-level=plain",
         "--bt-require-crypto=false",
+        "--bt-prioritize-piece=head,tail",
         "--peer-id-prefix=-qB4600-",
         "--user-agent=qBittorrent/4.6.0",
         "--bt-tracker=" + TRACKERS_COMMA,
@@ -509,6 +510,45 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
         print(f"[JackIn DL] Aviso na reordenação de faixas de áudio: {e}", file=sys.stderr)
 
 
+def extract_embedded_subtitles(file_path: Path, output_dir: Path):
+    """Extrai faixas de legendas embutidas (SRT, ASS, VTT, etc.) para arquivos
+    WebVTT (.vtt) prontos para reprodução HTML5 nativa no navegador."""
+    try:
+        cmd = [
+            FFPROBE_BIN, "-v", "quiet",
+            "-show_entries", "stream=index,codec_name:stream_tags=language,title",
+            "-select_streams", "s",
+            "-of", "json",
+            str(file_path)
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=15)
+        data = json.loads(res.stdout)
+        subs = data.get("streams", [])
+        if not subs:
+            return
+
+        for s in subs:
+            s_idx = s.get("index")
+            lang = (s.get("tags", {}).get("language") or "und").lower()
+            
+            # Formata nome do arquivo vtt
+            out_vtt = output_dir / f"subtitles.{lang}.vtt"
+            if out_vtt.exists():
+                out_vtt = output_dir / f"subtitles.{lang}.{s_idx}.vtt"
+                
+            sub_cmd = [
+                FFMPEG_BIN, "-y", "-i", str(file_path),
+                "-map", f"0:{s_idx}",
+                "-c:s", "webvtt",
+                str(out_vtt)
+            ]
+            subprocess.run(sub_cmd, capture_output=True, timeout=30)
+            if out_vtt.exists() and out_vtt.stat().st_size > 10:
+                print(f"[JackIn DL] 📝 Legenda extraída com sucesso: {out_vtt.name} ({lang})", file=sys.stderr)
+    except Exception as e:
+        print(f"[JackIn DL] Aviso na extração de legendas: {e}", file=sys.stderr)
+
+
 def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     """Verifica o idioma real do áudio (via ffprobe) quando require_pt é True.
 
@@ -519,6 +559,7 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     silenciosamente.
     """
     reorder_audio_tracks_prefer_pt(file_path)
+    extract_embedded_subtitles(file_path, file_path.parent)
     langs = detect_audio_languages(file_path)
     if require_pt:
         has_pt = any(lang in _PT_AUDIO_LANGS for lang in langs)
