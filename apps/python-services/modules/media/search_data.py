@@ -15,17 +15,17 @@ MAX_OPTIONS = 6
 MIN_SEEDERS = 1
 PREFERRED_SEEDERS = 5
 
-# Quality tiers in descending preference order
-QUALITY_TIERS = ["REMUX", "4K", "1080P", "720P", "WEBRIP", "OTHER"]
+# Quality tiers in descending preference order — 1080P compact leading
+QUALITY_TIERS = ["1080P", "4K", "720P", "WEBRIP", "REMUX", "OTHER"]
 
-# Size sanity (GB) per tier: [min, max]
+# Size sanity (GB) per tier: [min, max] — balanced for quality and low disk space
 SIZE_TIERS = {
+    "1080P": (0.8, 6.0),
+    "4K": (3.5, 25.0),
+    "720P": (0.5, 3.5),
+    "WEBRIP": (0.5, 4.0),
     "REMUX": (15.0, 120.0),
-    "4K": (5.0, 60.0),
-    "1080P": (1.0, 30.0),
-    "720P": (0.5, 10.0),
-    "WEBRIP": (0.5, 10.0),
-    "OTHER": (0.3, 60.0),
+    "OTHER": (0.3, 30.0),
 }
 
 # Composite candidate score weights

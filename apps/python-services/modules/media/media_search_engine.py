@@ -599,7 +599,7 @@ def tier_to_option(t: dict, tier: str) -> dict:
         "sourceUrl": magnet,
     }
 
-TIER_ORDER = ["REMUX", "4K", "1080P", "720P", "WEBRIP", "OTHER"]
+TIER_ORDER = ["1080P", "4K", "720P", "WEBRIP", "REMUX", "OTHER"]
 
 _PT_KNOWLEDGE: dict = {}
 _PT_KNOWLEDGE_TS: float = 0.0
@@ -643,9 +643,9 @@ def _dubbed_priority(t: dict) -> int:
             base += 5
         else:
             return -50
-    # Boost by quality tier (REMUX > 4K > 1080P > 720P) so top-quality dubs lead
+    # Boost by quality tier (1080P > 4K > 720P > REMUX) so compact high-quality dubs lead
     q_tier = quality_tier(t.get("name", ""))
-    q_bonus = {"REMUX": 4, "4K": 3, "1080P": 2, "720P": 1}.get(q_tier, 0)
+    q_bonus = {"1080P": 4, "4K": 3, "720P": 2, "REMUX": 1}.get(q_tier, 0)
     n_upper = t.get("name", "").upper()
     surround = 1 if any(k in n_upper for k in ("5.1", "7.1", "ATMOS", "DTS", "TRUEHD", "DDP")) else 0
     return base * 10 + q_bonus * 2 + surround

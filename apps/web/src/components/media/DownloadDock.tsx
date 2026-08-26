@@ -11,41 +11,46 @@ interface DownloadDockProps {
   onRetry?: (project: Project) => void;
 }
 
-function parseSpeed(progressStatus: string | null | undefined): string {
-  if (!progressStatus) return '0.0 MB/s';
+function parseDownloadInfo(progressStatus: string | null | undefined): { speed: string; eta: string | null; stage: string | null } {
+  if (!progressStatus) return { speed: '0.0 MB/s', eta: null, stage: null };
 
-  // Format 1 (aria2): "... 80.0% (⚡ 35.0MiB/s) [SD:2 CN:4]"
-  if (progressStatus.includes('⚡')) {
-    const after = progressStatus.split('⚡')[1] || '';
-    const m = after.match(/([\d.]+)\s*(MiB|MB|KiB|KB|B)\/?s?/);
-    if (m) return normalizeSpeed(parseFloat(m[1]), m[2]);
+  let speed = '0.0 MB/s';
+  let eta: string | null = null;
+
+  // Extract speed (e.g. 15MiB/s, 15.2 MB/s, ⚡ 14MB/s)
+  const speedMatch = progressStatus.match(/([\d.]+)\s*(MiB|MB|KiB|KB|GB|B)\/?s?/i);
+  if (speedMatch) {
+    speed = normalizeSpeed(parseFloat(speedMatch[1]), speedMatch[2]);
   }
 
-  // Format 2 (direct HTTP): "... 512.0 MB / 2048.0 MB (5.2 MB/s)"
-  const mb = progressStatus.match(/\(([\d.]+)\s*MB\/s\)/);
-  if (mb) return `${mb[1]} MB/s`;
+  // Extract ETA (e.g. ETA: 1m45s or ETA: 30s)
+  const etaMatch = progressStatus.match(/ETA:?\s*([\w\d]+)/i);
+  if (etaMatch) {
+    eta = etaMatch[1];
+  }
 
-  // Processing stages carry no speed — label the stage instead of a fake 0.
   const lower = progressStatus.toLowerCase();
-  if (lower.includes('remux')) return 'processando';
-  if (lower.includes('verificando') || lower.includes('validand')) return 'verificando';
-  if (lower.includes('extraindo')) return 'extraindo';
-  if (lower.includes('metadados') || lower.includes('seeders') || lower.includes('conectando')) return 'procurando seeders';
-  if (lower.includes('tentando') || lower.includes('retomando') || lower.includes('falha transit')) return 'tentando novamente';
-  if (lower.includes('conclu')) return 'concluído';
+  let stage: string | null = null;
+  if (lower.includes('remux') || lower.includes('otimizando')) stage = 'Otimizando áudio/vídeo';
+  else if (lower.includes('verificando') || lower.includes('validand')) stage = 'Verificando integridade';
+  else if (lower.includes('extraindo')) stage = 'Extraindo legendas';
+  else if (lower.includes('metadados') || lower.includes('seeders') || lower.includes('conectando')) stage = 'Procurando seeders';
+  else if (lower.includes('tentando') || lower.includes('retomando') || lower.includes('falha transit')) stage = 'Tentando novamente';
+  else if (lower.includes('conclu') || lower.includes('pronto')) stage = 'Pronto';
 
-  return '0.0 MB/s';
+  return { speed, eta, stage };
 }
 
 // aria2 reports binary units (MiB = 1,048,576 bytes). Convert to decimal MB/s
-// (1,000,000 bytes) so the UI matches the metric the user expects.
 function normalizeSpeed(value: number, unit: string): string {
+  const u = unit.toLowerCase();
   const bytes =
-    unit === 'MiB' ? value * 1048576 :
-    unit === 'KiB' ? value * 1024 :
-    unit === 'B' ? value :
-    unit === 'KB' ? value * 1000 :
-    unit === 'MB' ? value * 1000000 :
+    u === 'mib' ? value * 1048576 :
+    u === 'kib' ? value * 1024 :
+    u === 'b' ? value :
+    u === 'kb' ? value * 1000 :
+    u === 'mb' ? value * 1000000 :
+    u === 'gb' ? value * 1000000000 :
     value * 1048576;
   const mbps = bytes / 1000000;
   if (mbps >= 1000) return `${(mbps / 1000).toFixed(1)} GB/s`;
@@ -79,8 +84,6 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
     });
   };
 
-  // Pause/resume are handled here; the project list polls every ~1.5s so the
-  // new status (paused / downloading) shows up automatically.
   const handlePause = async (p: Project) => {
     try { await pauseMediaDownload(p.id); } catch {}
   };
@@ -88,14 +91,9 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
     try { await resumeMediaDownload(p.id); } catch {}
   };
 
-  // Inclui filmes E séries (projectType 'movie'/'series') — todos os downloads
-  // em andamento aparecem na dock, igual filme.
   const visibleDownloads = projects.filter((p) => !dismissedIds.has(p.id));
   const downloadingItems = visibleDownloads.filter((p) => p.status === 'downloading' || p.status === 'preparing');
 
-  // Séries: agrupa as temporadas sob um único item (ex.: baixar todas as
-  // temporadas juntas mostra UM card "Love, Death & Robots" com o progresso
-  // agregado, em vez de um card por temporada).
   const groupedDownloads = useMemo(() => {
     const seriesMap = new Map<string, Project[]>();
     const singles: Project[] = [];
@@ -109,40 +107,38 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
       }
     }
     const seriesGroups = Array.from(seriesMap.values()).map((eps) => {
-    const b = breakdownSeries(eps);
-    const statuses = new Set(eps.map((e) => e.status));
-    const isDone = b.allDone;
-    const isDownloading = b.anyDownloading;
-    const isPaused = !isDownloading && statuses.has('paused');
-    const status = isDone ? 'done' : isDownloading ? 'downloading' : isPaused ? 'paused' : 'error';
-    return {
-      id: `series-${eps[0]?.seriesId || ''}`,
-      title: b.baseTitle,
-      countLabel: b.hasEpisodes
-        ? `${b.doneUnits}/${b.totalUnits} episódios`
-        : `${b.readySeasons}/${b.totalSeasons} temporadas`,
-      chips: b.totalSeasons > 1 ? seasonChips(b.seasons) : '',
-      status,
-      progressPct: b.currentPercent,
-      progressStatus: b.activeDownload?.progressStatus ?? null,
-      hasActiveDownload: eps.some((e) => e.status === 'downloading'),
-      hasPreparing: eps.some((e) => e.status === 'preparing'),
-      breakdown: b,
-      episodes: eps,
-      baseTitle: b.baseTitle,
-    };
-  });
-  return { singles, series: seriesGroups };
-}, [visibleDownloads]);
+      const b = breakdownSeries(eps);
+      const statuses = new Set(eps.map((e) => e.status));
+      const isDone = b.allDone;
+      const isDownloading = b.anyDownloading;
+      const isPaused = !isDownloading && statuses.has('paused');
+      const status = isDone ? 'done' : isDownloading ? 'downloading' : isPaused ? 'paused' : 'error';
+      return {
+        id: `series-${eps[0]?.seriesId || ''}`,
+        title: b.baseTitle,
+        countLabel: b.hasEpisodes
+          ? `${b.doneUnits}/${b.totalUnits} episódios`
+          : `${b.readySeasons}/${b.totalSeasons} temporadas`,
+        chips: b.totalSeasons > 1 ? seasonChips(b.seasons) : '',
+        status,
+        progressPct: b.currentPercent,
+        progressStatus: b.activeDownload?.progressStatus ?? null,
+        hasActiveDownload: eps.some((e) => e.status === 'downloading'),
+        hasPreparing: eps.some((e) => e.status === 'preparing'),
+        breakdown: b,
+        episodes: eps,
+        baseTitle: b.baseTitle,
+      };
+    });
+    return { singles, series: seriesGroups };
+  }, [visibleDownloads]);
 
   const hasActiveDownloads = downloadingItems.length > 0;
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Total de itens exibidos na dock (séries agrupadas contam como 1).
   const dockItemCount = groupedDownloads.singles.length + groupedDownloads.series.length;
   const activeDockCount = dockItemCount;
 
-  // Auto-expand when a new download starts
   useEffect(() => {
     if (hasActiveDownloads) {
       setIsExpanded(true);
@@ -151,18 +147,17 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
 
   if (visibleDownloads.length === 0) return null;
 
-  // Render floating button if collapsed and no active downloads
   if (!isExpanded && !hasActiveDownloads) {
     return (
       <button
         type="button"
         onClick={() => setIsExpanded(true)}
-        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-zinc-950/90 hover:bg-zinc-900 border border-zinc-800 text-amber-500 hover:text-amber-400 flex items-center justify-center shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 group"
+        className="fixed bottom-6 right-6 z-45 w-13 h-13 rounded-full bg-zinc-950/95 hover:bg-zinc-900 border border-zinc-800 text-[#EF9F27] hover:text-amber-400 flex items-center justify-center shadow-2xl backdrop-blur-xl cursor-pointer transition-all active:scale-95 group"
         title="Downloads"
       >
         <span className="text-xl">📥</span>
         {activeDockCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-600 border border-zinc-950 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] bg-red-600 border border-zinc-950 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-lg">
             {activeDockCount}
           </span>
         )}
@@ -171,26 +166,41 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
   }
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-45 max-w-4xl w-full px-4 flex justify-center pointer-events-none">
+    <div className="fixed bottom-6 inset-x-0 z-45 px-4 md:px-8 flex justify-center pointer-events-none">
       <motion.div
         initial={{ y: 80, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
-        className="pointer-events-auto bg-zinc-950/90 backdrop-blur-2xl border border-zinc-800/90 rounded-2xl px-5 py-3 shadow-2xl shadow-black/80 flex flex-wrap items-center gap-4 max-w-full overflow-hidden relative"
+        className="pointer-events-auto bg-zinc-950/95 backdrop-blur-2xl border border-zinc-800/90 rounded-2xl px-5 py-3.5 shadow-2xl shadow-black/90 flex flex-col md:flex-row md:items-center gap-4 max-w-6xl w-full overflow-hidden relative"
       >
-        <div className="flex items-center gap-2 border-r border-zinc-800/80 pr-4 shrink-0">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className={`${hasActiveDownloads ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-[#EF9F27] opacity-75`} />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#EF9F27]" />
-          </span>
-          <span className="text-xs font-black text-zinc-100 uppercase tracking-wide">
-            DOWNLOADS
-          </span>
-          <span className="text-[10px] font-bold text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
-            {activeDockCount}
-          </span>
+        {/* Header Section */}
+        <div className="flex items-center justify-between md:justify-start gap-3 border-b md:border-b-0 md:border-r border-zinc-800/80 pb-2 md:pb-0 pr-0 md:pr-5 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3">
+              <span className={`${hasActiveDownloads ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-[#EF9F27] opacity-75`} />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-[#EF9F27]" />
+            </span>
+            <span className="text-xs font-black text-zinc-100 uppercase tracking-widest">
+              DOWNLOADS
+            </span>
+            <span className="text-[11px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-2.5 py-0.5 rounded-full">
+              {activeDockCount}
+            </span>
+          </div>
+
+          {!hasActiveDownloads && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="md:hidden text-zinc-500 hover:text-zinc-300 p-1 cursor-pointer"
+              title="Minimizar"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-3 overflow-x-auto py-0.5 no-scrollbar pr-6">
+        {/* Scrollable / Spread Items Container */}
+        <div className="flex items-center gap-3 overflow-x-auto py-1 no-scrollbar flex-1">
           <AnimatePresence>
             {[...groupedDownloads.singles, ...groupedDownloads.series].map((p: any) => {
               const isDone = p.status === 'done';
@@ -198,140 +208,144 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
               const isPreparing = p.status === 'preparing';
               const isPaused = p.status === 'paused';
               const isSeriesGroup = !!p.breakdown;
-              // Grupo de série: label "Preparando" quando só há preparação ativa.
-              const activeLabel = isSeriesGroup
-                ? p.hasActiveDownload
-                  ? `${p.progressPct || 0}%`
-                  : p.hasPreparing
-                    ? 'Preparando'
-                    : `${p.progressPct || 0}%`
-                : null;
-              const speed = parseSpeed(p.progressStatus);
+
+              const info = parseDownloadInfo(p.progressStatus);
+              const pct = p.progressPct != null ? Math.round(p.progressPct) : (isDone ? 100 : 0);
 
               return (
                 <motion.div
                   key={p.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className={`shrink-0 flex items-center gap-3 rounded-xl px-3.5 py-2 border transition-all ${
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className={`shrink-0 flex items-center justify-between gap-4 rounded-xl px-4 py-2.5 border transition-all min-w-[280px] md:min-w-[340px] max-w-[440px] flex-1 ${
                     isDone
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                       : isDownloading
                         ? 'bg-[#EF9F27]/10 border-[#EF9F27]/30 text-[#EF9F27]'
                         : isPreparing
-                          ? 'bg-[#EF9F27]/10 border-[#EF9F27]/30 text-[#EF9F27]'
+                          ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
                           : isPaused
-                            ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                            ? 'bg-zinc-800/40 border-zinc-700/50 text-zinc-300'
                             : 'bg-red-500/10 border-red-500/30 text-red-400'
                   }`}
                 >
-                  <div className={`space-y-0.5 ${isSeriesGroup ? 'max-w-[210px]' : 'max-w-[150px]'}`}>
-                    <p className="text-xs font-extrabold text-zinc-100 truncate" title={p.title || ''}>
-                      {p.title || 'Mídia'}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {(isDownloading || isPreparing || isPaused) && (
-                        <div className="w-16 bg-zinc-900 h-1.5 rounded-full overflow-hidden shrink-0">
-                          <div
-                            className={`${isPaused ? 'bg-sky-500' : 'bg-[#EF9F27]'} h-full rounded-full transition-all duration-300`}
-                            style={{ width: `${Math.max(5, p.progressPct || 0)}%` }}
-                          />
-                        </div>
-                      )}
-                      <span className="text-[10px] font-mono font-bold">
-                        {isDone ? 'Concluído' : isPaused ? 'Pausado' : isSeriesGroup ? activeLabel : isPreparing ? 'Preparando' : isDownloading ? `${p.progressPct || 0}%` : 'Erro'}
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-black text-zinc-100 truncate" title={p.title || ''}>
+                        {p.title || 'Mídia'}
+                      </p>
+                      <span className="text-[10px] font-mono font-bold shrink-0">
+                        {isDone ? '✓ 100%' : isPaused ? 'Pausado' : isPreparing ? 'Preparando' : `${pct}%`}
                       </span>
                     </div>
-                    {isSeriesGroup && (
-                      <div className="space-y-0.5 min-w-0">
-                        <p className="text-[9px] font-mono text-zinc-500 truncate">
-                          {isDone
-                            ? p.breakdown.hasEpisodes
-                              ? `${p.breakdown.episodes.length} episódios`
-                              : p.countLabel
-                            : p.countLabel}
-                        </p>
-                        {(isDownloading || isPreparing) && p.chips && (
-                          <p className="text-[9px] font-mono text-zinc-500 truncate" title={p.chips}>
-                            {p.chips}
-                          </p>
-                        )}
+
+                    {/* Horizontal Progress Bar */}
+                    {(isDownloading || isPreparing || isPaused) && (
+                      <div className="w-full bg-zinc-900/80 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`${isPaused ? 'bg-zinc-500' : isPreparing ? 'bg-sky-400 animate-pulse' : 'bg-[#EF9F27]'} h-full rounded-full transition-all duration-300`}
+                          style={{ width: `${Math.max(5, pct)}%` }}
+                        />
                       </div>
+                    )}
+
+                    {/* Metadata Line: Speed, ETA, Stage */}
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400 truncate">
+                      {isDone ? (
+                        <span className="text-emerald-400 font-bold">✓ Pronto para assistir</span>
+                      ) : isDownloading ? (
+                        <>
+                          <span className="text-[#EF9F27] font-bold shrink-0">⚡ {info.speed}</span>
+                          {info.eta && (
+                            <span className="text-zinc-400 shrink-0">⏱ ETA: {info.eta}</span>
+                          )}
+                          {info.stage && (
+                            <span className="text-zinc-500 truncate">• {info.stage}</span>
+                          )}
+                        </>
+                      ) : isPreparing ? (
+                        <span className="text-sky-300 font-bold">⚙️ {info.stage || 'Otimizando para reprodução…'}</span>
+                      ) : isPaused ? (
+                        <span className="text-zinc-400">Download em pausa</span>
+                      ) : (
+                        <span className="text-red-400">Falha no download</span>
+                      )}
+                    </div>
+
+                    {isSeriesGroup && (
+                      <p className="text-[9px] font-mono text-zinc-500 truncate">
+                        {p.countLabel} {p.chips ? `• ${p.chips}` : ''}
+                      </p>
                     )}
                   </div>
 
-                  {isDone ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (p.episodes?.length) p.episodes.forEach((e: Project) => handleDismiss(e.id));
-                        else handleDismiss(p.id);
-                      }}
-                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-black rounded-lg text-[10px] uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1 cursor-pointer"
-                      title="Concluído - Remover da barra"
-                    >
-                      <span>OK</span>
-                      <span>✓</span>
-                    </button>
-                  ) : isDownloading || isPreparing ? (
-                    <>
-                      {(!isSeriesGroup || p.hasActiveDownload) && (
-                        <span className="text-[9px] font-mono text-zinc-500 shrink-0">
-                          ⚡ {speed}
-                        </span>
-                      )}
+                  {/* Actions */}
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {isDone ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (p.episodes?.length) p.episodes.forEach((e: Project) => handleDismiss(e.id));
+                          else handleDismiss(p.id);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-black rounded-lg text-[10px] uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1 cursor-pointer"
+                        title="Concluído - Fechar da barra"
+                      >
+                        <span>OK</span>
+                        <span>✓</span>
+                      </button>
+                    ) : isDownloading || isPreparing ? (
                       <button
                         type="button"
                         onClick={() => {
                           if (p.episodes?.length) p.episodes.forEach((e: Project) => handlePause(e));
                           else handlePause(p);
                         }}
-                        className="px-2.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 font-black rounded-lg text-[10px] transition-all flex items-center gap-1 cursor-pointer"
+                        className="p-2 bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 font-black rounded-lg text-xs transition-all flex items-center justify-center cursor-pointer"
                         title="Pausar download"
                       >
-                        <span>⏸</span>
+                        ⏸
                       </button>
-                    </>
-                  ) : isPaused ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (p.episodes?.length) p.episodes.forEach((e: Project) => handleResume(e));
-                        else handleResume(p);
-                      }}
-                      className="px-2.5 py-1.5 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-300 border border-sky-500/30 font-black rounded-lg text-[10px] transition-all flex items-center gap-1 cursor-pointer"
-                      title="Retomar download"
-                    >
-                      <span>▶</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (p.episodes?.length) p.episodes.forEach((e: Project) => onRetry?.(e));
-                        else onRetry?.(p);
-                      }}
-                      className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 font-black rounded-lg text-[10px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
-                      title="Tentar baixar novamente"
-                    >
-                      <span>Tentar</span>
-                      <span>↻</span>
-                    </button>
-                  )}
+                    ) : isPaused ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (p.episodes?.length) p.episodes.forEach((e: Project) => handleResume(e));
+                          else handleResume(p);
+                        }}
+                        className="p-2 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-300 border border-sky-500/30 font-black rounded-lg text-xs transition-all flex items-center justify-center cursor-pointer"
+                        title="Retomar download"
+                      >
+                        ▶
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (p.episodes?.length) p.episodes.forEach((e: Project) => onRetry?.(e));
+                          else onRetry?.(p);
+                        }}
+                        className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 font-black rounded-lg text-[10px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                        title="Tentar baixar novamente"
+                      >
+                        <span>↻ Tentar</span>
+                      </button>
+                    )}
+                  </div>
                 </motion.div>
               );
             })}
           </AnimatePresence>
         </div>
 
-        {/* Collapse Button */}
+        {/* Desktop Collapse Button */}
         {!hasActiveDownloads && (
           <button
             type="button"
             onClick={() => setIsExpanded(false)}
-            className="text-zinc-500 hover:text-zinc-300 p-1 transition-colors pointer-events-auto ml-auto cursor-pointer"
-            title="Minimizar"
+            className="hidden md:block text-zinc-500 hover:text-zinc-300 p-1.5 hover:bg-zinc-900 rounded-lg transition-colors pointer-events-auto ml-auto cursor-pointer shrink-0"
+            title="Minimizar barra"
           >
             ✕
           </button>

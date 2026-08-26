@@ -5,7 +5,7 @@ import { existsSync, rmSync, readdirSync, readFileSync, mkdirSync, writeFileSync
 import path from 'path';
 import { execSync, spawn } from 'child_process';
 import { progressEvents } from '../../services/progress-events.js';
-import { resolveVideoFile, getProjectMedia, prepareProject, isPreparing, resolveCastFile, listCastAudioTracks, type Target } from '../../services/media-service.js';
+import { resolveVideoFile, getProjectMedia, prepareProject, isPreparing, resolveCastFile, listCastAudioTracks, probeMedia, findMasterFile, updatePrepState, type Target } from '../../services/media-service.js';
 import { TRACKERS_LIST } from '../media/trackers.js';
 import { LANG_TO_CODES, codeToLang } from '../../services/language-map.js';
 import { FFMPEG_BIN } from '../../services/binary-paths.js';
@@ -644,9 +644,22 @@ router.get('/:id/video', (req: Request, res: Response) => {
 // mesmo idioma (AAC stereo + AC3 5.1, FORÇADA + completa) — sem dedupe o menu
 // do player mostra "Inglês" várias vezes. Fica a faixa de mais canais, com o
 // title do stream ("Original"/"Dublado"/"5.1 Ch") para diferenciar variantes.
-router.get('/:id/tracks', (req: Request, res: Response) => {
+router.get('/:id/tracks', async (req: Request, res: Response) => {
   const projectId = String(req.params.id);
-  const pm = getProjectMedia(projectId);
+  let pm = getProjectMedia(projectId);
+  const projectDir = path.join(DATA_DIR, 'projects', projectId);
+  const master = pm?.videoPath && existsSync(pm.videoPath) ? pm.videoPath : findMasterFile(projectDir);
+
+  if (master && existsSync(master)) {
+    try {
+      const st = statSync(master);
+      if (!pm?.mediaInfo || pm.mediaInfo.sizeBytes !== st.size) {
+        const freshInfo = await probeMedia(master);
+        updatePrepState(projectId, pm?.prepState || 'done', { mediaInfo: freshInfo, videoPath: master });
+        pm = getProjectMedia(projectId);
+      }
+    } catch { }
+  }
 
   const info = pm?.mediaInfo;
   const audioByLang = new Map<string, any>();
@@ -681,7 +694,6 @@ router.get('/:id/tracks', (req: Request, res: Response) => {
   // Variantes de áudio e legendas extraídas na ingestão aparecem no menu.
   // Converte a chave crua do ffprobe (por/eng) para o rótulo amigável
   // (pt-br/en) para bater com o que o player envia em ?audio=.
-  const projectDir = path.join(DATA_DIR, 'projects', projectId);
   const variantLangs = Object.keys(pm?.artifacts?.audio || {});
   for (const lang of variantLangs) {
     const friendly = codeToLang[lang] || lang;
@@ -1016,6 +1028,25 @@ router.post('/import-season', async (req: Request, res: Response) => {
     message: "Season automation started",
     projects: createdProjects
   });
+});
+
+// Sincronização externa de progresso / live updates para a UI
+router.post('/:id/progress', (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const { stage, progress, status } = req.body || {};
+  const db = getDb();
+  if (stage === 'done') {
+    db.run('UPDATE projects SET status = ?, progress_pct = 100, progress_status = ? WHERE id = ?', ['done', 'Pronto', id]);
+  } else if (stage === 'downloading' || stage === 'preparing') {
+    db.run('UPDATE projects SET status = ?, progress_pct = ?, progress_status = ? WHERE id = ?', [stage, progress ?? null, status ?? null, id]);
+  }
+  persistThrottled();
+  progressEvents.emit(id, {
+    stage: stage || 'downloading',
+    progress: progress ?? 0,
+    status: status || 'Baixando Mídia'
+  });
+  res.json({ success: true });
 });
 
 // Pause download

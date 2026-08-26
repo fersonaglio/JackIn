@@ -727,7 +727,7 @@ export function reconcileMovieStatus(projectId: string): void {
     console.log(`[JackIn Media] Reconciliado: download ${id} estava completo (${videoFile || masterFile})`);
     db.run(
       'UPDATE projects SET status = ?, error_message = NULL, progress_pct = 100, progress_status = ?, video_path = ? WHERE id = ?',
-      ['preparing', 'Concluído (recuperado)', videoFile || masterFile, id]
+      ['done', 'Pronto', videoFile || masterFile, id]
     );
     persist();
     reconcileProjectMedia(id);
@@ -1508,9 +1508,9 @@ router.post('/import-season', async (req: Request, res: Response) => {
 
         await prepareProject(proj.id);
 
-        db.run('UPDATE projects SET status = ? WHERE id = ?', ['done', proj.id]);
+        db.run('UPDATE projects SET status = ?, progress_pct = 100, progress_status = ? WHERE id = ?', ['done', 'Pronto', proj.id]);
         persist();
-        progressEvents.emit(proj.id, { stage: 'done', progress: 100, status: 'Pronto para assistir' });
+        progressEvents.emit(proj.id, { stage: 'done', progress: 100, status: 'Pronto' });
         console.log(`[JackIn Media] Episódio ${proj.code} pronto.`);
       } catch (err: any) {
         console.error(`[JackIn Media] Falha no episódio ${proj.code}:`, err?.message || err);

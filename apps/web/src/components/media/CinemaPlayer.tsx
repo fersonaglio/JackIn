@@ -601,12 +601,26 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
   }, [projectId]);
 
+  const lastAppliedAudioRef = useRef<string>(audioLanguage);
+  const lastAppliedUrlRef = useRef<string>(videoUrl);
+
   useEffect(() => {
     if (!videoRef.current || !isOpen || !videoUrl) return;
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
+      lastAppliedAudioRef.current = audioLanguage;
+      lastAppliedUrlRef.current = videoUrl;
       return;
     }
+    
+    // Só recarrega se o URL do vídeo ou o áudio mudaram de fato
+    const audioChanged = lastAppliedAudioRef.current !== audioLanguage;
+    const urlChanged = lastAppliedUrlRef.current !== videoUrl;
+    if (!audioChanged && !urlChanged) return;
+    
+    lastAppliedAudioRef.current = audioLanguage;
+    lastAppliedUrlRef.current = videoUrl;
+
     savedTimeRef.current = videoRef.current.currentTime;
     const wasPlaying = !videoRef.current.paused;
     videoRef.current.src = buildVideoUrl(videoUrl, audioLanguage);
@@ -614,7 +628,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     if (wasPlaying) {
       videoRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
     }
-  }, [audioLanguage, subtitleTrack, isOpen, videoUrl, buildVideoUrl]);
+  }, [audioLanguage, isOpen, videoUrl, buildVideoUrl]);
 
   // Garante que a faixa de legenda selecionada fique ativa após o load. Sem
   // isso, <track> injetado dinamicamente pode ficar em 'disabled' no browser.

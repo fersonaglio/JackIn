@@ -73,7 +73,7 @@ function LibraryCard({
   const thumbnailUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/projects/${project.id}/thumbnail`;
 
   useEffect(() => {
-    if ((imageError || !posterExternal) && cleanTitle && !dynamicPoster) {
+    if ((imageError || !posterExternal) && cleanTitle && cleanTitle !== 'Mídia' && cleanTitle !== 'Mídia 4K' && !dynamicPoster) {
       let isMounted = true;
       fetch(`/api/itunes?q=${encodeURIComponent(cleanTitle)}`)
         .then((res) => res.json())
@@ -727,10 +727,12 @@ export default function LibraryGrid({
                     key={g.key}
                     className="bg-[#0A0B0D] border border-[#202226] hover:border-purple-500/30 rounded-2xl overflow-hidden transition-all"
                   >
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggleSeriesExpand(g.key)}
-                      className="w-full flex items-center justify-between gap-4 p-4 text-left"
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSeriesExpand(g.key); } }}
+                      className="w-full flex items-center justify-between gap-4 p-4 text-left cursor-pointer select-none"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-lg shrink-0">
@@ -751,7 +753,7 @@ export default function LibraryGrid({
                               e.stopPropagation();
                               onWatch(matchedLast);
                             }}
-                            className="px-3.5 py-1.5 rounded-xl bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 text-xs font-bold transition-all shadow-md"
+                            className="px-3.5 py-1.5 rounded-xl bg-[#EF9F27] hover:bg-[#EF9F27]/90 text-zinc-950 text-xs font-bold transition-all shadow-md cursor-pointer"
                           >
                             Assistir ▶
                           </button>
@@ -760,7 +762,7 @@ export default function LibraryGrid({
                           ▾
                         </span>
                       </div>
-                    </button>
+                    </div>
 
                     {expanded && (
                       <div className="border-t border-[#202226]/70 divide-y divide-[#202226]/50">

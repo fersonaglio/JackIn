@@ -26,21 +26,34 @@ def detect_audio_languages(file_path: Path) -> list:
         cmd = [
             FFPROBE_BIN, "-v", "quiet",
             "-select_streams", "a",
-            "-show_entries", "stream=index:stream_tags=language,title",
+            "-show_entries", "stream=index:stream_tags=language,title,handler_name",
             "-of", "json",
             str(file_path)
         ]
         res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
         data = json.loads(res.stdout)
         langs = set()
+        fname = file_path.name.lower()
+        parent_name = file_path.parent.name.lower()
+        is_dual_or_dub = any(w in fname or w in parent_name for w in ("dublado", "pt-br", "ptbr", "dual", "portugues", "português", "brazilian"))
+
         for s in data.get("streams", []):
             tags = s.get("tags", {})
             lang = (tags.get("language") or "").lower()
             title = (tags.get("title") or "").lower()
-            if lang:
+            handler = (tags.get("handler_name") or "").lower()
+            combined = f"{title} {handler}"
+            if lang and lang not in ("und", "mis", ""):
                 langs.add(lang)
-            if any(w in title for w in ("portugues", "português", "dublado", "pt-br", "ptbr", "brazilian")):
+            if any(w in combined for w in ("portugues", "português", "dublado", "pt-br", "ptbr", "brazilian", "pob")):
                 langs.add("por")
+        
+        # Se o release é comprovadamente DUAL/DUBLADO e possui 2+ faixas de áudio, uma delas é a dublagem PT
+        if is_dual_or_dub and len(data.get("streams", [])) >= 2:
+            langs.add("por")
+        elif is_dual_or_dub and any(w in fname or w in parent_name for w in ("dublado", "pt-br", "ptbr", "portugues", "português")):
+            langs.add("por")
+
         return sorted(langs)
     except Exception:
         return []
@@ -443,12 +456,11 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     langs = detect_audio_languages(file_path)
     if require_pt:
         has_pt = any(lang in _PT_AUDIO_LANGS for lang in langs)
-        has_und = not langs or all(lang in _UND_AUDIO_LANGS for lang in langs)
-        if not has_pt and not has_und:
+        if not has_pt:
             quarantine_file(file_path, f"sem áudio em português (idiomas detectados: {langs or 'nenhum'})")
             raise RuntimeError(
                 "Download rejeitado: a fonte não contém áudio em português (Dublado). "
-                "O magnet 'Dublado' estava morto e o fallback baixou uma fonte legendada/em outra língua."
+                "O magnet 'Dublado' estava morto e o fallback tentou uma fonte sem dublagem em português."
             )
     return langs
 

@@ -408,7 +408,7 @@ export function getProjectMedia(projectId: string): ProjectMediaRow | null {
   };
 }
 
-function updatePrepState(projectId: string, state: PrepState, extra?: { error?: string; mediaInfo?: MediaInfo; artifacts?: Artifacts; settingsHash?: string }) {
+export function updatePrepState(projectId: string, state: PrepState, extra?: { error?: string; mediaInfo?: MediaInfo; artifacts?: Artifacts; settingsHash?: string; videoPath?: string }) {
   const db = getDb();
   if (extra?.mediaInfo) db.run('UPDATE projects SET media_info = ? WHERE id = ?', [JSON.stringify(extra.mediaInfo), projectId]);
   if (extra?.artifacts) db.run('UPDATE projects SET artifacts = ? WHERE id = ?', [JSON.stringify(extra.artifacts), projectId]);
@@ -575,6 +575,24 @@ export function aacPrimingFilter(info: MediaInfo): string {
   return `asetpts=PTS+${aacPrimingOffset(info)}/TB`;
 }
 
+function buildAudioMapArgs(info: MediaInfo): string[] {
+  const ptAudio = info.audio.find(
+    (a) =>
+      ['por', 'pt', 'pob', 'pt-br', 'ptbr'].includes((a.language || '').toLowerCase()) ||
+      (a.title || '').toLowerCase().includes('portugu') ||
+      (a.title || '').toLowerCase().includes('dublado')
+  );
+  if (ptAudio && info.audio.length > 1) {
+    const otherAudios = info.audio.filter((a) => a !== ptAudio);
+    const maps: string[] = ['-map', `0:${ptAudio.index}`];
+    for (const oa of otherAudios) {
+      maps.push('-map', `0:${oa.index}`);
+    }
+    return maps;
+  }
+  return ['-map', '0:a'];
+}
+
 function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   const args: string[] = [
     '-y',
@@ -584,7 +602,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
     '-c:v', 'copy',
   ];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
-  args.push('-map', '0:a');
+  args.push(...buildAudioMapArgs(info));
   // O master é o artefato servido para target=hevc. O player escolhe hevc por
   // canPlayType, e o Chrome em Apple Silicon também passa (HEVC por hardware) —
   // então o áudio do master PRECISA ser AAC-LC (universal em Chrome+Safari).
@@ -625,7 +643,7 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
     args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '16');
     args.push(...toneMapFilter(info));
   }
-  args.push('-map', '0:a');
+  args.push(...buildAudioMapArgs(info));
   const audioNeedsTranscode = audioNeedsTranscodeFor(info.audio, 'h264');
   if (audioNeedsTranscode) {
     args.push('-c:a', 'aac');
@@ -997,37 +1015,42 @@ export interface ResolveResult {
 
 export function resolveVideoFile(projectId: string, target: Target, audioLang?: string | null): ResolveResult {
   const pm = getProjectMedia(projectId);
-  if (!pm) return { filePath: null, prepState: 'none', isArtifact: false };
+  const projectDir = path.join(DATA_DIR, 'projects', projectId);
+  const masterFile = path.join(projectDir, 'master.mp4');
 
-  if (audioLang && pm.artifacts?.audio[audioLang] && fs.existsSync(pm.artifacts.audio[audioLang].path)) {
+  if (audioLang && pm?.artifacts?.audio[audioLang] && fs.existsSync(pm.artifacts.audio[audioLang].path)) {
     return { filePath: pm.artifacts.audio[audioLang].path, prepState: pm.prepState, isArtifact: true };
   }
 
-  const info = pm.mediaInfo;
+  // Se o master.mp4 existe no diretório do projeto com tamanho válido (> 1MB), resolve direto:
+  if (fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000) {
+    return { filePath: masterFile, prepState: pm?.prepState || 'done', isArtifact: true };
+  }
+
+  const info = pm?.mediaInfo;
   if (info) {
     const tier = classifyForTarget(info, target);
-    if (tier === 'direct' && pm.videoPath && fs.existsSync(pm.videoPath)) {
+    if (tier === 'direct' && pm?.videoPath && fs.existsSync(pm.videoPath)) {
       return { filePath: pm.videoPath, prepState: pm.prepState, isArtifact: false };
     }
   }
 
-  if (pm.artifacts?.master && fs.existsSync(pm.artifacts.master.path)) {
-    // O master é um REMUX (-c:v copy): preserva 100% da imagem original sem perda.
-    // O áudio do master é AAC-LC universal (Chrome/Edge/Safari decodificam) — o
-    // prepare re-encoda HE-AAC/AC3/EAC3/DTS para AAC-LC. Serve para o target
-    // quando o codec de VÍDEO é compatível: h264 ou hevc (Safari + Chromium com
-    // HEVC por hardware). Fontes legadas (mpeg4/divx) caem no playable.
+  if (pm?.artifacts?.master && fs.existsSync(pm.artifacts.master.path)) {
     const masterCodecOk = !info?.video || VIDEO_SAFE[target].has(info.video.codec);
     if (masterCodecOk) {
       return { filePath: pm.artifacts.master.path, prepState: pm.prepState, isArtifact: true };
     }
   }
-  // playable.mp4 (h264) funciona como fallback universal quando o master não é seguro.
-  if (pm.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
+
+  if (pm?.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
     return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
   }
 
-  return { filePath: null, prepState: pm.prepState, isArtifact: false };
+  if (pm?.videoPath && fs.existsSync(pm.videoPath) && fs.statSync(pm.videoPath).size > 1000000) {
+    return { filePath: pm.videoPath, prepState: pm?.prepState || 'done', isArtifact: false };
+  }
+
+  return { filePath: null, prepState: pm?.prepState || 'none', isArtifact: false };
 }
 
 // ── Cast (Chromecast) ──────────────────────────────────────────────────────
