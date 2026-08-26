@@ -436,7 +436,7 @@ router.get('/:id/thumbnail', async (req: Request, res: Response) => {
     }
   }
 
-  // 6. Busca fallback no iTunes
+  // 6. Busca poster no TMDB (pôster vertical original 2:3 em HD)
   if (rawTitle) {
     const cleanTitle = rawTitle
       .replace(/\s*\([^)]*\)/g, '')
@@ -444,6 +444,32 @@ router.get('/:id/thumbnail', async (req: Request, res: Response) => {
       .replace(/\s*-\s*Season\s+\d+.*$/i, '')
       .trim();
     if (cleanTitle) {
+      const tmdbKey = process.env.TMDB_API_KEY || '957f927c94e9bd915bd56d14d4ae5277';
+      if (tmdbKey) {
+        try {
+          const tmdbUrl = `https://api.themoviedb.org/3/search/multi?api_key=${tmdbKey}&query=${encodeURIComponent(cleanTitle)}&language=pt-BR`;
+          const tmdbRes = await fetch(tmdbUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (tmdbRes.ok) {
+            const data = await tmdbRes.json();
+            const firstWithPoster = data.results?.find((r: any) => r.poster_path);
+            if (firstWithPoster?.poster_path) {
+              const imgUrl = `https://image.tmdb.org/t/p/w780${firstWithPoster.poster_path}`;
+              const imgRes = await fetch(imgUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+              if (imgRes.ok) {
+                mkdirSync(projectDir, { recursive: true });
+                const thumbPath = path.join(projectDir, 'thumbnail.jpg');
+                writeFileSync(thumbPath, Buffer.from(await imgRes.arrayBuffer()));
+                res.sendFile(path.resolve(thumbPath));
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`[JackIn] Falha ao buscar poster TMDB de ${projectId}:`, (e as Error).message);
+        }
+      }
+
+      // 7. Fallback no iTunes (se TMDB falhar)
       try {
         const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanTitle)}&limit=1`;
         const itunesRes = await fetch(searchUrl);

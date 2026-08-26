@@ -576,7 +576,13 @@ export function aacPrimingFilter(info: MediaInfo): string {
 }
 
 function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
-  const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0', '-c:v', 'copy'];
+  const args: string[] = [
+    '-y',
+    '-fflags', '+genpts+discardcorrupt',
+    '-i', info.path,
+    '-map', '0:v:0',
+    '-c:v', 'copy',
+  ];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
   args.push('-map', '0:a');
   // O master é o artefato servido para target=hevc. O player escolhe hevc por
@@ -588,18 +594,12 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   if (!alreadyAacLc) {
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
     args.push('-c:a', 'aac', '-b:a', audioBitrate(maxCh, 'aac'));
-    args.push('-af', aacPrimingFilter(info));
   } else {
     args.push('-c:a', 'copy');
   }
-  const textSubs = info.subtitles.filter((s) => TEXT_SUB_CODECS.has(s.codec));
-  for (const s of textSubs) {
-    args.push('-map', `0:${s.index}`);
-  }
-  if (textSubs.length > 0) {
-    args.push('-c:s', 'mov_text');
-  }
-  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '1024', '-f', 'mp4', outPath);
+  // Subtítulos são extraídos como WebVTT limpos e servidos via /subtitles?lang=...
+  // Muxar mov_text no MP4 gera jitter de timestamp e travamentos na decodificação do browser.
+  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -610,7 +610,12 @@ function toneMapFilter(info: MediaInfo): string[] {
 
 function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
   const fastTranscode = process.env.JACKIN_FAST_TRANSCODE === '1';
-  const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0'];
+  const args: string[] = [
+    '-y',
+    '-fflags', '+genpts+discardcorrupt',
+    '-i', info.path,
+    '-map', '0:v:0',
+  ];
   if (info.video?.codec === 'h264' || info.video?.codec === 'vp9' || info.video?.codec === 'vp8' || info.video?.codec === 'av1') {
     args.push('-c:v', 'copy');
   } else if (fastTranscode) {
@@ -626,29 +631,26 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
     args.push('-c:a', 'aac');
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
     args.push('-b:a', audioBitrate(maxCh, 'aac'));
-    args.push('-af', aacPrimingFilter(info));
   } else {
     args.push('-c:a', 'copy');
   }
-  const textSubs = info.subtitles.filter((s) => TEXT_SUB_CODECS.has(s.codec));
-  for (const s of textSubs) {
-    args.push('-map', `0:${s.index}`);
-  }
-  if (textSubs.length > 0) {
-    args.push('-c:s', 'mov_text');
-  }
-  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '1024', '-f', 'mp4', outPath);
+  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
 function buildAudioVariantArgs(info: MediaInfo, audioIdx: number, outPath: string): string[] {
   const track = info.audio.find((a) => a.index === audioIdx) || info.audio[audioIdx];
-  const args: string[] = ['-y', '-i', info.path, '-map', '0:v:0', '-c:v', 'copy'];
+  const args: string[] = [
+    '-y',
+    '-fflags', '+genpts+discardcorrupt',
+    '-i', info.path,
+    '-map', '0:v:0',
+    '-c:v', 'copy',
+  ];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
   const copiesAudio = track.codec === 'aac' && !isHeAacAudio(track);
   args.push('-map', `0:${track.index}`, '-c:a', copiesAudio ? 'copy' : 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'));
-  if (!copiesAudio) args.push('-af', aacPrimingFilter(info));
-  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-f', 'mp4', outPath);
+  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -667,7 +669,7 @@ function settingsHash(info: MediaInfo): string {
     // masterAudio: 'aac-lc' invalida masters antigos gerados com EAC3 — EAC3 o
     // Safari toca, mas Chrome/Edge (Chromium) em Apple Silicon usam target=hevc
     // e ficam MUDOS. Bump forçado para regenerar com áudio universal AAC-LC.
-    flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1', masterAudio: 'aac-lc' },
+    flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1', masterAudio: 'aac-lc', remuxVersion: 'v2-clean-ts' },
   };
   return crypto.createHash('sha256').update(JSON.stringify(summary)).digest('hex');
 }
