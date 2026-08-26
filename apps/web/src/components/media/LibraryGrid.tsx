@@ -78,8 +78,15 @@ function LibraryCard({
       fetch(`/api/itunes?q=${encodeURIComponent(cleanTitle)}`)
         .then((res) => res.json())
         .then((data) => {
-          if (isMounted && data.results?.[0]?.posterUrl) {
-            setDynamicPoster(data.results[0].posterUrl);
+          if (!isMounted || !data.results || data.results.length === 0) return;
+          const normQ = cleanTitle.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const matchResult = data.results.find((r: any) => {
+            const normR = (r.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            return normR === normQ || normR.includes(normQ) || normQ.includes(normR);
+          }) || data.results[0];
+
+          if (matchResult?.posterUrl) {
+            setDynamicPoster(matchResult.posterUrl);
           }
         })
         .catch(() => {});

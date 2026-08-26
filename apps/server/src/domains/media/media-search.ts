@@ -149,7 +149,7 @@ const CURATED_SITE_RE = /limontorrents|baixetorrents|mestredosfilmes|filmeshdtor
 // Retorna até maxOptions magnets REAIS (apibay/1337x, sem curated/yts) para o
 // título, ordenados do mais confiável para o menos — usados como candidates em
 // cascata: se um magnet estiver morto, o worker tenta o próximo automaticamente.
-export async function findBetterDownloadOptions(title: string, maxOptions: number = 4, requirePt: boolean = false): Promise<Partial<DownloadOptions>[]> {
+export async function findBetterDownloadOptions(title: string, maxOptions: number = 4, requirePt: boolean = true): Promise<Partial<DownloadOptions>[]> {
   const { searchMediaEnhanced } = await import('./media-search-interpret.js');
   const seen = new Set<string>();
   const results: Partial<DownloadOptions>[] = [];
@@ -283,7 +283,7 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
     if (alts.length > 0) args.push('--alt-urls', JSON.stringify(alts));
   }
   // Dublado: o worker rejeita o arquivo se não houver faixa de áudio PT.
-  if (opts.requirePt) args.push('--require-pt');
+  if (opts.requirePt !== false) args.push('--require-pt');
   const proc = spawn(VENV_PYTHON, args, { env: { ...process.env, PYTHONUNBUFFERED: '1' } });
 
   proc.on('error', (err) => {
@@ -932,7 +932,7 @@ router.post('/download', (req: Request, res: Response) => {
     res.status(400).json({ error: 'Title and sourceUrl are required' });
     return;
   }
-  const wantPt = requirePt === true;
+  const wantPt = requirePt !== false;
   // sql.js rejeita `undefined` em binds — normaliza para null.
   const sNum = seasonNumber == null ? null : Number(seasonNumber);
   const eNum = episodeNumber == null ? null : Number(episodeNumber);

@@ -30,7 +30,7 @@ export function recordWatchHistory(projectId: string) {
     const watchProgress = (row[5] as number) || 0;
     const watched = (row[6] as number) === 1 ? 1 : 0;
 
-    if (watched !== 1 && watchProgress < 60) return;
+    if (watched !== 1) return;
 
     const historyId = uuid();
     const existing = db.exec(
@@ -234,7 +234,7 @@ router.get('/history/all', (_req: Request, res: Response) => {
     const watchedProjects = db.exec(`
       SELECT id, title, project_type, series_id, season_number, episode_number, watch_progress, watched, created_at
       FROM projects
-      WHERE watched = 1 OR watch_progress >= 60
+      WHERE watched = 1
     `);
     const projRows = watchedProjects[0]?.values || [];
     let synced = false;
@@ -268,6 +268,7 @@ router.get('/history/all', (_req: Request, res: Response) => {
              p.id as active_project_id, p.status as project_status
       FROM watch_history h
       LEFT JOIN projects p ON p.id = h.project_id
+      WHERE h.watched = 1
       ORDER BY h.watched_at DESC
     `);
     const rows = historyRes[0]?.values || [];
@@ -1110,7 +1111,7 @@ router.put('/:id/progress', (req: Request, res: Response) => {
   }
 
   persistThrottled(10000);
-  if (position >= 60 || isWatchedUpdate === 1) {
+  if (isWatchedUpdate === 1) {
     recordWatchHistory(id);
   }
   const mins = Math.floor(position / 60);

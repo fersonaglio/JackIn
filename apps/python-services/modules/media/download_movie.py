@@ -444,6 +444,60 @@ _PT_AUDIO_LANGS = {"pt", "por", "pob", "pt-br", "ptbr", "bra", "braz", "portugue
 _UND_AUDIO_LANGS = {"und", "", "mis"}
 
 
+def reorder_audio_tracks_prefer_pt(file_path: Path):
+    """Garante que a faixa em português (Dublado) seja a primeira faixa de áudio (stream #0),
+    fazendo com que players web e navegadores reproduzam em português por padrão,
+    preservando as faixas originais (ex: inglês) como faixas secundárias."""
+    try:
+        cmd = [
+            FFPROBE_BIN, "-v", "quiet",
+            "-show_entries", "stream=index,codec_type,codec_name:stream_tags=language,title,handler_name",
+            "-of", "json",
+            str(file_path)
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
+        data = json.loads(res.stdout)
+        streams = data.get("streams", [])
+        audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
+        if len(audio_streams) <= 1:
+            return
+
+        # Localiza o índice relativo da primeira faixa em português
+        pt_idx = None
+        for i, a in enumerate(audio_streams):
+            tags = a.get("tags", {})
+            lang = (tags.get("language") or "").lower()
+            title = (tags.get("title") or "").lower()
+            handler = (tags.get("handler_name") or "").lower()
+            combined = f"{title} {handler}"
+            if lang in _PT_AUDIO_LANGS or any(w in combined for w in ("portugues", "português", "dublado", "pt-br", "ptbr", "brazilian")):
+                pt_idx = i
+                break
+
+        # Se já é a primeira faixa ou se não foi encontrada faixa PT nomeada, nada a fazer
+        if pt_idx is None or pt_idx == 0:
+            return
+
+        print(f"[JackIn DL] 🔄 Reordenando faixas de áudio: Faixa PT #{pt_idx} movida para padrão (Track 0)", file=sys.stderr)
+        tmp_out = file_path.with_suffix(".reorder.tmp" + file_path.suffix)
+        remux_cmd = [
+            FFMPEG_BIN, "-y", "-i", str(file_path),
+            "-map", "0:v",
+            "-map", f"0:a:{pt_idx}",
+        ]
+        for i in range(len(audio_streams)):
+            if i != pt_idx:
+                remux_cmd.extend(["-map", f"0:a:{i}"])
+        remux_cmd.extend(["-map", "0:s?", "-c", "copy", "-movflags", "+faststart", str(tmp_out)])
+
+        subprocess.run(remux_cmd, capture_output=True, check=True, timeout=120)
+        if tmp_out.exists() and tmp_out.stat().st_size > 1000:
+            os.replace(tmp_out, file_path)
+            print(f"[JackIn DL] ✓ Áudio PT-BR definido como padrão com sucesso!", file=sys.stderr)
+    except Exception as e:
+        print(f"[JackIn DL] Aviso na reordenação de faixas de áudio: {e}", file=sys.stderr)
+
+
 def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     """Verifica o idioma real do áudio (via ffprobe) quando require_pt é True.
 
@@ -453,6 +507,7 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     quarentena + RuntimeError — nunca entrega áudio em outra língua
     silenciosamente.
     """
+    reorder_audio_tracks_prefer_pt(file_path)
     langs = detect_audio_languages(file_path)
     if require_pt:
         has_pt = any(lang in _PT_AUDIO_LANGS for lang in langs)
@@ -465,7 +520,7 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     return langs
 
 
-def download_file_with_shield(urls: list, output_dir: Path, title: str, quality: str, require_pt: bool = False) -> Path:
+def download_file_with_shield(urls: list, output_dir: Path, title: str, quality: str, require_pt: bool = True) -> Path:
     global _last_emitted_pct
     _last_emitted_pct = 0
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -653,7 +708,7 @@ def main():
     parser.add_argument("--title", type=str, default="Filme_4K", help="Movie title")
     parser.add_argument("--quality", type=str, default="4K REMUX", help="Media quality string")
     parser.add_argument("--poster-url", type=str, default="", help="Movie poster URL")
-    parser.add_argument("--require-pt", action="store_true", help="Rejeita o download se o arquivo não tiver faixa de áudio em português (Dublado)")
+    parser.add_argument("--require-pt", action=argparse.BooleanOptionalAction, default=True, help="Rejeita o download se o arquivo não tiver faixa de áudio em português (Dublado). Padrão: True.")
     args = parser.parse_args()
 
     output_dir = Path(args.out_dir)

@@ -155,12 +155,12 @@ describe('PUT /api/media-library/:id/progress', () => {
     expect(res.status).toBe(400);
   });
 
-  it('persists position above 60s into watch history', async () => {
+  it('persists into watch history when reaching >= 90% completion', async () => {
     const row = insertProject({ watch_progress: 0 });
     const res = await fetch(`${base}/${row.id}/progress`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ position: 90 }),
+      body: JSON.stringify({ position: 95, duration: 100 }),
     });
     expect(res.status).toBe(200);
     flushPersist();
@@ -171,7 +171,8 @@ describe('PUT /api/media-library/:id/progress', () => {
       [row.id]
     )[0]?.values[0];
     expect(history).toBeTruthy();
-    expect(history[0]).toBe(90);
+    expect(history[0]).toBe(95);
+    expect(history[1]).toBe(1);
   });
 });
 
