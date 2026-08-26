@@ -465,6 +465,7 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
         raise RuntimeError("Nenhuma URL de download fornecida.")
 
     success = False
+    successful_url = None
     attempted = 0
 
     # Passo 1: tentar cada magnet em cascata — candidate morto (0 bytes) é
@@ -482,6 +483,7 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
             ok = False
         if ok:
             success = True
+            successful_url = magnet
             break
         else:
             print(f"[JackIn DL] Candidate {i + 1} sem dados (morto). Tentando próximo...", file=sys.stderr)
@@ -524,6 +526,7 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
                                 emit_progress(pct, status_str, speed_mbps)
                     target_path = http_target
                 success = True
+                successful_url = url
                 break
             except Exception as err:
                 print(f"Download direto HTTP falhou ({err})", file=sys.stderr)
@@ -698,6 +701,7 @@ def main():
             "quality": args.quality,
             "title": args.title,
             "episodes": episodes,
+            "successful_url": successful_url,
         }
         print(json.dumps(result))
     except Exception as e:

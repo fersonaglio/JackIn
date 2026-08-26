@@ -393,7 +393,14 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
         if (audioLangs.length > 0) {
           audioLabel += audioLangs.some(isPtLang) ? ' — PT-BR ✓' : ' — sem PT';
         }
-        isBlockedAudio = audioLangs.length > 0 && !audioLangs.some((l) => WANTED_LANGS.has(l.toLowerCase()));
+        if (result.successful_url) {
+          try {
+            const currCfgRaw = db.exec('SELECT faceless_config FROM projects WHERE id = ?', [id])[0]?.values[0]?.[0] as string | undefined;
+            const currCfg = currCfgRaw ? JSON.parse(currCfgRaw) : {};
+            currCfg.sourceUrl = result.successful_url;
+            db.run('UPDATE projects SET youtube_url = ?, faceless_config = ? WHERE id = ?', [result.successful_url, JSON.stringify(currCfg), id]);
+          } catch {}
+        }
       } catch {
         // ignore parse failure
       }
