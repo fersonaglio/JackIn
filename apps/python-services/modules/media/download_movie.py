@@ -447,11 +447,13 @@ _UND_AUDIO_LANGS = {"und", "", "mis"}
 def reorder_audio_tracks_prefer_pt(file_path: Path):
     """Garante que a faixa em português (Dublado) seja a primeira faixa de áudio (stream #0),
     fazendo com que players web e navegadores reproduzam em português por padrão,
-    preservando as faixas originais (ex: inglês) como faixas secundárias."""
+    preservando as faixas originais (ex: inglês) como faixas secundárias.
+    Além disso, converte codecs não suportados por navegadores nativos (ex: AC-3, E-AC-3, DTS)
+    para AAC de alta qualidade (384k)."""
     try:
         cmd = [
             FFPROBE_BIN, "-v", "quiet",
-            "-show_entries", "stream=index,codec_type,codec_name:stream_tags=language,title,handler_name",
+            "-show_entries", "stream=index,codec_type,codec_name,channels:stream_tags=language,title,handler_name",
             "-of", "json",
             str(file_path)
         ]
@@ -459,7 +461,7 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
         data = json.loads(res.stdout)
         streams = data.get("streams", [])
         audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
-        if len(audio_streams) <= 1:
+        if not audio_streams:
             return
 
         # Localiza o índice relativo da primeira faixa em português
@@ -474,26 +476,35 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
                 pt_idx = i
                 break
 
-        # Se já é a primeira faixa ou se não foi encontrada faixa PT nomeada, nada a fazer
-        if pt_idx is None or pt_idx == 0:
+        needs_reorder = pt_idx is not None and pt_idx != 0
+        
+        # Verifica se algum codec de áudio não é suportado diretamente por navegadores web (ex: ac3, eac3, dts)
+        non_web_codecs = {"ac3", "eac3", "dts", "truehd", "flac"}
+        has_incompatible_audio = any(a.get("codec_name", "").lower() in non_web_codecs for a in audio_streams)
+
+        if not needs_reorder and not has_incompatible_audio:
             return
 
-        print(f"[JackIn DL] 🔄 Reordenando faixas de áudio: Faixa PT #{pt_idx} movida para padrão (Track 0)", file=sys.stderr)
+        target_pt = pt_idx if pt_idx is not None else 0
+        print(f"[JackIn DL] 🔄 Otimizando áudio para Web (Track PT #{target_pt} -> Padrão AAC 5.1/Stereo)", file=sys.stderr)
+        
         tmp_out = file_path.with_suffix(".reorder.tmp" + file_path.suffix)
         remux_cmd = [
             FFMPEG_BIN, "-y", "-i", str(file_path),
             "-map", "0:v",
-            "-map", f"0:a:{pt_idx}",
+            "-c:v", "copy",
+            "-map", f"0:a:{target_pt}",
+            "-c:a:0", "aac", "-b:a:0", "384k",
         ]
         for i in range(len(audio_streams)):
-            if i != pt_idx:
-                remux_cmd.extend(["-map", f"0:a:{i}"])
-        remux_cmd.extend(["-map", "0:s?", "-c", "copy", "-movflags", "+faststart", str(tmp_out)])
+            if i != target_pt:
+                remux_cmd.extend(["-map", f"0:a:{i}", f"-c:a:{len(remux_cmd)//2}", "copy"])
+        remux_cmd.extend(["-map", "0:s?", "-c:s", "copy", "-movflags", "+faststart", str(tmp_out)])
 
-        subprocess.run(remux_cmd, capture_output=True, check=True, timeout=120)
+        subprocess.run(remux_cmd, capture_output=True, check=True, timeout=180)
         if tmp_out.exists() and tmp_out.stat().st_size > 1000:
             os.replace(tmp_out, file_path)
-            print(f"[JackIn DL] ✓ Áudio PT-BR definido como padrão com sucesso!", file=sys.stderr)
+            print(f"[JackIn DL] ✓ Áudio PT-BR e compatibilidade AAC concluídos com sucesso!", file=sys.stderr)
     except Exception as e:
         print(f"[JackIn DL] Aviso na reordenação de faixas de áudio: {e}", file=sys.stderr)
 
