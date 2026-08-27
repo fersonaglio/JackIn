@@ -171,7 +171,7 @@ export async function findBetterDownloadOptions(title: string, maxOptions: numbe
   const cleanReqTitle = title.split(' (')[0].toLowerCase().replace(/[^a-z0-9]/gi, ' ').trim();
   const reqWords = cleanReqTitle.split(/\s+/).filter((w) => w.length > 2);
 
-  const fallbacks = [title, expandTitleFallback(title)];
+  const fallbacks = [title, ...expandTitleFallback(title)].filter((v, i, a) => a.indexOf(v) === i);
   for (const t of fallbacks) {
     let out: any = { results: [] };
     try {
@@ -186,7 +186,7 @@ export async function findBetterDownloadOptions(title: string, maxOptions: numbe
         const rTitleClean = (r.title || '').toLowerCase().replace(/[^a-z0-9]/gi, ' ');
         const rOrigClean = (r.originalTitle || '').toLowerCase().replace(/[^a-z0-9]/gi, ' ');
         const distinctiveWords = reqWords.filter(
-          (w) => !['piratas', 'pirates', 'caribe', 'caribbean', 'senhor', 'aneis', 'lord', 'rings', 'star', 'wars', 'harry', 'potter', 'filme', 'movie', 'part', 'parte'].includes(w)
+          (w) => !['piratas', 'pirates', 'caribe', 'caribbean', 'senhor', 'aneis', 'lord', 'rings', 'star', 'wars', 'harry', 'potter', 'filme', 'movie', 'part', 'parte', 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9'].includes(w)
         );
         if (distinctiveWords.length > 0) {
           const matchDistinctive = distinctiveWords.some((w) => rTitleClean.includes(w) || rOrigClean.includes(w));
@@ -229,14 +229,27 @@ const GLUED_TITLE_FALLBACK: Record<string, string> = {
   homemdasmascaradeferro: 'The Man in the Iron Mask',
   ironmen: 'Iron Man',
   ironmans: 'Iron Man',
+  loki: 'Loki',
 };
 
-function expandTitleFallback(title: string): string {
-  // O título pode vir com sufixo de qualidade ("FormiguinhaZ (1080p Full HD (Torrent))")
-  // — remove o parêntese antes de normalizar para o fallback casar.
+function expandTitleFallback(title: string): string[] {
+  const seasonMatch = title.match(/(.+?)\s*\(T(\d+)\)/i);
+  if (seasonMatch) {
+    const sBase = seasonMatch[1].trim();
+    const sNum = parseInt(seasonMatch[2], 10);
+    return [
+      `${sBase} Season ${sNum}`,
+      `${sBase} S${String(sNum).padStart(2, '0')}`,
+      `${sBase} ${sNum} Temporada`,
+      `${sBase} Temporada ${sNum}`,
+      sBase,
+    ];
+  }
+
   const base = title.split(' (')[0];
   const folded = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  return GLUED_TITLE_FALLBACK[folded] || title;
+  const glued = GLUED_TITLE_FALLBACK[folded];
+  return glued ? [glued, title] : [title];
 }
 
 // Compat: caminho antigo usado em alguns fluxos — retorna só o melhor ou null.
