@@ -309,8 +309,12 @@ function startMovieDownload(id: string, opts: DownloadOptions) {
     const alts = [...new Set(altSourceUrls.filter((u) => u && u !== sourceUrl))];
     if (alts.length > 0) args.push('--alt-urls', JSON.stringify(alts));
   }
-  // Dublado: o worker rejeita o arquivo se não houver faixa de áudio PT.
-  if (opts.requirePt !== false) args.push('--require-pt');
+  // Dublado: o worker rejeita o arquivo se não houver faixa de áudio PT apenas se requirePt for explicitamente true.
+  if (opts.requirePt === true) {
+    args.push('--require-pt');
+  } else {
+    args.push('--no-require-pt');
+  }
   const proc = spawn(VENV_PYTHON, args, { env: { ...process.env, PYTHONUNBUFFERED: '1' } });
 
   proc.on('error', (err) => {

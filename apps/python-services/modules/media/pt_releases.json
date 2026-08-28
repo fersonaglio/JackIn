@@ -87,5 +87,41 @@
       "eng",
       "spa"
     ]
+  },
+  "38ddf8d61f7f17bcf1def179344430f0587ca09b": {
+    "pt": true,
+    "langs": [
+      "por"
+    ]
+  },
+  "0aaae1ec4463cf763b4fc04b5b7eceff48244bae": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  },
+  "94240b8e89974035555008274223f5a1c7f35fe9": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  },
+  "41f694c75831ed34d6a2c6422e222a781dec1955": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  },
+  "2d1ebc4cfd6f46d84cff406ef737bae9931a8aa3": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  },
+  "efc5fcbb3fb9dada67ed0a39768d12ea9c45db58": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
   }
 }

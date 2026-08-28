@@ -20,6 +20,8 @@ BLOCKED_EXTENSIONS = {
     ".ps1", ".msi", ".jar", ".zip", ".rar", ".7z", ".iso", ".dmg", ".pkg"
 }
 
+successful_url = None
+
 def detect_audio_languages(file_path: Path) -> list:
     """List the real audio language codes of a media file via ffprobe."""
     try:
@@ -303,17 +305,32 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
         sel.register(proc.stdout, selectors.EVENT_READ)
     buffer = ""
 
-    def parse_dl(line: str) -> int:
-        m = re.search(r"DL:([\d.]+)([KMGT]?B)", line)
+    def parse_speed_bytes(line: str) -> int:
+        m = re.search(r"DL:([\d.]+)([KMGT]?i?B)", line)
         if not m:
             return 0
         val = float(m.group(1))
         unit = m.group(2)
-        if unit == "KiB":
+        if unit in ("KiB", "KB"):
             val *= 1024
-        elif unit == "MiB":
+        elif unit in ("MiB", "MB"):
             val *= 1024 * 1024
-        elif unit == "GiB":
+        elif unit in ("GiB", "GB"):
+            val *= 1024 * 1024 * 1024
+        return int(val)
+
+    def downloaded_bytes(line: str) -> int:
+        # Ex: "1.2GiB/1.6GiB" -> extrai 1.2GiB em bytes
+        m = re.search(r"(?:^|\[#\w+\s+)([\d.]+)([KMGT]?i?B)/", line)
+        if not m:
+            return 0
+        val = float(m.group(1))
+        unit = m.group(2)
+        if unit in ("KiB", "KB"):
+            val *= 1024
+        elif unit in ("MiB", "MB"):
+            val *= 1024 * 1024
+        elif unit in ("GiB", "GB"):
             val *= 1024 * 1024 * 1024
         return int(val)
 
@@ -325,11 +342,11 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             return 0
         val = float(m.group(1))
         unit = m.group(2)
-        if unit == "KiB":
+        if unit in ("KiB", "KB"):
             val *= 1024
-        elif unit == "MiB":
+        elif unit in ("MiB", "MB"):
             val *= 1024 * 1024
-        elif unit == "GiB":
+        elif unit in ("GiB", "GB"):
             val *= 1024 * 1024 * 1024
         return int(val)
 
@@ -386,18 +403,23 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
                         speed_disp = _format_speed_mbs(speed_raw)
                         cn_val = _extract_token(line_str, "CN:")
                         sd_val = _extract_token(line_str, "SD:")
-                        emit_progress(mapped_pct, f"Baixando {quality} - {pct_val:.1f}% (⚡ {speed_disp}) [SD:{sd_val} CN:{cn_val}]", 45.0)
+                        speed_val = parse_speed_bytes(line_str)
+                        speed_mbps = round(speed_val / (1024 * 1024), 1)
+                        emit_progress(mapped_pct, f"Baixando {quality} - {pct_val:.1f}% (⚡ {speed_disp}) [SD:{sd_val} CN:{cn_val}]", speed_mbps)
                         got_progress = True
-                        dl_now = parse_dl(line_str)
-                        if dl_now > last_downloaded:
-                            last_downloaded = dl_now
+                        dl_bytes = downloaded_bytes(line_str)
+                        if dl_bytes > last_downloaded or speed_val > 0:
+                            if dl_bytes > last_downloaded:
+                                last_downloaded = dl_bytes
                             last_byte_advance = now_t
                     except:
                         pass
                 elif "[#" in line_str and ("CN:" in line_str or "DL:" in line_str):
-                    dl_now = parse_dl(line_str)
-                    if dl_now > last_downloaded:
-                        last_downloaded = dl_now
+                    speed_val = parse_speed_bytes(line_str)
+                    dl_bytes = downloaded_bytes(line_str)
+                    if dl_bytes > last_downloaded or speed_val > 0:
+                        if dl_bytes > last_downloaded:
+                            last_downloaded = dl_bytes
                         last_byte_advance = now_t
                         got_progress = True
                     if now_t - last_emit_t >= 1.5:
@@ -431,8 +453,9 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             elif ext in ALLOWED_EXTENSIONS and full_f.stat().st_size > 30_000_000:
                 try:
                     with open(full_f, "rb") as fh:
-                        head = fh.read(16)
-                        if (head[0] == 0x1a and head[1] == 0x45) or b"ftyp" in head:
+                        head = fh.read(128)
+                        # MKV/WebM (0x1A 0x45) ou MP4/MOV/M4V (ftyp, moov, mdat) ou AVI (RIFF)
+                        if (len(head) > 4 and head[0] == 0x1a and head[1] == 0x45) or (b"ftyp" in head) or (b"moov" in head) or (b"mdat" in head) or (b"RIFF" in head):
                             valid_videos.append(full_f)
                 except:
                     pass
@@ -446,11 +469,10 @@ _UND_AUDIO_LANGS = {"und", "", "mis"}
 
 
 def reorder_audio_tracks_prefer_pt(file_path: Path):
-    """Garante que a faixa em português (Dublado) seja a primeira faixa de áudio (stream #0),
-    fazendo com que players web e navegadores reproduzam em português por padrão,
-    preservando as faixas originais (ex: inglês) como faixas secundárias.
-    Além disso, converte codecs não suportados por navegadores nativos (ex: AC-3, E-AC-3, DTS)
-    para AAC de alta qualidade (384k)."""
+    """Reordena as faixas de áudio para garantir que o áudio em português fique no índice 0.
+    Além disso, se a faixa de áudio em PT não for AAC, converte para AAC-LC para que toque
+    perfeitamente no Safari, Chrome, Edge e navegadores sem precisar de transcode no player."""
+    file_path = Path(file_path)
     try:
         cmd = [
             FFPROBE_BIN, "-v", "quiet",
@@ -498,9 +520,11 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
             "-map", f"0:a:{target_pt}",
             "-c:a:0", "aac", "-b:a:0", "384k",
         ]
+        out_a_idx = 1
         for i in range(len(audio_streams)):
             if i != target_pt:
-                remux_cmd.extend(["-map", f"0:a:{i}", f"-c:a:{len(remux_cmd)//2}", "copy"])
+                remux_cmd.extend(["-map", f"0:a:{i}", f"-c:a:{out_a_idx}", "copy"])
+                out_a_idx += 1
         remux_cmd.extend(["-map", "0:s?", "-c:s", "copy", "-movflags", "+faststart", str(tmp_out)])
 
         subprocess.run(remux_cmd, capture_output=True, check=True, timeout=600)
@@ -514,6 +538,8 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
 def extract_embedded_subtitles(file_path: Path, output_dir: Path):
     """Extrai faixas de legendas embutidas (SRT, ASS, VTT, etc.) para arquivos
     WebVTT (.vtt) prontos para reprodução HTML5 nativa no navegador."""
+    file_path = Path(file_path)
+    output_dir = Path(output_dir)
     try:
         cmd = [
             FFPROBE_BIN, "-v", "quiet",
@@ -560,6 +586,7 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     quarentena + RuntimeError — nunca entrega áudio em outra língua
     silenciosamente.
     """
+    file_path = Path(file_path)
     reorder_audio_tracks_prefer_pt(file_path)
     extract_embedded_subtitles(file_path, file_path.parent)
     langs = detect_audio_languages(file_path)
@@ -575,7 +602,7 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
 
 
 def download_file_with_shield(urls: list, output_dir: Path, title: str, quality: str, require_pt: bool = True) -> Path:
-    global _last_emitted_pct
+    global _last_emitted_pct, successful_url
     _last_emitted_pct = 0
     output_dir.mkdir(parents=True, exist_ok=True)
     clean_title = "".join(c if c.isalnum() or c in (" ", "_", "-") else "" for c in title).strip().replace(" ", "_")
@@ -777,7 +804,8 @@ def main():
     parser.add_argument("--title", type=str, default="Filme_4K", help="Movie title")
     parser.add_argument("--quality", type=str, default="4K REMUX", help="Media quality string")
     parser.add_argument("--poster-url", type=str, default="", help="Movie poster URL")
-    parser.add_argument("--require-pt", action=argparse.BooleanOptionalAction, default=True, help="Rejeita o download se o arquivo não tiver faixa de áudio em português (Dublado). Padrão: True.")
+    parser.add_argument("--require-pt", action="store_true", default=False, help="Rejeita o download se o arquivo não tiver faixa de áudio em português (Dublado).")
+    parser.add_argument("--no-require-pt", action="store_false", dest="require_pt", help="Permite downloads originais/legendados sem dublagem PT.")
     args = parser.parse_args()
 
     output_dir = Path(args.out_dir)

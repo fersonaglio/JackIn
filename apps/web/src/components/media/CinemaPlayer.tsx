@@ -462,7 +462,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
 
   const handleVideoError = useCallback(async () => {
     const errCode = videoRef.current?.error?.code;
-    if (errCode === 1) return;
+    if (errCode === 1) return; // MEDIA_ERR_ABORTED
 
     const bestPos =
       currentTime > 1
@@ -480,41 +480,71 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       setResumePosition(bestPos);
     }
 
-    setHasError(true);
-    let reason: 'processing' | 'preparing' | 'not_found' | 'unknown' = 'unknown';
     if (!videoUrl || retryCountRef.current >= RETRY_MAX) {
       setRetrying(false);
+      setHasError(true);
       return;
     }
+
     try {
       const ctrl = new AbortController();
-      const probe = await fetch(buildVideoUrl(videoUrl), { headers: { Range: 'bytes=0-0' }, signal: ctrl.signal });
+      const testUrl = buildVideoUrl(videoUrl, audioLanguage);
+      const probe = await fetch(testUrl, { headers: { Range: 'bytes=0-0' }, signal: ctrl.signal });
       setTimeout(() => ctrl.abort(), 3000);
+
       if (probe.status === 404) {
         setErrorReason('not_found');
+        setHasError(true);
         setRetrying(false);
         return;
       }
+
       if (probe.status === 425) {
+        let reason: 'processing' | 'preparing' = 'processing';
         try {
           const body = await probe.json();
           reason = body.error === 'video_preparing' ? 'preparing' : 'processing';
         } catch {
           reason = 'processing';
         }
+        setErrorReason(reason);
+        setHasError(true);
+        setRetrying(true);
+        retryCountRef.current += 1;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          setRetrying(false);
+          reloadVideo(bestPos);
+        }, reason === 'preparing' ? 2500 : 1500);
+        return;
+      }
+
+      // Se o status for 200, 206 ou OK, o vídeo está disponível no servidor
+      if (probe.ok || probe.status === 206) {
+        setHasError(false);
+        setRetrying(false);
+        retryCountRef.current = 0;
+        const el = videoRef.current;
+        if (el) {
+          el.load();
+          el.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+        return;
       }
     } catch {
-      reason = 'unknown';
+      // Network probe failed or timed out
     }
-    setErrorReason(reason);
+
+    setErrorReason('unknown');
+    setHasError(true);
     setRetrying(true);
     retryCountRef.current += 1;
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     retryTimerRef.current = setTimeout(() => {
       setRetrying(false);
       reloadVideo(bestPos);
-    }, reason === 'preparing' ? 2500 : 1000);
-  }, [videoUrl, reloadVideo, resumePosition, currentTime, buildVideoUrl]);
+    }, 1500);
+  }, [videoUrl, audioLanguage, reloadVideo, resumePosition, currentTime, buildVideoUrl]);
 
   useEffect(() => {
     if (!isOpen || !projectId) return;
@@ -643,6 +673,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   }, [subtitleTrack, isOpen]);
 
   const handleLoadedMetadata = () => {
+    setHasError(false);
+    setRetrying(false);
+    retryCountRef.current = 0;
     const el = videoRef.current;
     if (!el) return;
     setDuration(el.duration || 0);
@@ -686,15 +719,20 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   };
 
   const seekRelative = useCallback((seconds: number) => {
-    if (!videoRef.current) return;
-    const newTime = Math.max(0, Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + seconds));
-    videoRef.current.currentTime = newTime;
+    const el = videoRef.current;
+    if (!el) return;
+    const dur = (el.duration && !isNaN(el.duration) && isFinite(el.duration) && el.duration > 0)
+      ? el.duration
+      : (duration > 0 ? duration : Infinity);
+    const cur = (!isNaN(el.currentTime) && el.currentTime >= 0) ? el.currentTime : currentTime;
+    const newTime = Math.max(0, Math.min(dur, cur + seconds));
+    el.currentTime = newTime;
     setCurrentTime(newTime);
     if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
     seekDebounceRef.current = setTimeout(() => {
       saveProgressNow(newTime, true);
     }, 400);
-  }, [saveProgressNow]);
+  }, [duration, currentTime, saveProgressNow]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -804,6 +842,17 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   }, [isOpen]);
 
   useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -848,11 +897,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
       if (nextCountdownRef.current) clearInterval(nextCountdownRef.current);
       if (progressSaveRef.current) clearInterval(progressSaveRef.current);
     };
@@ -933,6 +980,22 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                   }
                 }}
                 onLoadedMetadata={handleLoadedMetadata}
+                onDurationChange={() => {
+                  const el = videoRef.current;
+                  if (el && el.duration && !isNaN(el.duration) && isFinite(el.duration) && el.duration > 0) {
+                    setDuration(el.duration);
+                  }
+                }}
+                onCanPlay={() => {
+                  setHasError(false);
+                  setRetrying(false);
+                  retryCountRef.current = 0;
+                }}
+                onPlaying={() => {
+                  setHasError(false);
+                  setRetrying(false);
+                  retryCountRef.current = 0;
+                }}
                 onError={handleVideoError}
                 onEnded={handleVideoEnded}
               >
