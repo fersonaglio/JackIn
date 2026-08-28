@@ -87,33 +87,67 @@ async function interpretViaTmdb(rawQuery: string): Promise<InterpretedQuery | nu
   if (!mdb) return null;
   try {
     const res = await mdb.searchMulti({ query: rawQuery, language: 'pt-BR', include_adult: false }, { timeout: 8000 });
+    const rawFolded = fold(rawQuery);
+    const candidates: Array<{ r: any; isExact: boolean; voteCount: number; isReleased: boolean; mediaType: 'movie' | 'tv' }> = [];
+    const nowYear = new Date().getFullYear();
+
     for (const r of res.results || []) {
       if (r.media_type === 'movie') {
         const m = r as MovieResult;
         const canonical = (m.original_title || '').trim();
         if (!canonical) continue;
         const pt = (m.title || '').trim();
-        return {
-          canonicalTitle: canonical,
-          ptTitle: pt && fold(pt) !== fold(canonical) ? pt : null,
-          year: m.release_date ? Number(m.release_date.slice(0, 4)) || null : null,
-          mediaType: 'movie',
-          confidence: m.vote_count && m.vote_count > 20 ? 0.9 : 0.7,
-        };
-      }
-      if (r.media_type === 'tv') {
+        const year = m.release_date ? Number(m.release_date.slice(0, 4)) || null : null;
+        const isExact = fold(canonical) === rawFolded || fold(pt) === rawFolded;
+        const isReleased = Boolean(year && year <= nowYear);
+        candidates.push({ r: m, isExact, voteCount: m.vote_count || 0, isReleased, mediaType: 'movie' });
+      } else if (r.media_type === 'tv') {
         const t = r as TvResult;
         const canonical = (t.original_name || '').trim();
         if (!canonical) continue;
         const pt = (t.name || '').trim();
-        return {
-          canonicalTitle: canonical,
-          ptTitle: pt && fold(pt) !== fold(canonical) ? pt : null,
-          year: t.first_air_date ? Number(t.first_air_date.slice(0, 4)) || null : null,
-          mediaType: 'series',
-          confidence: t.vote_count && t.vote_count > 20 ? 0.9 : 0.7,
-        };
+        const year = t.first_air_date ? Number(t.first_air_date.slice(0, 4)) || null : null;
+        const isExact = fold(canonical) === rawFolded || fold(pt) === rawFolded;
+        const isReleased = Boolean(year && year <= nowYear);
+        candidates.push({ r: t, isExact, voteCount: t.vote_count || 0, isReleased, mediaType: 'tv' });
       }
+    }
+
+    if (candidates.length === 0) return null;
+
+    // Priorização:
+    // 1. Match exato com o termo buscado ("Toy Story" -> Toy Story 1995, NÃO Toy Story 5)
+    // 2. Títulos já lançados vs futuros
+    // 3. Maior contagem de votos / popularidade
+    candidates.sort((a, b) => {
+      if (a.isExact !== b.isExact) return a.isExact ? -1 : 1;
+      if (a.isReleased !== b.isReleased) return a.isReleased ? -1 : 1;
+      return b.voteCount - a.voteCount;
+    });
+
+    const chosen = candidates[0];
+    if (chosen.mediaType === 'movie') {
+      const m = chosen.r as MovieResult;
+      const canonical = (m.original_title || '').trim();
+      const pt = (m.title || '').trim();
+      return {
+        canonicalTitle: canonical,
+        ptTitle: pt && fold(pt) !== fold(canonical) ? pt : null,
+        year: m.release_date ? Number(m.release_date.slice(0, 4)) || null : null,
+        mediaType: 'movie',
+        confidence: m.vote_count && m.vote_count > 20 ? 0.9 : 0.7,
+      };
+    } else {
+      const t = chosen.r as TvResult;
+      const canonical = (t.original_name || '').trim();
+      const pt = (t.name || '').trim();
+      return {
+        canonicalTitle: canonical,
+        ptTitle: pt && fold(pt) !== fold(canonical) ? pt : null,
+        year: t.first_air_date ? Number(t.first_air_date.slice(0, 4)) || null : null,
+        mediaType: 'series',
+        confidence: t.vote_count && t.vote_count > 20 ? 0.9 : 0.7,
+      };
     }
   } catch (e) {
     console.warn(`[JackIn Media] TMDB interpret falhou para "${rawQuery}": ${(e as Error).message}`);

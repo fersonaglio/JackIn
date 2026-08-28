@@ -196,21 +196,30 @@ export async function findBetterDownloadOptions(title: string, maxOptions: numbe
 
       if (!posterUrl && r.posterUrl) posterUrl = r.posterUrl;
 
-      // Opções reais (indexadores com seeders reais) têm prioridade total.
-      const real = r.options.filter((o: any) => o.sourceUrl && !CURATED_SITE_RE.test(o.sourceUrl) && !o.sourceUrl.toLowerCase().includes('yts') && !(o as any).quality?.toLowerCase().includes('yts'));
-      // Quando o usuário pediu Dublado, o fallback NÃO pode escorregar para uma
-      // fonte sem PT (YTS/original) — restringe o pool às PT-confirmadas.
-      const pool = requirePt ? real.filter((o: any) => o.ptConfirmed) : real;
-      // PT-confirmadas primeiro, depois qualidade/seeders (a busca já ordena).
-      const pt = pool.filter((o: any) => o.ptConfirmed);
-      for (const o of [...pt, ...pool]) {
+      // Quando requirePt é true, opções com dublagem/áudio PT confirmados (ptConfirmed: true)
+      // têm prioridade máxima absoluta sobre qualquer torrent estrangeiro sem PT.
+      const ptConfirmed = r.options.filter((o: any) => o.sourceUrl && o.ptConfirmed);
+      const real = r.options.filter(
+        (o: any) =>
+          o.sourceUrl &&
+          !CURATED_SITE_RE.test(o.sourceUrl) &&
+          !o.sourceUrl.toLowerCase().includes('yts') &&
+          !(o as any).quality?.toLowerCase().includes('yts'),
+      );
+
+      const pool = requirePt
+        ? ptConfirmed.length > 0
+          ? ptConfirmed
+          : real
+        : [...ptConfirmed, ...real];
+
+      for (const o of pool) {
         if (results.length >= maxOptions) break;
         push(o);
       }
-      // Curadas (limontorrents etc.) só como último recurso, e só se nada real.
-      if (results.length === 0) {
-        const curated = requirePt ? r.options.filter((o: any) => o.ptConfirmed) : r.options;
-        for (const o of curated) {
+
+      if (results.length === 0 && !requirePt) {
+        for (const o of r.options) {
           if (results.length >= maxOptions) break;
           push(o);
         }
