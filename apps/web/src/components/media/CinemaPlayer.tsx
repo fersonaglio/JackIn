@@ -42,7 +42,8 @@ const LANG_LABEL: Record<string, string> = {
   it: 'Italiano',
   ru: 'Russo',
   ko: 'Coreano',
-  und: 'Indefinido',
+  zh: 'Chinês',
+  und: 'Indefinido (Original)',
 };
 const langLabel = (lang: string) => LANG_LABEL[lang] || lang.toUpperCase();
 
@@ -154,6 +155,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   }, []);
   const [audioLanguage, setAudioLanguage] = useState<string>('pt-br');
   const [subtitleTrack, setSubtitleTrack] = useState<'off' | 'pt-br' | 'en' | 'es'>('off');
+  const [subtitleOffsetSec, setSubtitleOffsetSec] = useState(0);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'tracks' | 'info'>('tracks');
   const [technicalInfo, setTechnicalInfo] = useState<TechnicalMediaInfo | null>(null);
@@ -184,6 +186,14 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   // Refs espelham o estado para callbacks sem stale closure.
   const autoNextRef = useRef<boolean>(true);
   const nextEpisodeRef = useRef<{ id: string; title: string } | null>(null);
+
+  // Estados e refs de proteção contra travamento de imagem e seeking suave
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [seekFeedback, setSeekFeedback] = useState<{ text: string; dir: 'forward' | 'backward' } | null>(null);
+  const pendingSeekTimeRef = useRef<number | null>(null);
+  const seekCommitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const seekFeedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const stallWatchdogRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     castSupported,
@@ -660,6 +670,28 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
   }, [audioLanguage, isOpen, videoUrl, buildVideoUrl]);
 
+  // Aplica o deslocamento de tempo (offset) em todas as legendas ativas
+  const handleSubtitleOffsetChange = useCallback((offsetSec: number) => {
+    const clamped = Math.max(-10, Math.min(10, Math.round(offsetSec * 10) / 10));
+    setSubtitleOffsetSec(clamped);
+    const el = videoRef.current;
+    if (!el || !el.textTracks) return;
+    for (let i = 0; i < el.textTracks.length; i++) {
+      const track = el.textTracks[i];
+      if (track.cues) {
+        for (let j = 0; j < track.cues.length; j++) {
+          const cue = track.cues[j] as VTTCue;
+          if ((cue as any)._origStart === undefined) {
+            (cue as any)._origStart = cue.startTime;
+            (cue as any)._origEnd = cue.endTime;
+          }
+          cue.startTime = Math.max(0, (cue as any)._origStart + clamped);
+          cue.endTime = Math.max(0, (cue as any)._origEnd + clamped);
+        }
+      }
+    }
+  }, []);
+
   // Garante que a faixa de legenda selecionada fique ativa após o load. Sem
   // isso, <track> injetado dinamicamente pode ficar em 'disabled' no browser.
   useEffect(() => {
@@ -669,8 +701,19 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       const t = el.textTracks[i];
       const active = subtitleTrack !== 'off' && (t.language === subtitleTrack || t.label === langLabel(subtitleTrack));
       t.mode = active ? 'showing' : 'disabled';
+      if (active && t.cues && subtitleOffsetSec !== 0) {
+        for (let j = 0; j < t.cues.length; j++) {
+          const cue = t.cues[j] as VTTCue;
+          if ((cue as any)._origStart === undefined) {
+            (cue as any)._origStart = cue.startTime;
+            (cue as any)._origEnd = cue.endTime;
+          }
+          cue.startTime = Math.max(0, (cue as any)._origStart + subtitleOffsetSec);
+          cue.endTime = Math.max(0, (cue as any)._origEnd + subtitleOffsetSec);
+        }
+      }
     }
-  }, [subtitleTrack, isOpen]);
+  }, [subtitleTrack, isOpen, subtitleOffsetSec]);
 
   const handleLoadedMetadata = () => {
     setHasError(false);
@@ -724,26 +767,70 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     const dur = (el.duration && !isNaN(el.duration) && isFinite(el.duration) && el.duration > 0)
       ? el.duration
       : (duration > 0 ? duration : Infinity);
-    const cur = (!isNaN(el.currentTime) && el.currentTime >= 0) ? el.currentTime : currentTime;
-    const newTime = Math.max(0, Math.min(dur, cur + seconds));
-    el.currentTime = newTime;
+
+    // Usa tempo acumulado se o usuário estiver apertando a tecla rapidamente
+    const base = pendingSeekTimeRef.current !== null
+      ? pendingSeekTimeRef.current
+      : ((!isNaN(el.currentTime) && el.currentTime >= 0) ? el.currentTime : currentTime);
+
+    const newTime = Math.max(0, Math.min(dur, base + seconds));
+    pendingSeekTimeRef.current = newTime;
     setCurrentTime(newTime);
-    if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
-    seekDebounceRef.current = setTimeout(() => {
-      saveProgressNow(newTime, true);
-    }, 400);
+
+    // Feedback visual HUD estilo Netflix/YouTube
+    const diff = Math.round(newTime - (el.currentTime || 0));
+    const sign = diff >= 0 ? `+${diff}s` : `${diff}s`;
+    setSeekFeedback({ text: sign, dir: seconds >= 0 ? 'forward' : 'backward' });
+    if (seekFeedbackTimerRef.current) clearTimeout(seekFeedbackTimerRef.current);
+    seekFeedbackTimerRef.current = setTimeout(() => {
+      setSeekFeedback(null);
+    }, 750);
+
+    // Coalesce múltiplos toques rápidos em um único commit no decodificador
+    if (seekCommitTimerRef.current) clearTimeout(seekCommitTimerRef.current);
+    seekCommitTimerRef.current = setTimeout(() => {
+      const target = pendingSeekTimeRef.current;
+      if (target !== null && el) {
+        try {
+          if ('fastSeek' in el && typeof (el as any).fastSeek === 'function') {
+            (el as any).fastSeek(target);
+          } else {
+            el.currentTime = target;
+          }
+        } catch {
+          el.currentTime = target;
+        }
+      }
+      if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
+      seekDebounceRef.current = setTimeout(() => {
+        saveProgressNow(target ?? undefined, true);
+      }, 400);
+    }, 50);
   }, [duration, currentTime, saveProgressNow]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
-    if (videoRef.current) {
-      videoRef.current.currentTime = val;
-      setCurrentTime(val);
-    }
-    if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
-    seekDebounceRef.current = setTimeout(() => {
-      saveProgressNow(val, true);
-    }, 400);
+    pendingSeekTimeRef.current = val;
+    setCurrentTime(val);
+
+    if (seekCommitTimerRef.current) clearTimeout(seekCommitTimerRef.current);
+    seekCommitTimerRef.current = setTimeout(() => {
+      if (videoRef.current) {
+        try {
+          if ('fastSeek' in videoRef.current && typeof (videoRef.current as any).fastSeek === 'function') {
+            (videoRef.current as any).fastSeek(val);
+          } else {
+            videoRef.current.currentTime = val;
+          }
+        } catch {
+          videoRef.current.currentTime = val;
+        }
+      }
+      if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
+      seekDebounceRef.current = setTimeout(() => {
+        saveProgressNow(val, true);
+      }, 400);
+    }, 40);
   };
 
   const handleClose = useCallback(() => {
@@ -958,6 +1045,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                     return;
                   }
                   setIsPlaying(true);
+                  setIsBuffering(false);
                   handleMouseMove();
                 }}
                 onPause={() => {
@@ -966,13 +1054,37 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                   if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
                   saveProgressNow(undefined, true);
                 }}
+                onSeeking={() => {
+                  setIsBuffering(true);
+                }}
                 onSeeked={() => {
+                  pendingSeekTimeRef.current = null;
+                  setIsBuffering(false);
                   saveProgressNow(undefined, true);
+                  if (videoRef.current && isPlaying && videoRef.current.paused) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }}
+                onWaiting={() => {
+                  setIsBuffering(true);
+                  if (stallWatchdogRef.current) clearTimeout(stallWatchdogRef.current);
+                  stallWatchdogRef.current = setTimeout(() => {
+                    const el = videoRef.current;
+                    if (el && !el.paused && el.readyState < 3) {
+                      console.warn('[CinemaPlayer] Decoder watchdog: nudging stalled video frame');
+                      el.currentTime = Math.min(el.duration || el.currentTime, el.currentTime + 0.05);
+                    }
+                  }, 3000);
+                }}
+                onStalled={() => {
+                  setIsBuffering(true);
                 }}
                 onTimeUpdate={() => {
                   const el = videoRef.current;
                   if (!el) return;
-                  setCurrentTime(el.currentTime);
+                  if (pendingSeekTimeRef.current === null) {
+                    setCurrentTime(el.currentTime);
+                  }
                   const now = Date.now();
                   if (!el.paused && !el.ended && el.currentTime > 1 && now - lastTimeUpdateSaveRef.current > 3500) {
                     lastTimeUpdateSaveRef.current = now;
@@ -987,14 +1099,18 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                   }
                 }}
                 onCanPlay={() => {
+                  setIsBuffering(false);
                   setHasError(false);
                   setRetrying(false);
                   retryCountRef.current = 0;
+                  if (stallWatchdogRef.current) clearTimeout(stallWatchdogRef.current);
                 }}
                 onPlaying={() => {
+                  setIsBuffering(false);
                   setHasError(false);
                   setRetrying(false);
                   retryCountRef.current = 0;
+                  if (stallWatchdogRef.current) clearTimeout(stallWatchdogRef.current);
                 }}
                 onError={handleVideoError}
                 onEnded={handleVideoEnded}
@@ -1013,6 +1129,25 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
             ) : (
               <div className="text-center space-y-2">
                 <p className="text-zinc-500 text-sm">Nenhum vídeo disponível</p>
+              </div>
+            )}
+
+            {/* Seeking HUD Feedback Overlay */}
+            {seekFeedback && (
+              <div className={`absolute z-30 pointer-events-none flex items-center justify-center transition-all duration-200 ${
+                seekFeedback.dir === 'forward' ? 'right-1/4' : 'left-1/4'
+              }`}>
+                <div className="px-5 py-3 rounded-2xl bg-black/75 backdrop-blur-md border border-[#EF9F27]/40 text-white flex items-center gap-3 shadow-2xl animate-pulse">
+                  <span className="text-2xl">{seekFeedback.dir === 'forward' ? '⏩' : '⏪'}</span>
+                  <span className="font-mono font-black text-lg text-[#EF9F27]">{seekFeedback.text}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Buffering Spinner */}
+            {isBuffering && !retrying && !hasError && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+                <div className="w-12 h-12 border-4 border-[#EF9F27] border-t-transparent rounded-full animate-spin shadow-lg" />
               </div>
             )}
 
@@ -1465,6 +1600,58 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                           {subtitleMessage && (
                             <p className="text-[10px] text-zinc-400 px-1 mt-1.5">{subtitleMessage}</p>
                           )}
+                        </div>
+
+                        {/* Sincronia Fina de Legendas e Áudio */}
+                        <div className="mt-4 pt-4 border-t border-zinc-800/80 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-[11px] font-black text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                              <span>⏱️</span> Sincronia de Legendas
+                            </h4>
+                            {subtitleOffsetSec !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleSubtitleOffsetChange(0)}
+                                className="text-[9px] font-bold text-[#EF9F27] hover:underline"
+                              >
+                                Resetar (0.0s)
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3">
+                            <div className="flex items-center justify-between text-xs mb-1.5">
+                              <span className="text-zinc-300 font-bold text-[11px]">Atraso / Adiantamento</span>
+                              <span className="font-mono text-[#EF9F27] font-bold text-xs">
+                                {subtitleOffsetSec > 0 ? `+${subtitleOffsetSec.toFixed(1)}s` : `${subtitleOffsetSec.toFixed(1)}s`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSubtitleOffsetChange(subtitleOffsetSec - 0.2)}
+                                className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-mono font-bold text-zinc-300"
+                              >
+                                -0.2s
+                              </button>
+                              <input
+                                type="range"
+                                min="-5"
+                                max="5"
+                                step="0.1"
+                                value={subtitleOffsetSec}
+                                onChange={(e) => handleSubtitleOffsetChange(Number(e.target.value))}
+                                className="flex-1 accent-[#EF9F27] h-1.5 bg-zinc-700 rounded-lg cursor-pointer"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSubtitleOffsetChange(subtitleOffsetSec + 0.2)}
+                                className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-mono font-bold text-zinc-300"
+                              >
+                                +0.2s
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </>
                     ) : (

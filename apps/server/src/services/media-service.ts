@@ -611,7 +611,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   const alreadyAacLc = info.audio.every((a) => a.codec === 'aac' && !isHeAacAudio(a));
   if (!alreadyAacLc) {
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
-    args.push('-c:a', 'aac', '-b:a', audioBitrate(maxCh, 'aac'));
+    args.push('-c:a', 'aac', '-b:a', audioBitrate(maxCh, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
   } else {
     args.push('-c:a', 'copy');
   }
@@ -648,7 +648,7 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
   if (audioNeedsTranscode) {
     args.push('-c:a', 'aac');
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
-    args.push('-b:a', audioBitrate(maxCh, 'aac'));
+    args.push('-b:a', audioBitrate(maxCh, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
   } else {
     args.push('-c:a', 'copy');
   }
@@ -667,7 +667,11 @@ function buildAudioVariantArgs(info: MediaInfo, audioIdx: number, outPath: strin
   ];
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
   const copiesAudio = track.codec === 'aac' && !isHeAacAudio(track);
-  args.push('-map', `0:${track.index}`, '-c:a', copiesAudio ? 'copy' : 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'));
+  if (copiesAudio) {
+    args.push('-map', `0:${track.index}`, '-c:a', 'copy');
+  } else {
+    args.push('-map', `0:${track.index}`, '-c:a', 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
+  }
   args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
@@ -1018,11 +1022,7 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
   const masterFile = path.join(projectDir, 'master.mp4');
 
-  if (audioLang && pm?.artifacts?.audio[audioLang] && fs.existsSync(pm.artifacts.audio[audioLang].path)) {
-    return { filePath: pm.artifacts.audio[audioLang].path, prepState: pm.prepState, isArtifact: true };
-  }
-
-  // Se o master.mp4 existe no diretório do projeto com tamanho válido (> 1MB), resolve direto:
+  // 1. Se o master.mp4 existe no diretório com tamanho válido (> 1MB), resolve direto com vídeo + áudio:
   if (fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000) {
     const info = pm?.mediaInfo;
     const isHevc = info?.video?.codec === 'hevc';
@@ -1030,6 +1030,11 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
       return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
     }
     return { filePath: masterFile, prepState: pm?.prepState || 'done', isArtifact: true };
+  }
+
+  // 2. Variantes de vídeo pré-renderizadas
+  if (pm?.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
+    return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
   }
 
   const info = pm?.mediaInfo;
