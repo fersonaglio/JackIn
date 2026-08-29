@@ -33,6 +33,13 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML,
 #                          magnet; áudio e resolução vêm do corpo do post
 WP_SITES = [
     {
+        "name": "melhortorrent",
+        "search_url": "https://melhortorrent.com/?s=",
+        "max_posts": 6,
+        "label_type": "inline",
+        "is_html_search": True,
+    },
+    {
         "name": "baixetorrents",
         "search_url": "https://www.baixetorrents.net/wp-json/wp/v2/search",
         "max_posts": 4,
@@ -242,16 +249,25 @@ def _extract_buttons(html: str) -> list:
 # ─── Magnet extraction ────────────────────────────────────────────────────────
 
 def _extract_inline(html: str) -> list:
-    """baixetorrents: <a href="magnet:...">🧲 1080p | 3.96 GB | Dublado R5</a>."""
+    """Extracts inline magnets, looking at text, title attribute, or preceding context."""
     out = []
-    for href, label in re.findall(r'<a[^>]+href="(magnet:[^"]+)"[^>]*>(.*?)</a>', html):
-        m = re.search(r"btih[:%]([a-fA-F0-9]{40})", href)
-        if not m:
+    for m in re.finditer(r'<a\s+[^>]*href=[\"\'](magnet:[^\"\']+)[\"\']([^>]*)>(.*?)</a>', html, re.I | re.DOTALL):
+        href = m.group(1)
+        attrs = m.group(2)
+        inner = m.group(3)
+        hm = re.search(r"btih[:%]([a-fA-F0-9]{40})", href, re.I)
+        if not hm:
             continue
-        label_txt = re.sub(r"<[^>]+>", "", label)
+        title_m = re.search(r'title=[\"\']([^\"\']+)[\"\']', attrs, re.I)
+        label_txt = title_m.group(1) if title_m else re.sub(r"<[^>]+>", "", inner)
         label_txt = htmlmod.unescape(label_txt).strip()
+        if not label_txt or label_txt.upper() == "BAIXAR":
+            start = max(0, m.start() - 150)
+            pre = re.sub(r"<[^>]+>", " ", html[start:m.start()]).strip()
+            if pre:
+                label_txt = pre[-80:]
         out.append({
-            "info_hash": m.group(1).lower(),
+            "info_hash": hm.group(1).lower(),
             "url": href.replace("&amp;", "&"),
             "label": label_txt,
         })
@@ -376,9 +392,6 @@ def _fetch_post_magnets(post_url: str, site: dict) -> list:
 
 
 def _post_title(html: str) -> str:
-    # og:title é o título limpo do curador (ex: "Shang-Chi e a Lenda dos Dez
-    # Anéis [IMAX] Torrent (2021) Dual Áudio 5.1 / Dublado"). Falls back to
-    # <title> (que carrega o nome do site).
     m = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', html, re.I)
     if not m:
         m = re.search(r"<title>(.*?)</title>", html, re.S | re.I)
@@ -393,20 +406,25 @@ def _search_site(site: dict, query: str) -> list:
     if cached is not None:
         return cached
 
-    params = urllib.parse.urlencode({"search": query, "per_page": site["max_posts"]})
-    url = f"{site['search_url']}?{params}"
-    try:
-        # _get com is_json=True (default) já faz json.loads → retorna list/dict.
-        data = _get(url, timeout=(2.0, 3.5))
-    except Exception:
-        return []
-
-
-    if not isinstance(data, list):
-        return []
-
-    posts = [p.get("url") for p in data if p.get("url")]
-    posts = posts[: site["max_posts"]]
+    if site.get("is_html_search"):
+        url = f"{site['search_url']}{urllib.parse.quote(query.strip())}"
+        try:
+            html = _get(url, timeout=(2.5, 4.0), is_json=False)
+            links = re.findall(r'<a[^>]+href=[\"\'](https?://[^/]+/baixar-[^\"\']+)[\"\']', html, re.I)
+            posts = list(dict.fromkeys(links))[: site.get("max_posts", 6)]
+        except Exception:
+            posts = []
+    else:
+        params = urllib.parse.urlencode({"search": query, "per_page": site["max_posts"]})
+        url = f"{site['search_url']}?{params}"
+        try:
+            data = _get(url, timeout=(2.0, 3.5))
+        except Exception:
+            data = []
+        if isinstance(data, list):
+            posts = [p.get("url") for p in data if p.get("url")][: site["max_posts"]]
+        else:
+            posts = []
 
     if not posts:
         _cache_set(key, [])
