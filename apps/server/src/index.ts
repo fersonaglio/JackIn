@@ -7,7 +7,7 @@ import { initDb, getDb } from './db/schema.js';
 import mediaSearchRouter, { reconcileMovieStatus } from './domains/media/media-search.js';
 import mediaLibraryRouter from './domains/library/media-library.js';
 import catalogRouter from './domains/library/catalog.js';
-import { reconcileProjectMedia } from './services/media-service.js';
+import { reconcileProjectMedia, healMissingVideoPaths } from './services/media-service.js';
 import { getPrimaryLanIp } from './services/network.js';
 
 // Load environment variables from the workspace root .env file
@@ -85,6 +85,10 @@ async function reconcileStuckDownloads() {
     }
     if (doneRows.length > 0) {
       console.log(`[JackIn] Reconciliados ${doneRows.length} artefato(s) de playback faltantes.`);
+    }
+    const healed = healMissingVideoPaths();
+    if (healed > 0) {
+      console.log(`[JackIn] Corrigidos video_path de ${healed} projeto(s) concluído(s).`);
     }
   } catch (err) {
     console.error('[JackIn] Erro na reconciliação de downloads:', err);

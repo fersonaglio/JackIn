@@ -711,6 +711,32 @@ export function findMasterFile(projectDir: string): string | null {
   return any ? path.join(projectDir, any) : null;
 }
 
+// ── Auto-heal de video_path ausente/errado ────────────────────────────────
+// Downloads concluídos por fluxos manuais (remux fora do worker) podem deixar
+// video_path NULL, relativo ou apontando para um arquivo que já não existe
+// (ex.: raw torrent removido na limpeza). O playback já cai no master.mp4 do
+// disco, então este heal reconcilia a coluna com o artefato real (caminho
+// ABSOLUTO) para que sizeBytes, cast, legendas e exclusão voltem a funcionar.
+export function healMissingVideoPaths(): number {
+  const db = getDb();
+  const rows = db.exec(
+    "SELECT id, video_path FROM projects WHERE status = 'done'"
+  )[0]?.values || [];
+  let fixed = 0;
+  for (const r of rows) {
+    const id = String(r[0]);
+    const vp = (r[1] as string) || null;
+    if (vp && path.isAbsolute(vp) && fs.existsSync(vp)) continue;
+    const master = findMasterFile(path.join(DATA_DIR, 'projects', id));
+    if (master && fs.existsSync(master) && fs.statSync(master).size > 1000000) {
+      db.run('UPDATE projects SET video_path = ? WHERE id = ?', [master, id]);
+      fixed++;
+    }
+  }
+  if (fixed > 0) persist();
+  return fixed;
+}
+
 // ── Preparation pipeline ──────────────────────────────────────────────────
 const runningPrep = new Map<string, Promise<void>>();
 // Geração de cada prepare: incrementa a cada prepareProject novo. O prepare
