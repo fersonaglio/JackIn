@@ -173,6 +173,42 @@ def inspect_video_stream(file_path: Path) -> dict | None:
         format_info = data.get("format", {})
         duration = float(format_info.get("duration", 0))
 
+        if not has_video or not has_audio or not has_acceptable_audio:
+            reason = "sem vídeo" if not has_video else ("sem áudio" if not has_audio else f"áudio mono (canais={max_channels})")
+            print(f"SECURITY CHECK REJECTED: {reason} em {file_path.name} (path: {file_path})", file=sys.stderr)
+            return None
+
+        # SONDAGEM ATIVA DE DECODIFICAÇÃO (FFmpeg Decode Probe):
+        # Valida que os pacotes de vídeo e áudio são fisicamente decodificáveis (sem NAL units corrompidos,
+        # moov truncado ou frames faltando que congelam o player no browser).
+        probe_decode_cmd = [
+            FFMPEG_BIN, "-v", "error",
+            "-i", str(file_path),
+            "-t", "5",
+            "-f", "null", "-"
+        ]
+        probe_res = subprocess.run(probe_decode_cmd, capture_output=True, text=True, timeout=45)
+        if probe_res.returncode != 0 or "Invalid NAL unit" in probe_res.stderr or "missing picture" in probe_res.stderr:
+            err_msg = probe_res.stderr.strip()[:200]
+            print(f"SECURITY CHECK REJECTED: Bitstream de vídeo corrompido em {file_path.name}: {err_msg}", file=sys.stderr)
+            return None
+
+        # Se o vídeo tiver mais de 30 segundos, sonda também um trecho no meio do arquivo
+        if duration > 30:
+            seek_time = str(min(30, max(5, int(duration * 0.1))))
+            seek_decode_cmd = [
+                FFMPEG_BIN, "-v", "error",
+                "-ss", seek_time,
+                "-i", str(file_path),
+                "-t", "5",
+                "-f", "null", "-"
+            ]
+            seek_res = subprocess.run(seek_decode_cmd, capture_output=True, text=True, timeout=45)
+            if seek_res.returncode != 0 or "Invalid NAL unit" in seek_res.stderr or "missing picture" in seek_res.stderr:
+                err_msg = seek_res.stderr.strip()[:200]
+                print(f"SECURITY CHECK REJECTED: Decodificação falhou aos {seek_time}s em {file_path.name}: {err_msg}", file=sys.stderr)
+                return None
+
         result = {
             "has_video": has_video,
             "has_audio": has_audio,
@@ -180,18 +216,11 @@ def inspect_video_stream(file_path: Path) -> dict | None:
             "duration": duration,
             "size_bytes": file_path.stat().st_size
         }
-
-        if not has_video or not has_audio or not has_acceptable_audio:
-            reason = "sem vídeo" if not has_video else ("sem áudio" if not has_audio else f"áudio mono (canais={max_channels})")
-            print(f"SECURITY CHECK REJECTED: {reason} em {file_path.name} (path: {file_path})", file=sys.stderr)
-            return None
-
         return result
     except Exception as e:
-        # FAIL-CLOSED: um arquivo que o ffprobe não consegue nem parsear NÃO é
-        # um vídeo válido (ex.: torrent interrompido que deixou um arquivo
-        # pré-alocado cheio de zeros). Aprovar aqui marca um lixo como "done".
-        print(f"SECURITY CHECK REJECTED: FFprobe falhou em {file_path.name} (path: {file_path}): {e}", file=sys.stderr)
+        # FAIL-CLOSED: um arquivo que o ffprobe/ffmpeg não consegue decodificar NÃO é
+        # um vídeo válido. Aprovar aqui marca um arquivo corrompido como "done".
+        print(f"SECURITY CHECK REJECTED: Validação falhou em {file_path.name} (path: {file_path}): {e}", file=sys.stderr)
         return None
 
 def quarantine_file(file_path: Path, reason: str) -> Path | None:
@@ -514,8 +543,10 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
         
         tmp_out = file_path.with_suffix(".reorder.tmp" + file_path.suffix)
         remux_cmd = [
-            FFMPEG_BIN, "-y", "-i", str(file_path),
-            "-map", "0:v",
+            FFMPEG_BIN, "-y",
+            "-fflags", "+genpts+discardcorrupt",
+            "-i", str(file_path),
+            "-map", "0:v:0",
             "-c:v", "copy",
             "-map", f"0:a:{target_pt}",
             "-c:a:0", "aac", "-b:a:0", "384k",
@@ -525,7 +556,13 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
             if i != target_pt:
                 remux_cmd.extend(["-map", f"0:a:{i}", f"-c:a:{out_a_idx}", "copy"])
                 out_a_idx += 1
-        remux_cmd.extend(["-map", "0:s?", "-c:s", "copy", "-movflags", "+faststart", str(tmp_out)])
+        remux_cmd.extend([
+            "-sn",
+            "-movflags", "+faststart",
+            "-avoid_negative_ts", "make_zero",
+            "-max_muxing_queue_size", "4096",
+            str(tmp_out)
+        ])
 
         subprocess.run(remux_cmd, capture_output=True, check=True, timeout=600)
         if tmp_out.exists() and tmp_out.stat().st_size > 1000:
@@ -559,8 +596,14 @@ def extract_embedded_subtitles(file_path: Path, output_dir: Path):
             s_idx = s.get("index")
             lang = (s.get("tags", {}).get("language") or "und").lower()
             
-            # Formata nome do arquivo vtt
-            out_vtt = output_dir / f"subtitles.{lang}.vtt"
+            # Formata nomes de arquivos vtt padronizados
+            target_names = [f"subtitles.{lang}.vtt", f"subs_{lang}.vtt"]
+            if lang in ("por", "pt", "pob", "pt-br", "ptbr"):
+                target_names.extend(["subs_ptbr.vtt", "subs_por.vtt", "subtitles.pt-br.vtt"])
+            elif lang in ("eng", "en"):
+                target_names.extend(["subs_en.vtt", "subs_eng.vtt", "subtitles.en.vtt"])
+
+            out_vtt = output_dir / target_names[0]
             if out_vtt.exists():
                 out_vtt = output_dir / f"subtitles.{lang}.{s_idx}.vtt"
                 
@@ -573,6 +616,14 @@ def extract_embedded_subtitles(file_path: Path, output_dir: Path):
             subprocess.run(sub_cmd, capture_output=True, timeout=60)
             if out_vtt.exists() and out_vtt.stat().st_size > 10:
                 print(f"[JackIn DL] 📝 Legenda extraída com sucesso: {out_vtt.name} ({lang})", file=sys.stderr)
+                for alias in target_names[1:]:
+                    alias_path = output_dir / alias
+                    if not alias_path.exists():
+                        try:
+                            import shutil
+                            shutil.copyfile(out_vtt, alias_path)
+                        except Exception:
+                            pass
     except Exception as e:
         print(f"[JackIn DL] Aviso na extração de legendas: {e}", file=sys.stderr)
 
@@ -778,6 +829,19 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
     # silenciosamente viola o pedido explícito de áudio em português: rejeita
     # (fail-closed) para o auto-retry buscar uma fonte PT de verdade.
     verify_pt_audio(target_path, require_pt)
+
+    # Se a mídia baixada não possuir áudio PT-BR nativo e não tiver legenda PT-BR extraída,
+    # obtém automaticamente as legendas oficiais em português via OpenSubtitles v3 / Cinemeta.
+    has_pt_sub = (output_dir / "subs_ptbr.vtt").exists() or (output_dir / "subs_por.vtt").exists()
+    if not has_pt_sub:
+        try:
+            from modules.media.subtitle_service import fetch_ptbr
+            emit_progress(97, "Obtendo legendas sincronizadas em Português...", 0)
+            sub_res = fetch_ptbr(str(target_path), str(output_dir), title=title)
+            if sub_res.get("ok"):
+                print(f"[JackIn DL] ✓ Legenda PT-BR automática baixada: {sub_res.get('name')}", file=sys.stderr)
+        except Exception as sub_err:
+            print(f"[JackIn DL] Aviso na obtenção de legendas automáticas: {sub_err}", file=sys.stderr)
 
     # Camada 3: Extração de áudio limpo whisper_audio.wav para transcrição
     # (mono 16kHz é artefato de transcrição/Whisper — NÃO é o áudio do playback).

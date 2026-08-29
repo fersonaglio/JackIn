@@ -155,16 +155,72 @@ def srt_to_vtt(raw: str, target_vtt: str) -> bool:
     return True
 
 
+def _fetch_stremio_fallback(title: str, out_dir: str, suffix: str, season: str = "", episode: str = "") -> dict:
+    """Fallback público e gratuito via OpenSubtitles v3 / Cinemeta para quando não houver API key."""
+    clean_q = title.split("(")[0].strip() if title else ""
+    if not clean_q:
+        return {"ok": False, "error": "Título não informado para busca pública", "code": "no_title"}
+
+    imdb_id = None
+    try:
+        cat = "series" if season else "movie"
+        url = f"https://v3-cinemeta.strem.io/catalog/{cat}/top/search={urllib.parse.quote(clean_q)}.json"
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+            metas = d.get("metas", [])
+            if metas:
+                imdb_id = metas[0].get("id") or metas[0].get("imdb_id")
+    except Exception as e:
+        pass
+
+    if not imdb_id:
+        return {"ok": False, "error": f"IMDb ID não localizado para: {clean_q}", "code": "no_imdb"}
+
+    try:
+        if season and episode:
+            sub_url = f"https://opensubtitles-v3.strem.io/subtitles/series/{imdb_id}:{season}:{episode}.json"
+        else:
+            sub_url = f"https://opensubtitles-v3.strem.io/subtitles/movie/{imdb_id}.json"
+
+        req = urllib.request.Request(sub_url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+            subs = d.get("subtitles", [])
+            # Prioriza pob/por/pt-br se suffix for ptbr
+            target_langs = ("pob", "por", "pt-br", "pt") if suffix == "ptbr" else ("eng", "en")
+            matching_subs = [s for s in subs if s.get("lang") in target_langs]
+            if not matching_subs:
+                return {"ok": False, "error": f"Nenhuma legenda encontrada no catálogo público para {clean_q}", "code": "not_found"}
+
+            sub_link = matching_subs[0].get("url")
+            if not sub_link:
+                return {"ok": False, "error": "URL da legenda vazia", "code": "empty_url"}
+
+            sub_req = urllib.request.Request(sub_link, headers={"User-Agent": UA})
+            with urllib.request.urlopen(sub_req, timeout=15) as s_res:
+                raw = s_res.read().decode("utf-8", "replace")
+
+            target_vtt = str(pathlib.Path(out_dir) / f"subs_{suffix}.vtt")
+            ok = srt_to_vtt(raw, target_vtt)
+            if ok and os.path.exists(target_vtt):
+                # Also save standard alias names
+                if suffix == "ptbr":
+                    for alias in ("subs_por.vtt", "subtitles.por.vtt", "subtitles.pt-br.vtt"):
+                        alias_path = pathlib.Path(out_dir) / alias
+                        try:
+                            pathlib.Path(alias_path).write_text(pathlib.Path(target_vtt).read_text(encoding="utf-8"), encoding="utf-8")
+                        except Exception:
+                            pass
+                return {"ok": True, "path": target_vtt, "name": matching_subs[0].get("subtitleFileName", clean_q)}
+    except Exception as err:
+        return {"ok": False, "error": f"Erro na busca de legendas públicas: {err}", "code": "stremio_failed"}
+
+    return {"ok": False, "error": "Falha na conversão de legendas públicas", "code": "unknown"}
+
+
 def fetch_subtitle(video_path: str, out_dir: str, lang: str = "pt-br", title: str = "",
                    season: str = "", episode: str = "") -> dict:
-    api_key = os.environ.get("OPENSUBTITLES_API_KEY", "").strip()
-    username = os.environ.get("OPENSUBTITLES_USERNAME", "").strip()
-    password = os.environ.get("OPENSUBTITLES_PASSWORD", "").strip()
-
-    if not api_key:
-        return {"ok": False, "error": "OPENSUBTITLES_API_KEY não configurada",
-                "code": "no_api_key"}
-
     if not os.path.exists(video_path):
         return {"ok": False, "error": "Arquivo de vídeo não encontrado", "code": "no_video"}
 
@@ -178,19 +234,26 @@ def fetch_subtitle(video_path: str, out_dir: str, lang: str = "pt-br", title: st
         query_langs = lang
         suffix = lang.replace("-", "")
 
+    api_key = os.environ.get("OPENSUBTITLES_API_KEY", "").strip()
+    username = os.environ.get("OPENSUBTITLES_USERNAME", "").strip()
+    password = os.environ.get("OPENSUBTITLES_PASSWORD", "").strip()
+
+    if not api_key:
+        # Fallback automático gratuito sem necessidade de chave de API
+        return _fetch_stremio_fallback(title, out_dir, suffix, season, episode)
+
     file_hash = opensubtitles_hash(video_path)
     size = os.path.getsize(video_path)
     token = _login(api_key, username, password)
     if not token:
-        return {"ok": False, "error": "Falha no login OpenSubtitles (usuário/senha inválidos?)", "code": "login_failed"}
+        return _fetch_stremio_fallback(title, out_dir, suffix, season, episode)
 
     candidates = _search(token, api_key, languages=query_langs, file_hash=file_hash, size=size)
     if not candidates and title:
         candidates = _search(token, api_key, languages=query_langs, title=title, season=season, episode=episode)
 
     if not candidates:
-        return {"ok": False, "error": f"Nenhuma legenda {lang.upper()} encontrada",
-                "code": "not_found", "hash": file_hash}
+        return _fetch_stremio_fallback(title, out_dir, suffix, season, episode)
 
     target_vtt = str(pathlib.Path(out_dir) / f"subs_{suffix}.vtt")
     best = candidates[0]
@@ -202,10 +265,10 @@ def fetch_subtitle(video_path: str, out_dir: str, lang: str = "pt-br", title: st
             file_id = best.get("id")
         ok = _download(token, api_key, int(file_id), target_vtt)
     except Exception as e:
-        return {"ok": False, "error": f"Falha ao baixar legenda: {e}", "code": "download_failed"}
+        return _fetch_stremio_fallback(title, out_dir, suffix, season, episode)
 
     if not ok or not os.path.exists(target_vtt):
-        return {"ok": False, "error": "Falha ao converter legenda para VTT", "code": "convert_failed"}
+        return _fetch_stremio_fallback(title, out_dir, suffix, season, episode)
 
     return {"ok": True, "path": target_vtt, "hash": file_hash,
             "name": attributes.get("title", "") if attributes else ""}

@@ -617,7 +617,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   }
   // Subtítulos são extraídos como WebVTT limpos e servidos via /subtitles?lang=...
   // Muxar mov_text no MP4 gera jitter de timestamp e travamentos na decodificação do browser.
-  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
+  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -652,7 +652,7 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
   } else {
     args.push('-c:a', 'copy');
   }
-  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
+  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -668,7 +668,7 @@ function buildAudioVariantArgs(info: MediaInfo, audioIdx: number, outPath: strin
   if (info.video?.codec === 'hevc') args.push('-tag:v', 'hvc1');
   const copiesAudio = track.codec === 'aac' && !isHeAacAudio(track);
   args.push('-map', `0:${track.index}`, '-c:a', copiesAudio ? 'copy' : 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'));
-  args.push('-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
+  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -1024,6 +1024,11 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
 
   // Se o master.mp4 existe no diretório do projeto com tamanho válido (> 1MB), resolve direto:
   if (fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000) {
+    const info = pm?.mediaInfo;
+    const isHevc = info?.video?.codec === 'hevc';
+    if (target === 'h264' && isHevc && pm?.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
+      return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
+    }
     return { filePath: masterFile, prepState: pm?.prepState || 'done', isArtifact: true };
   }
 
