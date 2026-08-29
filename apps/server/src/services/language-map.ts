@@ -3,16 +3,16 @@
 // (media-service NÃO pode importar de projects.ts — ciclo).
 
 export const LANG_TO_CODES: Record<string, string[]> = {
-  'pt-br': ['por', 'pt', 'pt-br', 'ptbr', 'bra'],
-  'en': ['eng', 'en', 'en-us'],
-  'es': ['spa', 'es', 'es-419'],
-  'fr': ['fre', 'fra', 'fr'],
-  'de': ['ger', 'deu', 'de'],
-  'ja': ['jpn', 'ja'],
-  'it': ['ita', 'it'],
-  'ru': ['rus', 'ru'],
-  'ko': ['kor', 'ko'],
-  'zh': ['zho', 'chi', 'zh'],
+  'pt-br': ['por', 'pt', 'pt-br', 'ptbr', 'bra', 'pob', 'portuguese', 'portugues', 'dublado'],
+  'en': ['eng', 'en', 'en-us', 'english'],
+  'es': ['spa', 'es', 'es-419', 'spanish', 'castellano'],
+  'fr': ['fre', 'fra', 'fr', 'french'],
+  'de': ['ger', 'deu', 'de', 'german'],
+  'ja': ['jpn', 'ja', 'japanese'],
+  'it': ['ita', 'it', 'italian'],
+  'ru': ['rus', 'ru', 'russian'],
+  'ko': ['kor', 'ko', 'korean'],
+  'zh': ['zho', 'chi', 'zh', 'chinese'],
 };
 
 export function buildCodeToLang(): Record<string, string> {

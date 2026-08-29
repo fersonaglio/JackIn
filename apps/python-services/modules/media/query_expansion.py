@@ -13,9 +13,9 @@ from search_data import TRANSLATIONS, REVERSE_TRANSLATIONS, COMPOUND_TRANSLATION
 
 
 def _fold(text: str) -> str:
-    """Lowercase and strip accents so "senhor dos anéis" matches the map key
-    "senhor dos aneis"."""
-    return unicodedata.normalize("NFD", text).encode("ascii", "ignore").decode("ascii").lower()
+    """Lowercase, strip accents and normalize delimiters so 'senhor dos anéis' matches 'senhor dos aneis'."""
+    s = unicodedata.normalize("NFD", text).encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"[-_.:,/]", " ", s)
 
 
 def _pt_to_en(title: str) -> str:
@@ -27,19 +27,19 @@ def _pt_to_en(title: str) -> str:
     "senhor dos aneis a sociedade do anel" becomes "The Lord of the Rings The Fellowship of the Ring".
     """
     low = title.lower()
-    folded = _fold(title)
+    folded = " ".join(_fold(title).split())
 
     # Step 1: full match — the entire query (after folding) matches a compound key
     for pt, en in COMPOUND_TRANSLATIONS.items():
         if not en:
             continue
-        if _fold(pt) == folded:
+        if " ".join(_fold(pt).split()) == folded:
             return en
 
     # Step 2: iterative replacement. Start with the original (preserving case)
     # and replace PT phrases with EN equivalents, longest key first.
     # Re-fold after each replacement so subsequent matches see the new text.
-    result = low
+    result = " ".join(re.sub(r"[-_.:,/]", " ", low).split())
     changed = True
     max_iter = 10
 
@@ -57,13 +57,13 @@ def _pt_to_en(title: str) -> str:
         if not changed:
             break
         changed = False
-        result_folded = _fold(result)
+        result_folded = " ".join(_fold(result).split())
         for pt, en in all_pt_en:
-            pt_folded = _fold(pt)
+            pt_folded = " ".join(_fold(pt).split())
             idx = result_folded.find(pt_folded)
             if idx >= 0:
                 # Replace the PT phrase with the EN equivalent
-                result = result[:idx] + en + result[idx + len(pt):]
+                result = result[:idx] + en + result[idx + len(pt_folded):]
                 changed = True
                 break  # restart scan after each replacement
 

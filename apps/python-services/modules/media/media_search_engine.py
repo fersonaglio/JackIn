@@ -14,7 +14,7 @@ from pathlib import Path
 from config import MEDIA_APIS, TRACKERS_QUERY, get_unverified_context, get_session
 from normalize import is_series, season_of, series_base_title, clean_title, normalize_key
 from matcher import similarity
-from query_expansion import expand_queries, _fold
+from query_expansion import expand_queries, _fold, _pt_to_en
 from sources import search_all
 from sources_br import search_pt
 from sources_br_sites import search_wp_sites
@@ -1048,13 +1048,8 @@ def search_media(query: str, audio: str = "", meta_hint: dict = None, pt_title: 
         if results:
             return results
 
-    # Base query for matching (translated to English when a known term appears)
-    match_query = q
-    q_folded = _fold(q)
-    for key, val in TRANSLATIONS.items():
-        if key in q_folded:
-            match_query = q_folded.replace(key, val)
-            break
+    # Base query for matching (translated to English with compound handling)
+    match_query = _pt_to_en(q)
 
     # 1. Gather a candidate pool across query variants and sources (>= MIN_CANDIDATES).
     #    Dubbed/legendado candidates surface via the base query (indexers match
