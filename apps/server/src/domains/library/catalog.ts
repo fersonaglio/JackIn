@@ -7,6 +7,16 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const ITUNES_RSS_URL = 'https://itunes.apple.com/us/rss';
 const CACHE_HEADERS = { 'Cache-Control': 'no-store' };
 
+// Janela de recência (anos): o feed só mostra títulos dos últimos N anos.
+// Ajustável — 0 desliga o piso (passa a mostrar também clássicos antigos).
+const RECENCY_FLOOR_YEARS = 3;
+
+function yearsAgoDate(years: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  return d.toISOString().slice(0, 10);
+}
+
 // Tabs do catálogo → IDs de gênero do TMDB.
 const MOVIE_GENRE_IDS: Record<string, string> = {
   action: '28',
@@ -189,13 +199,13 @@ async function fetchTmdbPage(type: 'movie' | 'tv', genreId: string, page: number
   if (!apiKey) return { rows: [], totalPages: 0, failed: true };
 
   const today = new Date().toISOString().slice(0, 10);
-  // Filmes: por data de lançamento (mais recentes primeiro, os antigos por
-  // último). IMPORTANTE: usar `release_date.desc` (e NÃO primary_release_date)
-  // — o discover do TMDB pagina de forma INSTÁVEL com primary_release_date:
-  // várias estreias compartilham a mesma data e o desempate muda entre requests,
-  // gerando títulos duplicados/faltando entre páginas. `release_date.desc` é
-  // estável (0 duplicatas em 200 páginas). Séries: das mais assistidas.
-  const sortBy = type === 'tv' ? 'vote_count.desc' : 'release_date.desc';
+  const floorDate = RECENCY_FLOOR_YEARS > 0 ? yearsAgoDate(RECENCY_FLOOR_YEARS) : null;
+  // Filmes e séries: `popularity.desc`. A popularidade do TMDB já é uma métrica
+  // diária rolante com recência embutida (views + favoritos + watchlist + votos,
+  // com decaimento temporal), entregando "recente + relevante" num único sort
+  // NATIVO e estável — preserva a paginação por offset direto (tmdbWindow) sem
+  // duplicatas/vazios entre páginas.
+  const sortBy = 'popularity.desc';
   const params = new URLSearchParams({
     api_key: apiKey,
     sort_by: sortBy,
@@ -206,12 +216,14 @@ async function fetchTmdbPage(type: 'movie' | 'tv', genreId: string, page: number
   if (type === 'movie') {
     // `release_date.lte` sozinho VAZA lançamentos futuros (bug do TMDB: devolve
     // filmes com release_date no futuro mesmo com o filtro). O
-    // `primary_release_date.lte` adicional segura esses casos, mantendo o sort
-    // por release_date (estável, sem duplicatas).
+    // `primary_release_date.lte` adicional segura esses casos. O `release_date.gte`
+    // aplica o piso de recência para o feed ficar "recente e relevante".
     params.set('release_date.lte', today);
     params.set('primary_release_date.lte', today);
+    if (floorDate) params.set('release_date.gte', floorDate);
   } else {
     params.set('first_air_date.lte', today);
+    if (floorDate) params.set('first_air_date.gte', floorDate);
   }
   if (genreId) params.set('with_genres', genreId);
 
@@ -287,12 +299,6 @@ router.get('/discover', async (req: Request, res: Response) => {
     }
 
     const items = dedupeById(rows).slice(offset, offset + CATALOG_PER_PAGE).map((r) => mapTmdbRow(type, r));
-    // O sort do TMDB é aproximadamente decrescente por data (alguns vizinhos
-    // ficam fora de ordem). Reordena os 18 da página para garantir "recentes
-    // primeiro" de forma estrita (nulos/sem data por último).
-    if (type === 'movie') {
-      items.sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''));
-    }
     const payload = {
       source: 'tmdb',
       items,
