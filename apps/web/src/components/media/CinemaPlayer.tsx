@@ -792,13 +792,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       const target = pendingSeekTimeRef.current;
       if (target !== null && el) {
         try {
-          if ('fastSeek' in el && typeof (el as any).fastSeek === 'function') {
-            (el as any).fastSeek(target);
-          } else {
-            el.currentTime = target;
-          }
-        } catch {
           el.currentTime = target;
+        } catch {
+          // Fallback silencioso se o elemento estiver em transição
         }
       }
       if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
@@ -817,13 +813,9 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     seekCommitTimerRef.current = setTimeout(() => {
       if (videoRef.current) {
         try {
-          if ('fastSeek' in videoRef.current && typeof (videoRef.current as any).fastSeek === 'function') {
-            (videoRef.current as any).fastSeek(val);
-          } else {
-            videoRef.current.currentTime = val;
-          }
-        } catch {
           videoRef.current.currentTime = val;
+        } catch {
+          // Fallback silencioso
         }
       }
       if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
