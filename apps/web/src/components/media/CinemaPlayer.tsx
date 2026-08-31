@@ -792,6 +792,8 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
       const target = pendingSeekTimeRef.current;
       if (target !== null && el) {
         try {
+          // currentTime faz seek preciso (sample-accurate). fastSeek() é experimental
+          // (não-Baseline) e pula para o keyframe mais próximo; por isso não usamos aqui.
           el.currentTime = target;
         } catch {
           // Fallback silencioso se o elemento estiver em transição
@@ -813,6 +815,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     seekCommitTimerRef.current = setTimeout(() => {
       if (videoRef.current) {
         try {
+          // Idem: currentTime (sample-accurate) em vez de fastSeek() (keyframe aproximado).
           videoRef.current.currentTime = val;
         } catch {
           // Fallback silencioso
