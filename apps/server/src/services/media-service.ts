@@ -617,7 +617,10 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   }
   // Subtítulos são extraídos como WebVTT limpos e servidos via /subtitles?lang=...
   // Muxar mov_text no MP4 gera jitter de timestamp e travamentos na decodificação do browser.
-  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
+  // avoid_negative_ts make_zero reescreve a edit list (elst) do MP4 e dessincroniza
+  // A/V (áudio ~21–65ms adiantado). 'auto' preserva a edit list da fonte e só
+  // corrige timestamps negativos quando necessário.
+  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'auto', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -652,7 +655,7 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
   } else {
     args.push('-c:a', 'copy');
   }
-  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
+  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'auto', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -672,7 +675,7 @@ function buildAudioVariantArgs(info: MediaInfo, audioIdx: number, outPath: strin
   } else {
     args.push('-map', `0:${track.index}`, '-c:a', 'aac', '-b:a', audioBitrate(track.channels || 2, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
   }
-  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'make_zero', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
+  args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'auto', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
 }
 
@@ -691,7 +694,10 @@ function settingsHash(info: MediaInfo): string {
     // masterAudio: 'aac-lc' invalida masters antigos gerados com EAC3 — EAC3 o
     // Safari toca, mas Chrome/Edge (Chromium) em Apple Silicon usam target=hevc
     // e ficam MUDOS. Bump forçado para regenerar com áudio universal AAC-LC.
-    flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1', masterAudio: 'aac-lc', remuxVersion: 'v2-clean-ts' },
+    // remuxVersion: 'v3-av-sync' invalida artefatos antigos gerados com
+    // avoid_negative_ts make_zero (áudio ~21–65ms adiantado). Bump forçado para
+    // regenerar os master/playable/audio com a edit list preservada.
+    flags: { fast: process.env.JACKIN_FAST_TRANSCODE === '1', masterAudio: 'aac-lc', remuxVersion: 'v3-av-sync' },
   };
   return crypto.createHash('sha256').update(JSON.stringify(summary)).digest('hex');
 }
