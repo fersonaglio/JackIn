@@ -750,7 +750,7 @@ export function reconcileMovieStatus(projectId: string): void {
         walk(p);
       } else if (e.name.endsWith('.aria2')) {
         aria2Files.push(p);
-      } else if (/\.(mp4|mkv|webm|avi|mov|m4v|ts|m2ts)$/i.test(e.name)) {
+      } else if (/\.(mp4|mkv|webm|avi|mov|m4v|ts|m2ts)$/i.test(e.name) && !e.name.startsWith('audio_') && !e.name.startsWith('whisper_')) {
         if (!p.includes('.tmp-') && (!videoFile || fs.statSync(p).size > fs.statSync(videoFile).size)) {
           videoFile = p;
         }
