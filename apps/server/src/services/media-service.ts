@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { FFMPEG_BIN, FFPROBE_BIN } from './binary-paths.js';
 import { getDb, persist, DATA_DIR } from '../db/schema.js';
 import { progressEvents } from './progress-events.js';
-import { codeToLang, LANG_LABEL } from './language-map.js';
+import { codeToLang, LANG_LABEL, LANG_TO_CODES } from './language-map.js';
 
 export type PrepState = 'none' | 'running' | 'partial' | 'done' | 'failed';
 export type Target = 'hevc' | 'h264';
@@ -1053,6 +1053,26 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
   const pm = getProjectMedia(projectId);
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
   const masterFile = path.join(projectDir, 'master.mp4');
+
+  // Se um idioma de áudio foi solicitado, prioriza a variante de áudio dedicada
+  if (audioLang) {
+    const candidateCodes = [
+      audioLang,
+      ...(LANG_TO_CODES[audioLang] || []),
+      codeToLang[audioLang],
+    ].filter(Boolean) as string[];
+
+    for (const code of candidateCodes) {
+      const safeCode = code.replace(/[^a-z0-9-]/gi, '_');
+      const variantPath = path.join(projectDir, `audio_${safeCode}.mp4`);
+      if (fs.existsSync(variantPath) && fs.statSync(variantPath).size > 1000000) {
+        return { filePath: variantPath, prepState: pm?.prepState || 'done', isArtifact: true };
+      }
+      if (pm?.artifacts?.audio?.[code] && fs.existsSync(pm.artifacts.audio[code].path)) {
+        return { filePath: pm.artifacts.audio[code].path, prepState: pm?.prepState || 'done', isArtifact: true };
+      }
+    }
+  }
 
   // 1. Se o master.mp4 existe no diretório com tamanho válido (> 1MB), resolve direto com vídeo + áudio:
   if (fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000) {
