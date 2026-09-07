@@ -638,6 +638,7 @@ def verify_pt_audio(file_path: Path, require_pt: bool) -> list:
     silenciosamente.
     """
     file_path = Path(file_path)
+
     reorder_audio_tracks_prefer_pt(file_path)
     extract_embedded_subtitles(file_path, file_path.parent)
     langs = detect_audio_languages(file_path)
