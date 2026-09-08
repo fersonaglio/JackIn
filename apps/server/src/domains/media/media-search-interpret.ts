@@ -223,6 +223,7 @@ const DETERMINISTIC_TRANSLATIONS: Record<string, string> = {
   "missao impossivel efeito fallout": "Mission Impossible Fallout",
   "missao impossivel nacao secreta": "Mission Impossible Rogue Nation",
   "missao impossivel protocolo fantasma": "Mission Impossible Ghost Protocol",
+  "homem aranha um novo dia": "Spider-Man: Brand New Day",
   "homem aranha sem volta para casa": "Spider-Man: No Way Home",
   "homem aranha longe de casa": "Spider-Man: Far From Home",
   "homem aranha de volta ao lar": "Spider-Man: Homecoming",
@@ -259,6 +260,8 @@ const DETERMINISTIC_TRANSLATIONS: Record<string, string> = {
   "o poderoso chefao": "The Godfather",
   "jurassic world": "Jurassic World",
   "mundo jurassico": "Jurassic World",
+  "a odisseia": "The Odyssey",
+  "odisseia": "The Odyssey",
   "duna": "Dune",
   "o hobbit": "The Hobbit",
   "harry potter": "Harry Potter",
@@ -285,7 +288,9 @@ function foldText(text: string): string {
   return text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_:]/g, ' ')
     .toLowerCase()
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -305,7 +310,7 @@ function deterministicTranslate(rawQuery: string): string {
     if (folded.includes(keyFolded)) {
       const value = DETERMINISTIC_TRANSLATIONS[key];
       if (value === 'senhor') continue; // typo alias — skip, let another key match
-      const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[-_:\\s]+'), 'gi');
       result = result.replace(re, value);
       break; // First (longest) match wins
     }
