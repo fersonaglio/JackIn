@@ -1320,3 +1320,187 @@
 2026-09-12 12:19:21.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
 2026-09-12 12:19:21.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
 2026-09-12 12:19:21.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (28 ms)
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:24:42.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:42.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:24:56.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:56.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:56.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:24:56.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:24:56.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:56.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:24:56.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:24:56.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:30:08.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:30:08.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:30:08.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:30:08.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:30:08.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:30:08.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.1|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:30:08.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:08.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:30:08.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:30:24.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:24.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:24.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:30:24.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:30:24.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:24.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:30:24.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:30:24.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:36:31.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (38 ms)
+2026-09-12 12:36:31.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (28 ms)
+2026-09-12 12:36:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (22 ms)
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 12:36:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (20 ms)
+2026-09-12 12:36:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (33 ms)
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 12:36:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (27 ms)
+2026-09-12 12:36:46.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:46.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:46.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:36:46.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:36:46.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:46.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:36:46.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:36:46.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:41:54.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 12:41:54.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-12 12:41:54.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (19 ms)
+2026-09-12 12:41:54.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (24 ms)
+2026-09-12 12:41:54.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:41:54.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.1|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:41:54.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:41:54.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:41:54.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:42:09.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:42:09.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:42:09.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:42:09.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:42:09.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:42:09.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:42:10.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:42:10.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (24 ms)
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:56:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 12:56:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:18.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 12:56:26.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:26.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:26.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:56:26.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:56:26.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:26.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:56:26.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:26.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (20 ms)
+2026-09-12 12:56:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:56:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:56:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:56:31.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:56:31.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 13:07:54.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 13:07:54.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 13:07:54.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 13:07:54.7|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 13:07:54.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 13:07:54.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 13:07:54.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 13:07:54.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:07:54.7|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 13:08:12.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:08:12.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 13:08:12.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:08:12.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 13:08:12.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:08:12.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 13:08:12.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:08:12.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 13:22:28.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 13:22:28.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 13:22:28.5|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 13:22:28.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 13:22:28.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-12 13:22:28.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 13:22:28.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 13:22:28.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 13:22:28.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (2 ms)

@@ -611,7 +611,7 @@ function buildMasterArgs(info: MediaInfo, outPath: string): string[] {
   const alreadyAacLc = info.audio.every((a) => a.codec === 'aac' && !isHeAacAudio(a));
   if (!alreadyAacLc) {
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
-    args.push('-c:a', 'aac', '-ac', String(maxCh), '-b:a', audioBitrate(maxCh, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
+    args.push('-c:a', 'aac', '-ac', String(maxCh), '-b:a', audioBitrate(maxCh, 'aac'), '-af', aacPrimingFilter(info));
   } else {
     args.push('-c:a', 'copy');
   }
@@ -651,7 +651,7 @@ function buildPlayableArgs(info: MediaInfo, outPath: string): string[] {
   if (audioNeedsTranscode) {
     args.push('-c:a', 'aac');
     const maxCh = Math.max(...info.audio.map((a) => a.channels || 2));
-    args.push('-ac', String(maxCh), '-b:a', audioBitrate(maxCh, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
+    args.push('-ac', String(maxCh), '-b:a', audioBitrate(maxCh, 'aac'), '-af', aacPrimingFilter(info));
   } else {
     args.push('-c:a', 'copy');
   }
@@ -674,7 +674,7 @@ function buildAudioVariantArgs(info: MediaInfo, audioIdx: number, outPath: strin
     args.push('-map', `0:${track.index}`, '-c:a', 'copy');
   } else {
     const ch = track.channels || 2;
-    args.push('-map', `0:${track.index}`, '-c:a', 'aac', '-ac', String(ch), '-b:a', audioBitrate(ch, 'aac'), '-af', 'asetpts=PTS-STARTPTS');
+    args.push('-map', `0:${track.index}`, '-c:a', 'aac', '-ac', String(ch), '-b:a', audioBitrate(ch, 'aac'), '-af', aacPrimingFilter(info));
   }
   args.push('-sn', '-movflags', '+faststart', '-avoid_negative_ts', 'auto', '-max_muxing_queue_size', '4096', '-f', 'mp4', outPath);
   return args;
