@@ -179,5 +179,44 @@
       "eng",
       "por"
     ]
+  },
+  "3bf30bf43670d5d5aa704da194c62b3f5c42d05f": {
+    "pt": true,
+    "langs": [
+      "eng",
+      "por"
+    ]
+  },
+  "1b78a7f783ba38959e7fa8e68d78b7171a24f277": {
+    "pt": true,
+    "langs": [
+      "chi",
+      "cze",
+      "eng",
+      "fre",
+      "ger",
+      "hun",
+      "ita",
+      "jpn",
+      "kor",
+      "pol",
+      "por",
+      "rum",
+      "slo",
+      "spa",
+      "tur"
+    ]
+  },
+  "ed1efc7c44b2921b5f365d296ce7475954ae080f": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
+  },
+  "13d6ecac6c82d8bda7e2f8d6a96223005263d6c6": {
+    "pt": false,
+    "langs": [
+      "eng"
+    ]
   }
 }

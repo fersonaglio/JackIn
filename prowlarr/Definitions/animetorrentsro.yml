@@ -1,0 +1,160 @@
+---
+id: animetorrentsro
+name: AnimeTorrents.ro
+description: "AnimeTorrents.ro (Anime Torrents Romania) is a ROMANIAN Private Torrent Tracker for ANIME / MANGA"
+language: ro-RO
+type: private
+encoding: UTF-8
+links:
+  - https://animetorrents.io/
+legacylinks:
+  - https://animetorrents.ro/
+
+caps:
+  categorymappings:
+    - {id: 1, cat: TV/Anime, desc: "ANIME"}
+    - {id: 1, cat: Movies/Other, desc: "ANIME"} # for Radarr
+    - {id: 2, cat: Books/Comics, desc: "MANGA"}
+
+  modes:
+    search: [q]
+    tv-search: [q, season, ep]
+    movie-search: [q]
+    book-search: [q]
+
+settings:
+  - name: username
+    type: text
+    label: Username
+  - name: password
+    type: password
+    label: Password
+  - name: freeleech
+    type: checkbox
+    label: Search freeleech only
+    default: false
+  - name: cat-id
+    type: select
+    label: Category
+    default: 0
+    options:
+      0: All categories
+      1: Anime
+      2: Manga
+  - name: sort
+    type: select
+    label: Sort requested from site
+    default: 4
+    options:
+      4: created
+      7: seeders
+      5: size
+      1: title
+  - name: type
+    type: select
+    label: Order requested from site
+    default: desc
+    options:
+      desc: desc
+      asc: asc
+  - name: info
+    type: info
+    label: Results Per Page
+    default: For best results, change the <b>Torrents per page:</b> setting to <b>100</b> on your account profile.
+  - name: info_activity
+    type: info
+    label: Account Inactivity
+    default: "Inactive accounts under VIP and without parked are automatically deleted after about a year."
+
+login:
+  path: login.php
+  method: form
+  form: form
+  inputs:
+    username: "{{ .Config.username }}"
+    password: "{{ .Config.password }}"
+    referer: /
+  selectorinputs:
+    csrf_token:
+      selector: input[name="csrf_token"]
+      attribute: value
+  error:
+    - selector: table.main:contains("esuat")
+  test:
+    path: index.php
+    selector: a[href="logout.php"]
+
+search:
+  paths:
+    # https://animetorrents.ro/browse.php?search=2023&incldead=1&blah=0&cat=0
+    - path: browse.php
+  inputs:
+    search: "{{ .Keywords }}"
+    # 0 active, 1 all, 2 dead, 3 free
+    incldead: "{{ if .Config.freeleech }}3{{ else }}1{{ end }}"
+    # 0 name, 1 genre
+    blah: 0
+    # site does not support multiple cats
+    cat: "{{ .Config.cat-id }}"
+    sort: "{{ .Config.sort }}"
+    type: "{{ .Config.type }}"
+    # does not support imdbid search
+
+  rows:
+    selector: div > div > table > tbody > tr:has(a[href^="download.php/"])
+
+  fields:
+    categorydesc:
+      selector: span.at-cat
+    title:
+      selector: a[href^="details.php?id="]
+      filters:
+        - name: re_replace
+          args: ["^(\\[.+?\\]).(.+)", "$2.$1"]
+    details:
+      selector: a[href^="details.php?id="]
+      attribute: href
+    download:
+      selector: a[href^="download.php/"]
+      attribute: href
+    poster:
+      selector: a[onmouseover]
+      attribute: onmouseover
+      filters:
+        - name: regexp
+          args: "src=\\\\\"(.+?)\\\\\" width"
+    files:
+      selector: span.at-t-meta
+      filters:
+        - name: regexp
+          args: "· (\\d+) fișiere"
+    date:
+      selector: span.at-t-meta
+      # 07 Aug 2026
+      filters:
+        - name: regexp
+          args: "· (.+?) · de"
+        - name: append
+          args: " +00:00" # auto adjusted by site account profile
+        - name: dateparse
+          args: "dd MMM yyyy zzz"
+    size:
+      selector: td:nth-last-child(4)
+    grabs:
+      selector: td:nth-last-child(1)
+    seeders:
+      selector: td:nth-last-child(3)
+    leechers:
+      selector: td:nth-last-child(2)
+    downloadvolumefactor:
+      case:
+        span.at-free: 0
+        "*": 1
+    uploadvolumefactor:
+      text: 1
+    minimumratio:
+      text: 1.0
+    minimumseedtime:
+      # 2 days (as seconds = 2 x 24 x 60 x 60)
+      text: 172800
+# engine n/a

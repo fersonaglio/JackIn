@@ -1,0 +1,1322 @@
+2026-09-12 10:25:55.5|Debug|ProcessProvider|Found 0 processes with the name: Prowlarr.Console
+2026-09-12 10:25:55.5|Debug|ProcessProvider|Found 1 processes with the name: Prowlarr
+2026-09-12 10:25:55.5|Debug|ProcessProvider| - [152] Prowlarr
+2026-09-12 10:25:55.5|Info|MigrationController|*** Migrating data source=/config/logs.db;cache size=-20000;datetimekind=Utc;journal mode=Wal;pooling=True;version=3;busytimeout=1000 ***
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|DatabaseEngineVersionCheck migrating
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|PerformDBOperation 
+2026-09-12 10:25:55.5|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Performing DB Operation
+2026-09-12 10:25:55.5|Info|DatabaseEngineVersionCheck|SQLite 3.50.4
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0053999s
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|DatabaseEngineVersionCheck migrated
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0061613s
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|VersionMigration migrating
+2026-09-12 10:25:55.5|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|CreateTable VersionInfo
+2026-09-12 10:25:55.5|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE TABLE "VersionInfo" ("Version" INTEGER NOT NULL)
+2026-09-12 10:25:55.5|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0015069s
+2026-09-12 10:25:55.5|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|VersionMigration migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0056572s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|VersionUniqueMigration migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateIndex VersionInfo (Version)
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE UNIQUE INDEX "UC_Version" ON "VersionInfo" ("Version" ASC)
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0011707s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|AlterTable VersionInfo
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 6.2E-06s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateColumn VersionInfo AppliedOn DateTime
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|ALTER TABLE "VersionInfo" ADD COLUMN "AppliedOn" DATETIME
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0016161s
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|VersionUniqueMigration migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0038975s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|VersionDescriptionMigration migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|AlterTable VersionInfo
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 4.5E-06s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateColumn VersionInfo Description String
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|ALTER TABLE "VersionInfo" ADD COLUMN "Description" TEXT
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0011857s
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|VersionDescriptionMigration migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0037786s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|1: InitialSetup migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|InitialSetup|Starting migration of Log DB to 1
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateTable Logs
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE TABLE "Logs" ("Id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "Message" TEXT NOT NULL, "Time" DATETIME NOT NULL, "Logger" TEXT NOT NULL, "Exception" TEXT, "ExceptionType" TEXT, "Level" TEXT NOT NULL)
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0071014s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateIndex Logs (Time)
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE INDEX "IX_Logs_Time" ON "Logs" ("Time" ASC)
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0014394s
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (1, '2026-09-12T13:25:55', 'InitialSetup')
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|1: InitialSetup migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0062138s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|2: ApplicationStatus migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|ApplicationStatus|Starting migration of Log DB to 2
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (2, '2026-09-12T13:25:55', 'ApplicationStatus')
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|2: ApplicationStatus migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0055536s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|3: IndexerProps migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|IndexerProps|Starting migration of Log DB to 3
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (3, '2026-09-12T13:25:55', 'IndexerProps')
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|3: IndexerProps migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0046469s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|4: add_update_history migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|add_update_history|Starting migration of Log DB to 4
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateTable UpdateHistory
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE TABLE "UpdateHistory" ("Id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "Date" DATETIME NOT NULL, "Version" TEXT NOT NULL, "EventType" INTEGER NOT NULL)
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.001325s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|CreateIndex UpdateHistory (Date)
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE INDEX "IX_UpdateHistory_Date" ON "UpdateHistory" ("Date" ASC)
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0012429s
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (4, '2026-09-12T13:25:55', 'add_update_history')
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|4: add_update_history migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0055599s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|5: update_notifiarr migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|update_notifiarr|Starting migration of Log DB to 5
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (5, '2026-09-12T13:25:55', 'update_notifiarr')
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|5: update_notifiarr migrated
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0110808s
+2026-09-12 10:25:55.6|Info|FluentMigrator.Runner.MigrationRunner|6: app_profiles migrating
+2026-09-12 10:25:55.6|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.6|Info|app_profiles|Starting migration of Log DB to 6
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (6, '2026-09-12T13:25:55', 'app_profiles')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|6: app_profiles migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.005595s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|7: history_failed migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|history_failed|Starting migration of Log DB to 7
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (7, '2026-09-12T13:25:55', 'history_failed')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|7: history_failed migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.005304s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|8: redacted_api migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|redacted_api|Starting migration of Log DB to 8
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (8, '2026-09-12T13:25:55', 'redacted_api')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|8: redacted_api migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0041818s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|10: IndexerProxies migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|IndexerProxies|Starting migration of Log DB to 10
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (10, '2026-09-12T13:25:55', 'IndexerProxies')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|10: IndexerProxies migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0055464s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|11: app_indexer_remote_name migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|app_indexer_remote_name|Starting migration of Log DB to 11
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (11, '2026-09-12T13:25:55', 'app_indexer_remote_name')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|11: app_indexer_remote_name migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0044421s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|13: desi_gazelle_to_unit3d migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|desi_gazelle_to_unit3d|Starting migration of Log DB to 13
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (13, '2026-09-12T13:25:55', 'desi_gazelle_to_unit3d')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|13: desi_gazelle_to_unit3d migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0042094s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|14: add_on_update_to_notifications migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|add_on_update_to_notifications|Starting migration of Log DB to 14
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (14, '2026-09-12T13:25:55', 'add_on_update_to_notifications')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|14: add_on_update_to_notifications migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.004737s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|15: IndexerVersions migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|IndexerVersions|Starting migration of Log DB to 15
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (15, '2026-09-12T13:25:55', 'IndexerVersions')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|15: IndexerVersions migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0041795s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|16: cleanup_config migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|cleanup_config|Starting migration of Log DB to 16
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (16, '2026-09-12T13:25:55', 'cleanup_config')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|16: cleanup_config migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0040767s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|17: indexer_cleanup migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|indexer_cleanup|Starting migration of Log DB to 17
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (17, '2026-09-12T13:25:55', 'indexer_cleanup')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|17: indexer_cleanup migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0057365s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|18: minimum_seeders migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|minimum_seeders|Starting migration of Log DB to 18
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (18, '2026-09-12T13:25:55', 'minimum_seeders')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|18: minimum_seeders migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0040585s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|19: remove_showrss migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|remove_showrss|Starting migration of Log DB to 19
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (19, '2026-09-12T13:25:55', 'remove_showrss')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|19: remove_showrss migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0036881s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|20: remove_torrentparadiseml migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|remove_torrentparadiseml|Starting migration of Log DB to 20
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (20, '2026-09-12T13:25:55', 'remove_torrentparadiseml')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|20: remove_torrentparadiseml migrated
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0053282s
+2026-09-12 10:25:55.7|Info|FluentMigrator.Runner.MigrationRunner|21: localization_setting_to_string migrating
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.7|Info|localization_setting_to_string|Starting migration of Log DB to 21
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (21, '2026-09-12T13:25:55', 'localization_setting_to_string')
+2026-09-12 10:25:55.7|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|21: localization_setting_to_string migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0043303s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|22: orpheus_api migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|orpheus_api|Starting migration of Log DB to 22
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (22, '2026-09-12T13:25:55', 'orpheus_api')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|22: orpheus_api migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0265926s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|23: download_client_categories migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|download_client_categories|Starting migration of Log DB to 23
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (23, '2026-09-12T13:25:55', 'download_client_categories')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|23: download_client_categories migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0057041s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|24: add_salt_to_users migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|add_salt_to_users|Starting migration of Log DB to 24
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (24, '2026-09-12T13:25:55', 'add_salt_to_users')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|24: add_salt_to_users migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0046554s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|25: speedcd_userpasssettings_to_speedcdsettings migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|speedcd_userpasssettings_to_speedcdsettings|Starting migration of Log DB to 25
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (25, '2026-09-12T13:25:55', 'speedcd_userpasssettings_to_speedcdsettings')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|25: speedcd_userpasssettings_to_speedcdsettings migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0100706s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|26: torrentday_cookiesettings_to_torrentdaysettings migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|torrentday_cookiesettings_to_torrentdaysettings|Starting migration of Log DB to 26
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (26, '2026-09-12T13:25:55', 'torrentday_cookiesettings_to_torrentdaysettings')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|26: torrentday_cookiesettings_to_torrentdaysettings migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0043931s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|27: alpharatio_greatposterwall_config_contract migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|alpharatio_greatposterwall_config_contract|Starting migration of Log DB to 27
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (27, '2026-09-12T13:25:55', 'alpharatio_greatposterwall_config_contract')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|27: alpharatio_greatposterwall_config_contract migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0051388s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|28: remove_notwhatcd migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|remove_notwhatcd|Starting migration of Log DB to 28
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (28, '2026-09-12T13:25:55', 'remove_notwhatcd')
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|28: remove_notwhatcd migrated
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0039628s
+2026-09-12 10:25:55.8|Info|FluentMigrator.Runner.MigrationRunner|29: add_on_grab_to_notifications migrating
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.8|Info|add_on_grab_to_notifications|Starting migration of Log DB to 29
+2026-09-12 10:25:55.8|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (29, '2026-09-12T13:25:55', 'add_on_grab_to_notifications')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|29: add_on_grab_to_notifications migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0039039s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|30: animetorrents_use_custom_config_contract migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|animetorrents_use_custom_config_contract|Starting migration of Log DB to 30
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (30, '2026-09-12T13:25:55', 'animetorrents_use_custom_config_contract')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|30: animetorrents_use_custom_config_contract migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0050417s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|31: apprise_server_url migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|apprise_server_url|Starting migration of Log DB to 31
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (31, '2026-09-12T13:25:55', 'apprise_server_url')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|31: apprise_server_url migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0042695s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|32: health_restored_notification migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|health_restored_notification|Starting migration of Log DB to 32
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (32, '2026-09-12T13:25:55', 'health_restored_notification')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|32: health_restored_notification migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0042005s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|33: remove_uc migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|remove_uc|Starting migration of Log DB to 33
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (33, '2026-09-12T13:25:55', 'remove_uc')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|33: remove_uc migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0042455s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|34: history_fix_data_titles migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|history_fix_data_titles|Starting migration of Log DB to 34
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (34, '2026-09-12T13:25:55', 'history_fix_data_titles')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|34: history_fix_data_titles migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0039346s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|35: download_client_per_indexer migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|download_client_per_indexer|Starting migration of Log DB to 35
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (35, '2026-09-12T13:25:55', 'download_client_per_indexer')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|35: download_client_per_indexer migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0036111s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|36: postgres_update_timestamp_columns_to_with_timezone migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|postgres_update_timestamp_columns_to_with_timezone|Starting migration of Log DB to 36
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|AlterTable Logs
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 5.6E-06s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|AlterColumn Logs Time DateTimeOffset
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE TABLE "Logs_temp" ("Id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "Message" TEXT NOT NULL, "Time" DATETIME NOT NULL, "Logger" TEXT NOT NULL, "Exception" TEXT, "ExceptionType" TEXT, "Level" TEXT NOT NULL)
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "Logs_temp" ("Id", "Message", "Time", "Logger", "Exception", "ExceptionType", "Level") SELECT "Id", "Message", "Time", "Logger", "Exception", "ExceptionType", "Level" FROM "Logs"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|DROP TABLE "Logs"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|ALTER TABLE "Logs_temp" RENAME TO "Logs"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE INDEX "IX_Logs_Time" ON "Logs" ("Time" ASC)
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0087918s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|AlterTable UpdateHistory
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 2E-06s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|AlterColumn UpdateHistory Date DateTimeOffset
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE TABLE "UpdateHistory_temp" ("Id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "Date" DATETIME NOT NULL, "Version" TEXT NOT NULL, "EventType" INTEGER NOT NULL)
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "UpdateHistory_temp" ("Id", "Date", "Version", "EventType") SELECT "Id", "Date", "Version", "EventType" FROM "UpdateHistory"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|DROP TABLE "UpdateHistory"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|ALTER TABLE "UpdateHistory_temp" RENAME TO "UpdateHistory"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE INDEX "IX_UpdateHistory_Date" ON "UpdateHistory" ("Date" ASC)
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0085576s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|AlterTable VersionInfo
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 3.1E-06s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|AlterColumn VersionInfo AppliedOn DateTimeOffset
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE TABLE "VersionInfo_temp" ("Version" INTEGER NOT NULL, "AppliedOn" DATETIME, "Description" TEXT)
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo_temp" ("Version", "AppliedOn", "Description") SELECT "Version", "AppliedOn", "Description" FROM "VersionInfo"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|DROP TABLE "VersionInfo"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|ALTER TABLE "VersionInfo_temp" RENAME TO "VersionInfo"
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|CREATE UNIQUE INDEX "UC_Version" ON "VersionInfo" ("Version" ASC)
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.005672s
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (36, '2026-09-12T13:25:55', 'postgres_update_timestamp_columns_to_with_timezone')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|36: postgres_update_timestamp_columns_to_with_timezone migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0107989s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|37: add_notification_status migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|add_notification_status|Starting migration of Log DB to 37
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (37, '2026-09-12T13:25:55', 'add_notification_status')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|37: add_notification_status migrated
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0037319s
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|38: indexers_freeleech_only_config_contract migrating
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:55.9|Info|indexers_freeleech_only_config_contract|Starting migration of Log DB to 38
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (38, '2026-09-12T13:25:55', 'indexers_freeleech_only_config_contract')
+2026-09-12 10:25:55.9|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:55.9|Info|FluentMigrator.Runner.MigrationRunner|38: indexers_freeleech_only_config_contract migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0049419s
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|39: email_encryption migrating
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:56.0|Info|email_encryption|Starting migration of Log DB to 39
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (39, '2026-09-12T13:25:56', 'email_encryption')
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|39: email_encryption migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0036907s
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|40: newznab_category_to_capabilities_settings migrating
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:56.0|Info|newznab_category_to_capabilities_settings|Starting migration of Log DB to 40
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (40, '2026-09-12T13:25:56', 'newznab_category_to_capabilities_settings')
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|40: newznab_category_to_capabilities_settings migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0050734s
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|41: gazelle_freeleech_token_options migrating
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:56.0|Info|gazelle_freeleech_token_options|Starting migration of Log DB to 41
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (41, '2026-09-12T13:25:56', 'gazelle_freeleech_token_options')
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|41: gazelle_freeleech_token_options migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0043941s
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|42: myanonamouse_freeleech_wedge_options migrating
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:56.0|Info|myanonamouse_freeleech_wedge_options|Starting migration of Log DB to 42
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (42, '2026-09-12T13:25:56', 'myanonamouse_freeleech_wedge_options')
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|42: myanonamouse_freeleech_wedge_options migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0052035s
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|43: newznab_indexers_enable_redirect migrating
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:56.0|Info|newznab_indexers_enable_redirect|Starting migration of Log DB to 43
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (43, '2026-09-12T13:25:56', 'newznab_indexers_enable_redirect')
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|43: newznab_indexers_enable_redirect migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0040721s
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|44: myanonamouse_freeleech_wedge_checkbox migrating
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Beginning Transaction
+2026-09-12 10:25:56.0|Info|myanonamouse_freeleech_wedge_checkbox|Starting migration of Log DB to 44
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|INSERT INTO "VersionInfo" ("Version", "AppliedOn", "Description") VALUES (44, '2026-09-12T13:25:56', 'myanonamouse_freeleech_wedge_checkbox')
+2026-09-12 10:25:56.0|Info|NzbDrone.Core.Datastore.Migration.Framework.NzbDroneSQLiteProcessor|Committing Transaction
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|44: myanonamouse_freeleech_wedge_checkbox migrated
+2026-09-12 10:25:56.0|Info|FluentMigrator.Runner.MigrationRunner|=> 0.0050731s
+2026-09-12 10:25:56.0|Debug|MigrationController|Took: 00:00:00.4892160
+2026-09-12 10:25:56.1|Info|Microsoft.Hosting.Lifetime|Now listening on: http://[::]:9696
+2026-09-12 10:25:56.1|Info|UpdaterConfigProvider|Update mechanism BuiltIn not supported in the current configuration, changing to Docker.
+2026-09-12 10:25:56.2|Info|AppSyncProfileService|Setting up default app profile
+2026-09-12 10:25:56.2|Debug|NotificationFactory|Initializing Providers. Count 20
+2026-09-12 10:25:56.2|Info|CommandExecutor|Starting 3 threads for tasks.
+2026-09-12 10:25:56.2|Debug|HttpClient|Downloading [https://indexers.prowlarr.com/master/11/package.zip] to [/config/Definitions/indexers.zip]
+2026-09-12 10:25:57.5|Debug|HttpClient|Downloading Completed. took 1s
+2026-09-12 10:25:57.9|Debug|IndexerDefinitionUpdateService|Updated indexer definitions
+2026-09-12 10:25:57.9|Debug|IndexerFactory|Initializing Providers. Count 68
+2026-09-12 10:25:57.9|Debug|IndexerProxyFactory|Initializing Providers. Count 4
+2026-09-12 10:25:57.9|Debug|DownloadClientFactory|Initializing Providers. Count 18
+2026-09-12 10:25:57.9|Debug|ApplicationFactory|Initializing Providers. Count 7
+2026-09-12 10:25:57.9|Info|Microsoft.Hosting.Lifetime|Application started. Press Ctrl+C to shut down.
+2026-09-12 10:25:57.9|Info|Microsoft.Hosting.Lifetime|Hosting environment: Production
+2026-09-12 10:25:57.9|Info|Microsoft.Hosting.Lifetime|Content root path: /app/prowlarr/bin
+2026-09-12 10:26:19.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:26:19.6|Debug|Api|[GET] /api/v1/health: 401.Unauthorized (68 ms)
+2026-09-12 10:26:27.7|Debug|Api|[GET] /api/v1/indexer: 200.OK (154 ms)
+2026-09-12 10:27:29.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (36 ms)
+2026-09-12 10:27:29.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (160 ms)
+2026-09-12 10:27:29.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (147 ms)
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (178 ms)
+2026-09-12 10:27:29.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (39 ms)
+2026-09-12 10:27:29.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 10:27:29.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:29.3|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 10:27:56.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:56.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:56.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-12 10:27:56.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-12 10:27:56.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:56.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:27:56.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 10:27:56.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 10:36:05.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (27 ms)
+2026-09-12 10:36:05.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (36 ms)
+2026-09-12 10:36:05.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 10:36:05.7|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 10:36:05.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 10:36:05.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 10:36:05.8|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 10:36:05.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:05.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (105 ms)
+2026-09-12 10:36:21.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:21.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:21.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 10:36:21.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 10:36:21.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:21.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 10:36:21.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:36:21.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 10:38:50.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (50 ms)
+2026-09-12 10:38:50.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (63 ms)
+2026-09-12 10:38:50.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (61 ms)
+2026-09-12 10:38:50.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (-68 ms)
+2026-09-12 10:38:50.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (24 ms)
+2026-09-12 10:38:50.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-12 10:38:50.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (39 ms)
+2026-09-12 10:38:50.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:50.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 10:38:51.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 10:38:51.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202025&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 10:38:51.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 10:38:51.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202160p&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 10:38:51.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-12 10:38:51.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 10:38:51.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:51.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202160p&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 10:38:51.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%204K&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 10:38:52.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202025&limit=100&type=search: 401.Unauthorized (20 ms)
+2026-09-12 10:38:52.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202160p&limit=100&type=search: 401.Unauthorized (36 ms)
+2026-09-12 10:38:52.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03&limit=100&type=search: 401.Unauthorized (23 ms)
+2026-09-12 10:38:52.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%204K&limit=100&type=search: 401.Unauthorized (22 ms)
+2026-09-12 10:38:52.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202025&limit=100&type=search: 401.Unauthorized (52 ms)
+2026-09-12 10:38:52.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202160p&limit=100&type=search: 401.Unauthorized (35 ms)
+2026-09-12 10:38:52.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03&limit=100&type=search: 401.Unauthorized (57 ms)
+2026-09-12 10:38:52.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:52.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%204K&limit=100&type=search: 401.Unauthorized (87 ms)
+2026-09-12 10:38:53.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202160p&limit=100&type=search: 401.Unauthorized (27 ms)
+2026-09-12 10:38:53.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04&limit=100&type=search: 401.Unauthorized (34 ms)
+2026-09-12 10:38:53.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%204K&limit=100&type=search: 401.Unauthorized (34 ms)
+2026-09-12 10:38:53.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202025&limit=100&type=search: 401.Unauthorized (86 ms)
+2026-09-12 10:38:53.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202160p&limit=100&type=search: 401.Unauthorized (62 ms)
+2026-09-12 10:38:53.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04&limit=100&type=search: 401.Unauthorized (34 ms)
+2026-09-12 10:38:53.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%204K&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 10:38:53.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:53.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202025&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 10:38:54.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202025&limit=100&type=search: 401.Unauthorized (52 ms)
+2026-09-12 10:38:54.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 10:38:54.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 10:38:54.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 10:38:54.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202160p&limit=100&type=search: 401.Unauthorized (49 ms)
+2026-09-12 10:38:54.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202025&limit=100&type=search: 401.Unauthorized (49 ms)
+2026-09-12 10:38:54.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%204K&limit=100&type=search: 401.Unauthorized (36 ms)
+2026-09-12 10:38:54.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:54.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202160p&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 10:38:55.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202160p&limit=100&type=search: 401.Unauthorized (37 ms)
+2026-09-12 10:38:55.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06&limit=100&type=search: 401.Unauthorized (63 ms)
+2026-09-12 10:38:55.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202025&limit=100&type=search: 401.Unauthorized (48 ms)
+2026-09-12 10:38:55.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%204K&limit=100&type=search: 401.Unauthorized (54 ms)
+2026-09-12 10:38:55.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202160p&limit=100&type=search: 401.Unauthorized (41 ms)
+2026-09-12 10:38:55.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202025&limit=100&type=search: 401.Unauthorized (46 ms)
+2026-09-12 10:38:55.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06&limit=100&type=search: 401.Unauthorized (52 ms)
+2026-09-12 10:38:55.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:55.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%204K&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 10:38:59.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:59.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20PT-BR&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 10:38:59.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:59.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20DUBLADO&limit=100&type=search: 401.Unauthorized (23 ms)
+2026-09-12 10:38:59.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:59.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20PT-BR&limit=100&type=search: 401.Unauthorized (19 ms)
+2026-09-12 10:38:59.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:59.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20DUBLADO&limit=100&type=search: 401.Unauthorized (37 ms)
+2026-09-12 10:38:59.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:00.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20PT-BR&limit=100&type=search: 401.Unauthorized (150 ms)
+2026-09-12 10:38:59.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:38:59.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:00.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20PT-BR&limit=100&type=search: 401.Unauthorized (172 ms)
+2026-09-12 10:39:00.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:00.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20DUBLADO&limit=100&type=search: 401.Unauthorized (175 ms)
+2026-09-12 10:39:00.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20DUBLADO&limit=100&type=search: 401.Unauthorized (84 ms)
+2026-09-12 10:39:00.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:01.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20DUBLADO&limit=100&type=search: 401.Unauthorized (149 ms)
+2026-09-12 10:39:00.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:01.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20PT-BR&limit=100&type=search: 401.Unauthorized (178 ms)
+2026-09-12 10:39:01.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:01.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20DUBLADO&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 10:39:01.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:01.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20PT-BR&limit=100&type=search: 401.Unauthorized (136 ms)
+2026-09-12 10:39:02.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:02.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%20PT-BR&limit=100&type=search: 401.Unauthorized (75 ms)
+2026-09-12 10:39:02.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:02.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%20DUBLADO&limit=100&type=search: 401.Unauthorized (129 ms)
+2026-09-12 10:39:02.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:02.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:02.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%20PT-BR&limit=100&type=search: 401.Unauthorized (45 ms)
+2026-09-12 10:39:02.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%20DUBLADO&limit=100&type=search: 401.Unauthorized (37 ms)
+2026-09-12 10:39:03.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:03.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:03.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20PT-BR&limit=100&type=search: 401.Unauthorized (87 ms)
+2026-09-12 10:39:03.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20DUBLADO&limit=100&type=search: 401.Unauthorized (116 ms)
+2026-09-12 10:39:03.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:03.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20PT-BR&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 10:39:03.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:03.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20DUBLADO&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 10:39:12.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:12.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:12.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 10:39:12.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 10:39:12.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:12.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 10:39:12.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:39:12.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 10:42:58.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 10:42:58.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-12 10:42:58.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 10:42:58.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 10:42:58.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 10:42:58.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.7|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (63 ms)
+2026-09-12 10:42:58.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:42:58.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (19 ms)
+2026-09-12 10:42:58.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (22 ms)
+2026-09-12 10:43:13.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:43:13.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 10:43:13.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:43:13.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 10:43:13.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:43:13.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 10:43:13.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 10:43:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:04:41.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (43 ms)
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (42 ms)
+2026-09-12 11:04:41.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (46 ms)
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (44 ms)
+2026-09-12 11:04:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:04:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:04:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:04:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:04:41.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:11:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202025&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 11:11:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%204K&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:11:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:11:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202160p&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:11:42.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:42.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:11:42.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:42.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:11:42.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:42.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:11:42.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:11:42.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E05%202160p&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:13:23.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:23.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:40.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:40.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:40.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:40.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:13:40.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:40.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:13:40.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:13:40.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (27 ms)
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:18:50.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:19:06.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:19:06.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:19:06.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:19:06.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:19:06.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:19:06.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:19:06.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:19:06.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:21:41.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202160p&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 11:21:41.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202025&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 11:21:41.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202160p&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:21:41.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202025&limit=100&type=search: 401.Unauthorized (25 ms)
+2026-09-12 11:21:41.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-12 11:21:41.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.3|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29%202025&limit=100&type=search: 401.Unauthorized (66 ms)
+2026-09-12 11:21:41.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (33 ms)
+2026-09-12 11:21:41.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03&limit=100&type=search: 401.Unauthorized (123 ms)
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04&limit=100&type=search: 401.Unauthorized (199 ms)
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202160p&limit=100&type=search: 401.Unauthorized (237 ms)
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29%204K&limit=100&type=search: 401.Unauthorized (243 ms)
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202025&limit=100&type=search: 401.Unauthorized (257 ms)
+2026-09-12 11:21:41.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202160p&limit=100&type=search: 401.Unauthorized (352 ms)
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%204K&limit=100&type=search: 401.Unauthorized (285 ms)
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%204K&limit=100&type=search: 401.Unauthorized (242 ms)
+2026-09-12 11:21:41.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02&limit=100&type=search: 401.Unauthorized (150 ms)
+2026-09-12 11:21:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%204K&limit=100&type=search: 401.Unauthorized (86 ms)
+2026-09-12 11:21:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29&limit=100&type=search: 401.Unauthorized (60 ms)
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (287 ms)
+2026-09-12 11:21:41.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (238 ms)
+2026-09-12 11:21:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06&limit=100&type=search: 401.Unauthorized (154 ms)
+2026-09-12 11:21:41.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (56 ms)
+2026-09-12 11:21:41.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29%202160p&limit=100&type=search: 401.Unauthorized (110 ms)
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202160p&limit=100&type=search: 401.Unauthorized (125 ms)
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202160p&limit=100&type=search: 401.Unauthorized (85 ms)
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04&limit=100&type=search: 401.Unauthorized (68 ms)
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%204K&limit=100&type=search: 401.Unauthorized (93 ms)
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202025&limit=100&type=search: 401.Unauthorized (98 ms)
+2026-09-12 11:21:41.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202025&limit=100&type=search: 401.Unauthorized (387 ms)
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (67 ms)
+2026-09-12 11:21:41.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29%202025&limit=100&type=search: 401.Unauthorized (121 ms)
+2026-09-12 11:21:41.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03&limit=100&type=search: 401.Unauthorized (0 ms)
+2026-09-12 11:21:41.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%204K&limit=100&type=search: 401.Unauthorized (19 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29%204K&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%204K&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202025&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202160p&limit=100&type=search: 401.Unauthorized (28 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (19 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20%28T2%29%202160p&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202160p&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:21:41.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202025&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:21:42.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:21:42.0|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:22:11.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20DUBLADO&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:22:11.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20PT-BR&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:22:11.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:11.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:11.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20PT-BR&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:22:11.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20DUBLADO&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:22:11.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:11.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:22:11.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20DUBLADO&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20PT-BR&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20DUBLADO&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20PT-BR&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%20DUBLADO&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20DUBLADO&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:22:11.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:11.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20DUBLADO&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:22:12.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.5|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:22:12.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.5|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202%204K&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:22:12.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.5|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202%202160p&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:22:12.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.5|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:22:12.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.6|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202%202025&limit=100&type=search: 401.Unauthorized (29 ms)
+2026-09-12 11:22:12.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.6|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202%204K&limit=100&type=search: 401.Unauthorized (51 ms)
+2026-09-12 11:22:12.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.6|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202%202160p&limit=100&type=search: 401.Unauthorized (81 ms)
+2026-09-12 11:22:12.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:12.7|Debug|Api|[GET] /api/v1/search?query=marvel%20studios%20assembled%20the%20making%20of%20loki%20season%202&limit=100&type=search: 401.Unauthorized (165 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:22:18.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:18.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%202160p&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%202160p&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:24.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:24.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S02&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:29.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:29.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:29.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:29.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:22:29.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:29.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:22:29.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:29.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:22:34.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:34.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:34.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:22:34.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:22:34.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:34.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:22:34.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:22:34.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S02%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.8|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:23:43.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:43.9|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:44.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:23:44.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:44.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:44.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:44.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:44.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202025&limit=100&type=search: 401.Unauthorized (27 ms)
+2026-09-12 11:23:44.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:23:44.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:44.5|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%202160p&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:23:45.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%204K&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:23:45.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202160p&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:23:45.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:23:45.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:45.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202160p&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 11:23:45.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:45.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:45.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:45.4|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 11:23:46.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:46.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202160p&limit=100&type=search: 401.Unauthorized (123 ms)
+2026-09-12 11:23:46.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202025&limit=100&type=search: 401.Unauthorized (47 ms)
+2026-09-12 11:23:46.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%204K&limit=100&type=search: 401.Unauthorized (180 ms)
+2026-09-12 11:23:46.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03&limit=100&type=search: 401.Unauthorized (61 ms)
+2026-09-12 11:23:46.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202160p&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:23:46.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:46.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%204K&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-12 11:23:46.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%202025&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-12 11:23:47.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04&limit=100&type=search: 401.Unauthorized (71 ms)
+2026-09-12 11:23:47.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%204K&limit=100&type=search: 401.Unauthorized (75 ms)
+2026-09-12 11:23:47.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202160p&limit=100&type=search: 401.Unauthorized (28 ms)
+2026-09-12 11:23:47.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%204K&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 11:23:47.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04&limit=100&type=search: 401.Unauthorized (28 ms)
+2026-09-12 11:23:47.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:47.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202160p&limit=100&type=search: 401.Unauthorized (26 ms)
+2026-09-12 11:23:47.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:47.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%202025&limit=100&type=search: 401.Unauthorized (23 ms)
+2026-09-12 11:23:48.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 11:23:48.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%204K&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:48.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.6|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202025&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:48.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202160p&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:23:48.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:48.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:23:48.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:48.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:48.7|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E06%202160p&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:52.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:52.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:23:52.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:52.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:23:52.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:52.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20PT-BR&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:23:52.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:52.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E01%20DUBLADO&limit=100&type=search: 401.Unauthorized (25 ms)
+2026-09-12 11:23:53.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:53.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20DUBLADO&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:53.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:53.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20PT-BR&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:53.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:53.8|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20DUBLADO&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:23:53.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:53.9|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E02%20PT-BR&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:23:54.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:54.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:54.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20PT-BR&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:23:54.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20DUBLADO&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 11:23:54.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:54.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20PT-BR&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:23:54.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:54.3|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E03%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:55.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:55.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:55.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:55.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:23:55.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:55.1|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:23:55.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:23:55.2|Debug|Api|[GET] /api/v1/search?query=Loki%20S01E04%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:24:07.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:24:07.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:07.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:24:10.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 11:24:10.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 11:24:10.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:24:10.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:24:10.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:24:10.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.5|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:24:10.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (22 ms)
+2026-09-12 11:24:10.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:10.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:24:18.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:18.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:18.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (20 ms)
+2026-09-12 11:24:18.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (34 ms)
+2026-09-12 11:24:18.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:18.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:24:18.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:24:18.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 11:35:31.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:31.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:31.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (179 ms)
+2026-09-12 11:35:31.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:31.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (76 ms)
+2026-09-12 11:35:31.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:31.9|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (131 ms)
+2026-09-12 11:35:31.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (164 ms)
+2026-09-12 11:35:32.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:32.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:32.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 11:35:32.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:32.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 11:35:32.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:32.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:35:32.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:35:49.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:49.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (30 ms)
+2026-09-12 11:35:49.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:49.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (29 ms)
+2026-09-12 11:35:49.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:49.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:35:49.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:35:49.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:42:16.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 11:42:16.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (29 ms)
+2026-09-12 11:42:16.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.2|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (97 ms)
+2026-09-12 11:42:16.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (109 ms)
+2026-09-12 11:42:16.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (70 ms)
+2026-09-12 11:42:16.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (46 ms)
+2026-09-12 11:42:16.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.3|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:42:16.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:16.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (24 ms)
+2026-09-12 11:42:32.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:32.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:32.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:42:32.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:42:32.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:32.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:42:32.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:42:32.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (0 ms)
+2026-09-12 11:47:04.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.0|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 11:47:04.0|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (13 ms)
+2026-09-12 11:47:04.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.0|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 11:47:04.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.0|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 11:47:04.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.1|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (32 ms)
+2026-09-12 11:47:04.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.1|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-12 11:47:04.1|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (47 ms)
+2026-09-12 11:47:04.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.1|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:47:04.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.6|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:47:04.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:47:04.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:47:04.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:47:04.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:47:04.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:47:04.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:47:04.7|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 11:50:24.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 11:50:24.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 11:50:24.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:50:24.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:50:24.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (14 ms)
+2026-09-12 11:50:24.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:50:24.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:24.1|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (15 ms)
+2026-09-12 11:50:24.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (25 ms)
+2026-09-12 11:50:40.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:40.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 11:50:40.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:40.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:50:40.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:40.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:50:40.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:50:40.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:56:10.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:10.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:10.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 11:56:10.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 11:56:10.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:10.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:56:10.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:10.9|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 11:56:11.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:11.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:11.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:56:11.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:11.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 11:56:11.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 11:56:11.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:11.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (19 ms)
+2026-09-12 11:56:26.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:26.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 11:56:26.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:26.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:56:26.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:26.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 11:56:26.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 11:56:26.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:03:06.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 12:03:06.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (12 ms)
+2026-09-12 12:03:06.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:03:06.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:03:06.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:03:06.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:03:06.1|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:03:06.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:06.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 12:03:21.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:21.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:21.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 12:03:21.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:03:21.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:21.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:03:21.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:21.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (26 ms)
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:03:25.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:25.8|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 12:03:25.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:03:29.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:03:29.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:03:29.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-12 12:03:29.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:03:29.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:03:29.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:03:29.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:29.1|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:03:29.1|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:03:36.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:36.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-12 12:03:36.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:36.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:03:36.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:36.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:03:36.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:36.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:03:39.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:39.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:03:39.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:39.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:03:39.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:39.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:03:39.8|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:03:39.8|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:09:04.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.2|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (36 ms)
+2026-09-12 12:09:04.1|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (30 ms)
+2026-09-12 12:09:04.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (65 ms)
+2026-09-12 12:09:04.2|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (54 ms)
+2026-09-12 12:09:04.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (47 ms)
+2026-09-12 12:09:04.3|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (36 ms)
+2026-09-12 12:09:04.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-12 12:09:04.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:04.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (24 ms)
+2026-09-12 12:09:22.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:22.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:22.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 12:09:22.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 12:09:22.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:22.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:09:22.7|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:09:22.7|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki%202025&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-12 12:17:50.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:17:50.2|Debug|Api|[GET] /api/v1/search?query=Loki%202160p&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (8 ms)
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:19:06.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (11 ms)
+2026-09-12 12:19:06.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:06.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-12 12:19:21.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:21.2|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:21.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-12 12:19:21.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-12 12:19:21.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:21.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-12 12:19:21.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 12:19:21.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)

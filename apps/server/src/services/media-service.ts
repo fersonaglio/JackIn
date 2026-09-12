@@ -995,8 +995,16 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
   }
 
   // 3) Variantes de áudio por idioma
+  //
+  // Cada variante é uma CÓPIA INTEGRAL do vídeo com uma faixa de áudio — em um
+  // release MULTI (Loki AOC/DUSK tem ~17 idiomas) isso geraria 17× o tamanho do
+  // filme e estoura o disco. O master.mp4 já carrega todas as faixas com o
+  // PT-BR PRIMEIRO (buildAudioMapArgs), então para releases com muitos idiomas
+  // não geramos variantes: o playback sai dublado por padrão e as legendas
+  // continuam por WebVTT. Só releases comuns (dual/tri-áudio) ganham variantes.
   const langs = [...new Set(info.audio.map((a) => a.language || 'und'))];
-  if (langs.length > 1) {
+  const MAX_VARIANT_LANGS = 3;
+  if (langs.length > 1 && langs.length <= MAX_VARIANT_LANGS) {
     let i = 0;
     for (const lang of langs) {
       if (isAborted()) return;

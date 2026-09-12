@@ -603,7 +603,11 @@ def reorder_audio_tracks_prefer_pt(file_path: Path):
                 remux_cmd.extend(["-map", f"0:a:{i}", f"-c:a:{out_a_idx}", "copy"])
                 out_a_idx += 1
         remux_cmd.extend([
-            "-sn",
+            # Preserva as legendas embutidas: o -sn antigo as descartava e o
+            # extract_embedded_subtitles (chamado logo depois) não achava nada —
+            # releases MULTi (Loki DUSK/AOC) ficavam sem legenda EN/PT.
+            "-map", "0:s?",
+            "-c:s", "copy",
             "-movflags", "+faststart",
             "-avoid_negative_ts", "make_zero",
             "-max_muxing_queue_size", "4096",
@@ -967,9 +971,12 @@ def main():
         ep_paths.sort(key=lambda p: p.stat().st_size, reverse=True)
         for full in ep_paths:
             name = full.name
-            m = re.search(r"\bS(\d{1,3})[Ee](\d{1,3})\b", name) or \
-                re.search(r"\b(\d{1,3})x(\d{1,3})\b", name) or \
-                re.search(r"\b(?:[Ee]pisode|[Ee]pis[oó]dio)\s*(\d{1,3})\b", name)
+            # O separador antes do S pode ser "_" (Loki_S02E01_Ouroboros) ou ".",
+            # então NÃO exigimos \b (que falha entre "_" e "S", ambos \w). Só
+            # garantimos que não é precedido por letra nem sucedido por dígito.
+            m = re.search(r"(?<![A-Za-z])S(\d{1,3})[Ee](\d{1,3})(?!\d)", name) or \
+                re.search(r"(?<![A-Za-z\d])(\d{1,3})x(\d{1,3})(?!\d)", name) or \
+                re.search(r"(?<![A-Za-z])(?:[Ee]pisode|[Ee]pis[oó]dio)\s*(\d{1,3})(?!\d)", name)
             if m:
                 season = int(m.group(1))
                 ep = int(m.group(2)) if m.lastindex == 2 else int(m.group(1))

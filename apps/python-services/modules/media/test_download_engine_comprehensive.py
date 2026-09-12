@@ -245,6 +245,45 @@ class TestFfmpegAudioReorderingAndRemux(unittest.TestCase):
         first_lang = (first_audio.get("tags", {}).get("language") or "").lower()
         self.assertIn(first_lang, ("por", "pt", "pt-br"))
 
+    def test_reorder_preserves_embedded_subtitles(self):
+        """O reorder de áudio NÃO pode descartar legendas (-sn removia tudo e
+        releases MULTi ficavam sem legenda EN/PT)."""
+        source = self.test_dir / "with_subs.mkv"
+        srt = self.test_dir / "en.srt"
+        srt.write_text("1\n00:00:00,000 --> 00:00:01,500\nHello English\n")
+
+        cmd = [
+            FFMPEG_BIN, "-y",
+            "-f", "lavfi", "-i", "testsrc=duration=2:size=320x240:rate=24",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+            "-f", "lavfi", "-i", "sine=frequency=880:duration=2",
+            "-i", str(srt),
+            "-map", "0:v", "-map", "1:a", "-map", "2:a", "-map", "3:s",
+            "-metadata:s:a:0", "language=eng", "-metadata:s:a:1", "language=por",
+            "-metadata:s:s:0", "language=eng",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "ac3", "-c:s", "srt",
+            str(source)
+        ]
+        res = subprocess.run(cmd, capture_output=True)
+        self.assertEqual(res.returncode, 0, res.stderr.decode()[:300])
+
+        reorder_audio_tracks_prefer_pt(source)
+        extract_embedded_subtitles(source, self.test_dir)
+
+        probe = subprocess.run(
+            [FFPROBE_BIN, "-v", "quiet", "-select_streams", "s",
+             "-show_entries", "stream=index:stream_tags=language", "-of", "json", str(source)],
+            capture_output=True, text=True, check=True
+        )
+        import json
+        subs = json.loads(probe.stdout).get("streams", [])
+        self.assertEqual(len(subs), 1, "a legenda embutida foi descartada no reorder")
+        self.assertEqual((subs[0].get("tags", {}).get("language") or "").lower(), "eng")
+
+        vtt = self.test_dir / "subs_eng.vtt"
+        self.assertTrue(vtt.exists(), "subs_eng.vtt não foi extraído")
+        self.assertIn("Hello English", vtt.read_text())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

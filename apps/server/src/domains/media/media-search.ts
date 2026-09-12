@@ -69,7 +69,13 @@ function scheduleAutoRetry(id: string, opts: DownloadOptions): boolean {
           // Se a busca encontrou uma fonte REAL (indexador com seeders de
           // verdade, ex. WOLVERDON), promove para primária: o magnet fantasma
           // não vai "acordar", e tentá-lo primeiro só gasta o warmup morto.
-          if (real.length > 0 && opts.sourceUrl) {
+          // Só promovemos quando a fonte ATUAL é de site curado (ghost de seed
+          // fixo). Quando o usuário escolheu uma release específica (ex. DUSK
+          // dublado), mantemos a fonte original — a busca genérica do título
+          // traria um release inglês e o worker rejeitaria por falta de PT,
+          // entrando em loop de retry.
+          const originalIsCurated = !!opts.sourceUrl && CURATED_SITE_RE.test(opts.sourceUrl);
+          if (real.length > 0 && opts.sourceUrl && originalIsCurated) {
             const best = real[0].sourceUrl!;
             const reordered = [...new Set([best, ...(mergedAlts.filter((u) => u !== best))])];
             const keepCurated = !reordered.includes(opts.sourceUrl) ? [...reordered, opts.sourceUrl] : reordered;
@@ -663,7 +669,7 @@ export function indexPackEpisodesFromDisk(parentId: string): void {
       if (e.isDirectory()) {
         walk(p);
       } else if (/\.(mp4|mkv|webm|avi|mov|m4v|ts|m2ts)$/i.test(e.name)) {
-        const m = e.name.match(/\bS(\d{1,3})[Ee](\d{1,3})\b/) || e.name.match(/\b(\d{1,3})x(\d{1,3})\b/);
+        const m = e.name.match(/(?<![A-Za-z])S(\d{1,3})[Ee](\d{1,3})(?!\d)/) || e.name.match(/(?<![A-Za-z\d])(\d{1,3})x(\d{1,3})(?!\d)/);
         if (!m) continue;
         const season = parseInt(m[1], 10);
         const episode = parseInt(m[2], 10);
