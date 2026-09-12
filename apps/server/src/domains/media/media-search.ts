@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { getDb, persist, persistThrottled, DATA_DIR } from '../../db/schema.js';
 import { progressEvents } from '../../services/progress-events.js';
-import { prepareProject, reconcileProjectMedia, isPreparing, cancelPreparation, getProjectMedia } from '../../services/media-service.js';
+import { prepareProject, reconcileProjectMedia, isPreparing, cancelPreparation, getProjectMedia, isExtraVideoPath } from '../../services/media-service.js';
 import { searchMediaEnhanced } from './media-search-interpret.js';
 import { enrichMagnetWithTrackers } from './trackers.js';
 
@@ -734,7 +734,11 @@ export function reconcileMovieStatus(projectId: string): void {
   const masterFile = path.join(projectDir, 'master.mp4');
   const hasMaster = fs.existsSync(masterFile) && fs.statSync(masterFile).size > 1000000;
 
-  let videoFile: string | null = hasMaster ? masterFile : (videoPath && fs.existsSync(videoPath) ? videoPath : null);
+  // A coluna video_path pode apontar para um extra/featurette promovido por uma
+  // versão anterior do worker. Nesse caso não confiamos nela: só o master
+  // derivado (que passou pelo shield) ou um arquivo não-extra contam.
+  const trustedVideoPath = videoPath && fs.existsSync(videoPath) && !isExtraVideoPath(videoPath) ? videoPath : null;
+  let videoFile: string | null = hasMaster ? masterFile : trustedVideoPath;
   const aria2Files: string[] = [];
 
   const walk = (dir: string) => {
@@ -751,7 +755,7 @@ export function reconcileMovieStatus(projectId: string): void {
       } else if (e.name.endsWith('.aria2')) {
         aria2Files.push(p);
       } else if (/\.(mp4|mkv|webm|avi|mov|m4v|ts|m2ts)$/i.test(e.name) && !e.name.startsWith('audio_') && !e.name.startsWith('whisper_')) {
-        if (!p.includes('.tmp-') && (!videoFile || fs.statSync(p).size > fs.statSync(videoFile).size)) {
+        if (!p.includes('.tmp-') && !isExtraVideoPath(p) && (!videoFile || fs.statSync(p).size > fs.statSync(videoFile).size)) {
           videoFile = p;
         }
       }
@@ -1203,7 +1207,18 @@ router.post('/retry/:projectId', async (req: Request, res: Response) => {  const
     if (fs.existsSync(projectDir)) {
       for (const f of fs.readdirSync(projectDir)) {
         const fullPath = path.join(projectDir, f);
-        if (f.startsWith('source_') || f.startsWith('original.') || f.endsWith('.aria2') || f.endsWith('.quarantine')) {
+        const isStaleArtifact =
+          f.startsWith('source_') ||
+          f.startsWith('original.') ||
+          f.startsWith('master.') ||
+          f.startsWith('playable.') ||
+          f.startsWith('audio_') ||
+          f.startsWith('subs_') ||
+          f.startsWith('subtitles.') ||
+          f.startsWith('whisper_') ||
+          f.endsWith('.aria2') ||
+          f.endsWith('.quarantine');
+        if (isStaleArtifact) {
           try { fs.unlinkSync(fullPath); } catch {}
         } else {
           const st = fs.statSync(fullPath);

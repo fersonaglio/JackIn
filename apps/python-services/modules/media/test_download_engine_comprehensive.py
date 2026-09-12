@@ -26,11 +26,67 @@ from download_movie import (
     extract_embedded_subtitles,
     verify_pt_audio,
     validate_file_extension,
+    is_extra_video,
+    select_main_video,
     _cleanup_dir,
     BLOCKED_EXTENSIONS,
     FFMPEG_BIN,
     FFPROBE_BIN
 )
+
+
+class TestMainVideoSelection(unittest.TestCase):
+    """O maior arquivo do pack não é necessariamente o filme: featurettes,
+    cenas deletadas, curtas e samples precisam ser descartados."""
+
+    def setUp(self):
+        self.test_dir = Path(tempfile.mkdtemp(prefix="jackin_select_test_"))
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def _make(self, rel: str, size: int) -> Path:
+        p = self.test_dir / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "wb") as fh:
+            fh.truncate(size)
+        return p
+
+    def test_detects_featurette_by_directory(self):
+        p = self._make("Ratatouille/Featurettes/Your Friend the Rat.mkv", 100)
+        self.assertTrue(is_extra_video(p))
+
+    def test_detects_short_film_by_name(self):
+        p = self._make("Ratatouille/Your Friend the Rat - Short Film.mkv", 100)
+        self.assertTrue(is_extra_video(p))
+
+    def test_detects_sample_and_trailer(self):
+        self.assertTrue(is_extra_video(self._make("Movie/sample.mkv", 100)))
+        self.assertTrue(is_extra_video(self._make("Movie/trailer.mkv", 100)))
+        self.assertTrue(is_extra_video(self._make("Movie/Deleted Scenes/foo.mkv", 100)))
+
+    def test_real_movie_is_not_extra(self):
+        p = self._make("Ratatouille (2007)/Ratatouille (2007) 1080p.mkv", 100)
+        self.assertFalse(is_extra_video(p))
+
+    def test_title_containing_extra_is_not_extra(self):
+        # "Extraction" não pode ser confundido com a pasta "extras".
+        p = self._make("Extraction (2020)/Extraction.2020.1080p.mkv", 100)
+        self.assertFalse(is_extra_video(p))
+
+    def test_select_prefers_movie_even_if_extra_is_larger(self):
+        movie = self._make("Movie/Ratatouille.mkv", 500)
+        extra = self._make("Movie/Featurettes/short.mkv", 900)
+        chosen = select_main_video([extra, movie])
+        self.assertEqual(chosen, movie)
+
+    def test_select_returns_none_when_only_extras(self):
+        extra1 = self._make("Movie/Featurettes/a.mkv", 900)
+        extra2 = self._make("Movie/Featurettes/short film.mkv", 500)
+        self.assertIsNone(select_main_video([extra1, extra2]))
+
+    def test_select_empty_returns_none(self):
+        self.assertIsNone(select_main_video([]))
 
 
 class TestAria2SpeedAndProgressParsing(unittest.TestCase):

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyForTarget, audioBitrate, pickNextPrepIndex, isHeAacAudio, aacPrimingOffset, type MediaInfo, type Target, type PrepTask, type MediaStreamInfo } from '../services/media-service.js';
+import { classifyForTarget, audioBitrate, pickNextPrepIndex, isHeAacAudio, aacPrimingOffset, isExtraVideoPath, type MediaInfo, type Target, type PrepTask, type MediaStreamInfo } from '../services/media-service.js';
 
 function mkInfo(partial: Partial<MediaInfo>): MediaInfo {
   return {
@@ -196,5 +196,30 @@ describe('pickNextPrepIndex (fila de preparação prioritária)', () => {
 
   it('fila unitária retorna o índice 0', () => {
     expect(pickNextPrepIndex([task(5, 9)])).toBe(0);
+  });
+});
+
+describe('isExtraVideoPath (nunca promover um extra a filme)', () => {
+  it('detecta featurette pela pasta', () => {
+    expect(isExtraVideoPath('/p/Ratatouille/Featurettes/Your Friend the Rat.mkv')).toBe(true);
+  });
+
+  it('detecta curta pelo nome', () => {
+    expect(isExtraVideoPath('/p/Ratatouille/Your Friend the Rat - Short Film.mkv')).toBe(true);
+  });
+
+  it('detecta sample, trailer e cenas deletadas', () => {
+    expect(isExtraVideoPath('/p/Movie/sample.mkv')).toBe(true);
+    expect(isExtraVideoPath('/p/Movie/trailer.mp4')).toBe(true);
+    expect(isExtraVideoPath('/p/Movie/Deleted Scenes/foo.mkv')).toBe(true);
+  });
+
+  it('não marca o filme real', () => {
+    expect(isExtraVideoPath('/p/Ratatouille (2007)/Ratatouille (2007) 1080p.mkv')).toBe(false);
+  });
+
+  it('não confunde títulos com a palavra extra', () => {
+    expect(isExtraVideoPath('/p/Extraction (2020)/Extraction.2020.1080p.mkv')).toBe(false);
+    expect(isExtraVideoPath('/p/Extraordinary/Extraordinary.2019.mkv')).toBe(false);
   });
 });

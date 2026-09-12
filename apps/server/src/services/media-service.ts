@@ -703,6 +703,37 @@ function settingsHash(info: MediaInfo): string {
   return crypto.createHash('sha256').update(JSON.stringify(summary)).digest('hex');
 }
 
+// Marcadores de extras (featurettes, cenas deletadas, trailers, samples,
+// curtas) que NUNCA são o filme principal de um pack. Um pack da Pixar/Disney
+// traz dezenas de bônus; quando o filme real é rejeitado/quarentenado, o maior
+// bônus restante era promovido a "master" e o usuário assistia um curta de 11
+// minutos no lugar do filme. Espelha is_extra_video() do worker Python.
+const EXTRA_MEDIA_RE = new RegExp(
+  '\\b(?:' +
+    [
+      'featurette', 'featurettes', 'extra', 'extras', 'sample', 'samples',
+      'trailer', 'trailers', 'teaser', 'preview', 'previews',
+      'behind\\s+the\\s+scenes', 'deleted\\s+scene', 'deleted\\s+scenes',
+      'making\\s+of', 'interview', 'interviews', 'bonus', 'specials',
+      'proof', 'screenshots', 'short\\s+film', 'short\\s+films',
+    ].join('|') +
+    ')\\b',
+  'i'
+);
+
+function normalizeMediaLabel(text: string): string {
+  return text.toLowerCase().replace(/[_\-\.]+/g, ' ');
+}
+
+export function isExtraVideoPath(filePath: string): boolean {
+  const parts = filePath.split(path.sep);
+  for (const seg of parts.slice(0, -1)) {
+    if (EXTRA_MEDIA_RE.test(normalizeMediaLabel(seg))) return true;
+  }
+  const stem = path.basename(filePath, path.extname(filePath));
+  return EXTRA_MEDIA_RE.test(normalizeMediaLabel(stem));
+}
+
 // ── Encontrar master na pasta do projeto ──────────────────────────────────
 export function findMasterFile(projectDir: string): string | null {
   if (!fs.existsSync(projectDir)) return null;
@@ -714,7 +745,7 @@ export function findMasterFile(projectDir: string): string | null {
   if (original) return path.join(projectDir, original);
   const source = files.find((f) => f.startsWith('source_') && videoRe.test(f));
   if (source) return path.join(projectDir, source);
-  const any = files.find((f) => videoRe.test(f));
+  const any = files.find((f) => videoRe.test(f) && !isExtraVideoPath(f));
   return any ? path.join(projectDir, any) : null;
 }
 

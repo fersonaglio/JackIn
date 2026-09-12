@@ -136,6 +136,52 @@ def validate_file_extension(filename: str) -> bool:
         return True
     return False
 
+# Marcadores de conteúdo EXTRA (featurettes, cenas deletadas, trailers, samples,
+# curtas) que NUNCA podem ser confundidos com o filme principal de um pack.
+# Um pack da Pixar/Disney inclui dezenas de bônus; quando o filme real é
+# rejeitado/quarentenado, o maior bônus restante era promovido a "master" e o
+# usuário assistia 11 minutos de curta no lugar do filme.
+_EXTRA_TOKENS = (
+    "featurette", "featurettes", "extra", "extras", "sample", "samples",
+    "trailer", "trailers", "teaser", "preview", "previews",
+    "behind the scenes", "deleted scene", "deleted scenes",
+    "making of", "interview", "interviews", "bonus", "specials",
+    "proof", "screenshots", "short film", "short films",
+)
+_EXTRA_RE = re.compile(
+    r"\b(?:" + "|".join(t.replace(" ", r"\s+") for t in _EXTRA_TOKENS) + r")\b"
+)
+
+
+def _normalize_media_label(text: str) -> str:
+    return re.sub(r"[_\-\.]+", " ", text.lower())
+
+
+def is_extra_video(file_path) -> bool:
+    """True quando o arquivo é um extra/featurette/sample — nunca o filme."""
+    p = Path(file_path)
+    for seg in p.parts[:-1]:
+        if _EXTRA_RE.search(_normalize_media_label(seg)):
+            return True
+    return bool(_EXTRA_RE.search(_normalize_media_label(p.stem)))
+
+
+def select_main_video(video_files: list):
+    """Escolhe o filme principal do pack, descartando extras/featurettes.
+
+    Ordena por tamanho (o filme costuma ser o maior arquivo), mas remove
+    bônus/curtas/featurettes. Se só restarem extras, retorna None para o
+    chamador falhar e tentar outra fonte — melhor falhar do que entregar um
+    bônus como se fosse o filme.
+    """
+    if not video_files:
+        return None
+    ordered = sorted(video_files, key=lambda f: f.stat().st_size, reverse=True)
+    for f in ordered:
+        if not is_extra_video(f):
+            return f
+    return None
+
 def inspect_video_stream(file_path: Path) -> dict | None:
     """
     Camada 2: Sondagem de Segurança via FFprobe.
@@ -479,7 +525,7 @@ def _run_aria2_candidate(url: str, output_dir: Path, quality: str, stop_timeout:
             if ext in BLOCKED_EXTENSIONS:
                 try: full_f.unlink()
                 except: pass
-            elif ext in ALLOWED_EXTENSIONS and full_f.stat().st_size > 30_000_000:
+            elif ext in ALLOWED_EXTENSIONS and full_f.stat().st_size > 30_000_000 and not is_extra_video(full_f):
                 try:
                     with open(full_f, "rb") as fh:
                         head = fh.read(128)
@@ -771,10 +817,17 @@ def download_file_with_shield(urls: list, output_dir: Path, title: str, quality:
                     except: pass
                     continue
                 video_files.append(full_f)
-    video_files.sort(key=lambda f: f.stat().st_size, reverse=True)
     if not video_files:
         raise RuntimeError("Download concluído mas nenhum arquivo de vídeo foi encontrado.")
-    main_video = video_files[0]
+    # Seleciona o FILME (maior arquivo que não seja bônus/featurette/curta).
+    # O maior arquivo do pack nem sempre é o filme; quando o filme real foi
+    # rejeitado/quarentenado, um extra podia ser promovido a "master".
+    main_video = select_main_video(video_files)
+    if not main_video:
+        raise RuntimeError(
+            "Download concluído mas apenas extras/featurettes/curtas foram encontrados — "
+            "o arquivo principal do filme não foi baixado. Uma nova fonte será tentada."
+        )
     print(f"[JackIn DL] Arquivo principal: {main_video} ({main_video.stat().st_size / (1024**3):.1f}GB)", file=sys.stderr)
 
     is_pack = len(video_files) > 1
