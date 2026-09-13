@@ -1504,3 +1504,213 @@
 2026-09-12 13:22:28.6|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
 2026-09-12 13:22:28.6|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
 2026-09-12 13:22:28.6|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-12 16:26:20.5|Debug|InstallUpdateService|Checking for updates
+2026-09-12 16:26:21.0|Debug|InstallUpdateService|No update available
+2026-09-12 22:26:30.0|Debug|InstallUpdateService|Checking for updates
+2026-09-12 22:26:30.5|Debug|InstallUpdateService|No update available
+2026-09-13 05:20:38.3|Debug|InstallUpdateService|Checking for updates
+2026-09-13 05:20:38.4|Error|ServerSideNotificationService|Failed to retrieve notifications
+
+[v2.5.2.5491] System.Net.Http.HttpRequestException: Name does not resolve (prowlarr.servarr.com:443)
+ ---> System.Net.Sockets.SocketException (00000005, 0xFFFDFFFF): Name does not resolve
+   at System.Net.Dns.GetHostEntryOrAddressesCore(String hostName, Boolean justAddresses, AddressFamily addressFamily, Nullable`1 startingTimestamp)
+   at System.Net.Dns.<>c.<GetHostEntryOrAddressesCoreAsync>b__33_0(Object s, Int64 startingTimestamp)
+   at System.Net.Dns.<>c__DisplayClass39_0`1.<RunAsync>b__0(Task <p0>, Object <p1>)
+   at System.Threading.Tasks.ContinuationResultTaskFromTask`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at NzbDrone.Common.Http.HappyEyeballs.HttpHappyEyeballs.OnConnect(SocketsHttpConnectionContext context, CancellationToken cancellationToken) in ./NzbDrone.Common/Http/HappyEyeballs/HttpHappyEyeballs.cs:line 27
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp2ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.AuthenticationHelper.SendWithAuthAsync(HttpRequestMessage request, Uri authUri, Boolean async, ICredentials credentials, Boolean preAuthenticate, Boolean isProxyAuth, Boolean doRequestAuth, HttpConnectionPool pool, CancellationToken cancellationToken)
+   at System.Net.Http.DecompressionHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at NzbDrone.Common.Http.Dispatchers.ManagedHttpDispatcher.GetResponseAsync(HttpRequest request, CookieContainer cookies) in ./NzbDrone.Common/Http/Dispatchers/ManagedHttpDispatcher.cs:line 113
+   at NzbDrone.Common.Http.HttpClient.ExecuteRequestAsync(HttpRequest request, CookieContainer cookieContainer) in ./NzbDrone.Common/Http/HttpClient.cs:line 171
+   at NzbDrone.Common.Http.HttpClient.ExecuteAsync(HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 70
+   at NzbDrone.Common.Http.HttpClient.Execute(HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 137
+   at NzbDrone.Core.HealthCheck.ServerSideNotificationService.RetrieveServerChecks() in ./NzbDrone.Core/HealthCheck/ServerSideNotificationService.cs:line 61
+
+
+2026-09-13 05:20:38.4|Error|CommandExecutor|Error occurred while executing task ApplicationUpdateCheck
+
+[v2.5.2.5491] System.Net.Http.HttpRequestException: Name does not resolve (prowlarr.servarr.com:443)
+ ---> System.Net.Sockets.SocketException (00000005, 0xFFFDFFFF): Name does not resolve
+   at System.Net.Dns.GetHostEntryOrAddressesCore(String hostName, Boolean justAddresses, AddressFamily addressFamily, Nullable`1 startingTimestamp)
+   at System.Net.Dns.<>c.<GetHostEntryOrAddressesCoreAsync>b__33_0(Object s, Int64 startingTimestamp)
+   at System.Net.Dns.<>c__DisplayClass39_0`1.<RunAsync>b__0(Task <p0>, Object <p1>)
+   at System.Threading.Tasks.ContinuationResultTaskFromTask`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at NzbDrone.Common.Http.HappyEyeballs.HttpHappyEyeballs.OnConnect(SocketsHttpConnectionContext context, CancellationToken cancellationToken) in ./NzbDrone.Common/Http/HappyEyeballs/HttpHappyEyeballs.cs:line 27
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp2ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.AuthenticationHelper.SendWithAuthAsync(HttpRequestMessage request, Uri authUri, Boolean async, ICredentials credentials, Boolean preAuthenticate, Boolean isProxyAuth, Boolean doRequestAuth, HttpConnectionPool pool, CancellationToken cancellationToken)
+   at System.Net.Http.DecompressionHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at NzbDrone.Common.Http.Dispatchers.ManagedHttpDispatcher.GetResponseAsync(HttpRequest request, CookieContainer cookies) in ./NzbDrone.Common/Http/Dispatchers/ManagedHttpDispatcher.cs:line 113
+   at NzbDrone.Common.Http.HttpClient.ExecuteRequestAsync(HttpRequest request, CookieContainer cookieContainer) in ./NzbDrone.Common/Http/HttpClient.cs:line 171
+   at NzbDrone.Common.Http.HttpClient.ExecuteAsync(HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 70
+   at NzbDrone.Common.Http.HttpClient.GetAsync[T](HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 393
+   at NzbDrone.Common.Http.HttpClient.Get[T](HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 401
+   at NzbDrone.Core.Update.UpdatePackageProvider.GetLatestUpdate(String branch, Version currentVersion) in ./NzbDrone.Core/Update/UpdatePackageProvider.cs:line 59
+   at NzbDrone.Core.Update.CheckUpdateService.AvailableUpdate() in ./NzbDrone.Core/Update/UpdateCheckService.cs:line 25
+   at NzbDrone.Core.Update.InstallUpdateService.GetUpdatePackage(CommandTrigger updateTrigger, Boolean installMajorUpdate) in ./NzbDrone.Core/Update/InstallUpdateService.cs:line 238
+   at NzbDrone.Core.Update.InstallUpdateService.Execute(ApplicationUpdateCheckCommand message) in ./NzbDrone.Core/Update/InstallUpdateService.cs:line 281
+   at NzbDrone.Core.Messaging.Commands.CommandExecutor.ExecuteCommand[TCommand](TCommand command, CommandModel commandModel) in ./NzbDrone.Core/Messaging/Commands/CommandExecutor.cs:line 69
+   at System.Dynamic.UpdateDelegates.UpdateAndExecuteVoid3[T0,T1,T2](CallSite site, T0 arg0, T1 arg1, T2 arg2)
+   at NzbDrone.Core.Messaging.Commands.CommandExecutor.ExecuteCommands() in ./NzbDrone.Core/Messaging/Commands/CommandExecutor.cs:line 44
+
+
+2026-09-13 05:20:38.5|Warn|SystemTimeCheck|Unable to verify system time
+
+[v2.5.2.5491] System.Net.Http.HttpRequestException: Name does not resolve (prowlarr.servarr.com:443)
+ ---> System.Net.Sockets.SocketException (00000005, 0xFFFDFFFF): Name does not resolve
+   at System.Net.Dns.GetHostEntryOrAddressesCore(String hostName, Boolean justAddresses, AddressFamily addressFamily, Nullable`1 startingTimestamp)
+   at System.Net.Dns.<>c.<GetHostEntryOrAddressesCoreAsync>b__33_0(Object s, Int64 startingTimestamp)
+   at System.Net.Dns.<>c__DisplayClass39_0`1.<RunAsync>b__0(Task <p0>, Object <p1>)
+   at System.Threading.Tasks.ContinuationResultTaskFromTask`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at NzbDrone.Common.Http.HappyEyeballs.HttpHappyEyeballs.OnConnect(SocketsHttpConnectionContext context, CancellationToken cancellationToken) in ./NzbDrone.Common/Http/HappyEyeballs/HttpHappyEyeballs.cs:line 27
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp2ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.AuthenticationHelper.SendWithAuthAsync(HttpRequestMessage request, Uri authUri, Boolean async, ICredentials credentials, Boolean preAuthenticate, Boolean isProxyAuth, Boolean doRequestAuth, HttpConnectionPool pool, CancellationToken cancellationToken)
+   at System.Net.Http.DecompressionHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at NzbDrone.Common.Http.Dispatchers.ManagedHttpDispatcher.GetResponseAsync(HttpRequest request, CookieContainer cookies) in ./NzbDrone.Common/Http/Dispatchers/ManagedHttpDispatcher.cs:line 113
+   at NzbDrone.Common.Http.HttpClient.ExecuteRequestAsync(HttpRequest request, CookieContainer cookieContainer) in ./NzbDrone.Common/Http/HttpClient.cs:line 171
+   at NzbDrone.Common.Http.HttpClient.ExecuteAsync(HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 70
+   at NzbDrone.Common.Http.HttpClient.Execute(HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 137
+   at NzbDrone.Core.HealthCheck.Checks.SystemTimeCheck.Check() in ./NzbDrone.Core/HealthCheck/Checks/SystemTimeCheck.cs:line 38
+
+
+2026-09-13 05:20:38.5|Error|CommandExecutor|Error occurred while executing task CheckHealth
+
+[v2.5.2.5491] System.Net.Http.HttpRequestException: Name does not resolve (prowlarr.servarr.com:443)
+ ---> System.Net.Sockets.SocketException (00000005, 0xFFFDFFFF): Name does not resolve
+   at System.Net.Dns.GetHostEntryOrAddressesCore(String hostName, Boolean justAddresses, AddressFamily addressFamily, Nullable`1 startingTimestamp)
+   at System.Net.Dns.<>c.<GetHostEntryOrAddressesCoreAsync>b__33_0(Object s, Int64 startingTimestamp)
+   at System.Net.Dns.<>c__DisplayClass39_0`1.<RunAsync>b__0(Task <p0>, Object <p1>)
+   at System.Threading.Tasks.ContinuationResultTaskFromTask`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at NzbDrone.Common.Http.HappyEyeballs.HttpHappyEyeballs.OnConnect(SocketsHttpConnectionContext context, CancellationToken cancellationToken) in ./NzbDrone.Common/Http/HappyEyeballs/HttpHappyEyeballs.cs:line 27
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp2ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.AuthenticationHelper.SendWithAuthAsync(HttpRequestMessage request, Uri authUri, Boolean async, ICredentials credentials, Boolean preAuthenticate, Boolean isProxyAuth, Boolean doRequestAuth, HttpConnectionPool pool, CancellationToken cancellationToken)
+   at System.Net.Http.DecompressionHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at NzbDrone.Common.Http.Dispatchers.ManagedHttpDispatcher.GetResponseAsync(HttpRequest request, CookieContainer cookies) in ./NzbDrone.Common/Http/Dispatchers/ManagedHttpDispatcher.cs:line 113
+   at NzbDrone.Common.Http.HttpClient.ExecuteRequestAsync(HttpRequest request, CookieContainer cookieContainer) in ./NzbDrone.Common/Http/HttpClient.cs:line 171
+   at NzbDrone.Common.Http.HttpClient.ExecuteAsync(HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 70
+   at NzbDrone.Common.Http.HttpClient.GetAsync[T](HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 393
+   at NzbDrone.Common.Http.HttpClient.Get[T](HttpRequest request) in ./NzbDrone.Common/Http/HttpClient.cs:line 401
+   at NzbDrone.Core.Update.UpdatePackageProvider.GetLatestUpdate(String branch, Version currentVersion) in ./NzbDrone.Core/Update/UpdatePackageProvider.cs:line 59
+   at NzbDrone.Core.Update.CheckUpdateService.AvailableUpdate() in ./NzbDrone.Core/Update/UpdateCheckService.cs:line 25
+   at NzbDrone.Core.HealthCheck.Checks.UpdateCheck.Check() in ./NzbDrone.Core/HealthCheck/Checks/UpdateCheck.cs:line 91
+   at System.Linq.Enumerable.SelectListIterator`2.Fill(ReadOnlySpan`1 source, Span`1 destination, Func`2 func)
+   at System.Linq.Enumerable.SelectListIterator`2.ToList()
+   at NzbDrone.Core.HealthCheck.HealthCheckService.ProcessHealthChecks() in ./NzbDrone.Core/HealthCheck/HealthCheckService.cs:line 95
+   at NzbDrone.Core.HealthCheck.HealthCheckService.Execute(CheckHealthCommand message) in ./NzbDrone.Core/HealthCheck/HealthCheckService.cs:line 149
+   at NzbDrone.Core.Messaging.Commands.CommandExecutor.ExecuteCommand[TCommand](TCommand command, CommandModel commandModel) in ./NzbDrone.Core/Messaging/Commands/CommandExecutor.cs:line 69
+   at System.Dynamic.UpdateDelegates.UpdateAndExecuteVoid3[T0,T1,T2](CallSite site, T0 arg0, T1 arg1, T2 arg2)
+   at NzbDrone.Core.Messaging.Commands.CommandExecutor.ExecuteCommands() in ./NzbDrone.Core/Messaging/Commands/CommandExecutor.cs:line 44
+
+
+2026-09-13 06:26:54.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:54.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:54.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (18 ms)
+2026-09-13 06:26:54.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (16 ms)
+2026-09-13 06:26:54.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:54.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (10 ms)
+2026-09-13 06:26:54.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:55.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-13 06:26:55.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:55.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-13 06:26:55.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:55.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-13 06:26:55.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:55.0|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-13 06:26:55.0|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:26:55.0|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-13 06:27:08.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:08.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:08.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-13 06:27:08.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (9 ms)
+2026-09-13 06:27:08.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:08.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-13 06:27:08.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:08.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (4 ms)
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (7 ms)
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-13 06:27:13.9|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-13 07:16:28.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (38 ms)
+2026-09-13 07:16:28.3|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (37 ms)
+2026-09-13 07:16:28.3|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-13 07:16:28.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (5 ms)
+2026-09-13 07:16:28.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%204K&limit=100&type=search: 401.Unauthorized (3 ms)
+2026-09-13 07:16:28.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.4|Debug|Api|[GET] /api/v1/search?query=Vietnam%20War&limit=100&type=search: 401.Unauthorized (2 ms)
+2026-09-13 07:16:28.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War&limit=100&type=search: 401.Unauthorized (17 ms)
+2026-09-13 07:16:28.4|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:28.4|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%202025&limit=100&type=search: 401.Unauthorized (21 ms)
+2026-09-13 07:16:42.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:42.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (6 ms)
+2026-09-13 07:16:42.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:42.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-13 07:16:42.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:42.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20PT-BR&limit=100&type=search: 401.Unauthorized (1 ms)
+2026-09-13 07:16:42.5|Info|Prowlarr.Http.Authentication.ApiKeyAuthenticationHandler|AuthenticationScheme: API was challenged.
+2026-09-13 07:16:42.5|Debug|Api|[GET] /api/v1/search?query=The%20Vietnam%20War%20DUBLADO&limit=100&type=search: 401.Unauthorized (0 ms)
