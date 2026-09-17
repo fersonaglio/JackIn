@@ -21,8 +21,9 @@ secrets.*
 /scratch/
 /github_repos/
 
-# Prowlarr/FlareSolverr local — NUNCA subir config.xml com ApiKey
+# Prowlarr/FlareSolverr local — NUNCA subir config.xml com ApiKey, logs ou bancos
 /infra/
+/prowlarr/
 
 # Node / JS
 node_modules/
