@@ -1169,4 +1169,22 @@ router.put('/:id/watched', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+router.put('/:id/status', (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const { status, progressPct, progressStatus, videoPath } = req.body;
+  const db = getDb();
+  const updates: string[] = [];
+  const params: any[] = [];
+  if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+  if (progressPct !== undefined) { updates.push('progress_pct = ?'); params.push(progressPct); }
+  if (progressStatus !== undefined) { updates.push('progress_status = ?'); params.push(progressStatus); }
+  if (videoPath !== undefined) { updates.push('video_path = ?'); params.push(videoPath); }
+  if (updates.length > 0) {
+    params.push(id);
+    db.run(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`, params);
+    persist();
+  }
+  res.json({ ok: true });
+});
+
 export default router;
