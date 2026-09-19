@@ -80,6 +80,12 @@ router.get('/', (req: Request, res: Response) => {
           facelessConfig = typeof r[8] === 'string' ? JSON.parse(r[8] as string) : r[8];
         } catch {}
       }
+      if (facelessConfig?.posterUrl?.includes('rr3fAp726ApBpD2pO7xAyMp4Sg3')) {
+        facelessConfig.posterUrl = 'https://image.tmdb.org/t/p/w500/wSqCUJRW8HMnLSfTpUMKGHjPe5h.jpg';
+        try {
+          db.run('UPDATE projects SET faceless_config = ? WHERE id = ?', [JSON.stringify(facelessConfig), r[0]]);
+        } catch {}
+      }
       const status = String(r[3] || '');
       const progressStatus = (r[15] as string | null) || null;
       let progressPct = r[14] as number | null;

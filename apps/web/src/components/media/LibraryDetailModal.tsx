@@ -183,7 +183,7 @@ export default function LibraryDetailModal({
     }
   }, [imageError, posterExternal, cleanName, dynamicPoster]);
 
-  const activePoster = dynamicPoster || (posterExternal || (!imageError ? thumb(posterId) : null));
+  const activePoster = dynamicPoster || (!imageError && thumb(posterId) ? thumb(posterId) : (posterExternal || null));
 
   const modalContent = (
     <AnimatePresence>

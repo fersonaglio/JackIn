@@ -104,7 +104,7 @@ function LibraryCard({
     }
   }, [imageError, posterExternal, cleanTitle, dynamicPoster]);
 
-  const activePoster = dynamicPoster || (posterExternal || (!imageError ? thumbnailUrl : null));
+  const activePoster = dynamicPoster || (!imageError && thumbnailUrl ? thumbnailUrl : (posterExternal || null));
 
   return (
     <div
