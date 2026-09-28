@@ -642,3 +642,19 @@ input[type="range"].cosmic-range::-moz-range-thumb {
   from { stroke-dashoffset: 24; }
   to { stroke-dashoffset: 0; }
 }
+
+/* ============================================
+   VIDEO SUBTITLES STYLING
+   ============================================ */
+video::cue,
+::cue {
+  background-color: rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1.12rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.85);
+  padding: 0.1em 0.45em;
+  border-radius: 4px;
+}

@@ -154,7 +154,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
   }, []);
   const [audioLanguage, setAudioLanguage] = useState<string>('pt-br');
-  const [subtitleTrack, setSubtitleTrack] = useState<'off' | 'pt-br' | 'en' | 'es'>('off');
+  const [subtitleTrack, setSubtitleTrack] = useState<string>('off');
   const [subtitleOffsetSec, setSubtitleOffsetSec] = useState(0);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'tracks' | 'info'>('tracks');
@@ -581,6 +581,14 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
         const uniqueSub = [...new Set<string>(subtitles.map(t => t.language))];
         setAvailableSubtitles(uniqueSub);
 
+        // Se houver legendas disponíveis e a legenda atual estiver 'off', ativa por padrão
+        // priorizando português (pt-br/por) ou o primeiro idioma disponível
+        if (uniqueSub.includes('pt-br') || uniqueSub.includes('por')) {
+          setSubtitleTrack('pt-br');
+        } else if (uniqueSub.length > 0 && subtitleTrack === 'off') {
+          setSubtitleTrack(uniqueSub[0] as any);
+        }
+
         setTracksLoaded(true);
       })
       .catch(() => {
@@ -675,45 +683,47 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     const clamped = Math.max(-10, Math.min(10, Math.round(offsetSec * 10) / 10));
     setSubtitleOffsetSec(clamped);
     const el = videoRef.current;
-    if (!el || !el.textTracks) return;
-    for (let i = 0; i < el.textTracks.length; i++) {
-      const track = el.textTracks[i];
-      if (track.cues) {
-        for (let j = 0; j < track.cues.length; j++) {
-          const cue = track.cues[j] as VTTCue;
-          if ((cue as any)._origStart === undefined) {
-            (cue as any)._origStart = cue.startTime;
-            (cue as any)._origEnd = cue.endTime;
+    if (el && el.textTracks) {
+      for (let i = 0; i < el.textTracks.length; i++) {
+        const track = el.textTracks[i];
+        if (track.cues) {
+          for (let j = 0; j < track.cues.length; j++) {
+            const cue = track.cues[j] as VTTCue;
+            if ((cue as any)._origStart === undefined) {
+              (cue as any)._origStart = cue.startTime;
+              (cue as any)._origEnd = cue.endTime;
+            }
+            cue.startTime = Math.max(0, (cue as any)._origStart + clamped);
+            cue.endTime = Math.max(0, (cue as any)._origEnd + clamped);
           }
-          cue.startTime = Math.max(0, (cue as any)._origStart + clamped);
-          cue.endTime = Math.max(0, (cue as any)._origEnd + clamped);
         }
       }
     }
   }, []);
 
-  // Garante que a faixa de legenda selecionada fique ativa após o load. Sem
-  // isso, <track> injetado dinamicamente pode ficar em 'disabled' no browser.
+  // Garante que o track nativo HTML5 também fique 'showing' (para PiP / Cast)
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !isOpen || !el.textTracks) return;
-    for (let i = 0; i < el.textTracks.length; i++) {
-      const t = el.textTracks[i];
-      const active = subtitleTrack !== 'off' && (t.language === subtitleTrack || t.label === langLabel(subtitleTrack));
-      t.mode = active ? 'showing' : 'disabled';
-      if (active && t.cues && subtitleOffsetSec !== 0) {
-        for (let j = 0; j < t.cues.length; j++) {
-          const cue = t.cues[j] as VTTCue;
-          if ((cue as any)._origStart === undefined) {
-            (cue as any)._origStart = cue.startTime;
-            (cue as any)._origEnd = cue.endTime;
-          }
-          cue.startTime = Math.max(0, (cue as any)._origStart + subtitleOffsetSec);
-          cue.endTime = Math.max(0, (cue as any)._origEnd + subtitleOffsetSec);
-        }
+
+    const syncNativeTracks = () => {
+      for (let i = 0; i < el.textTracks.length; i++) {
+        const t = el.textTracks[i];
+        const langLower = (t.language || '').toLowerCase();
+        const isPtMatch = (subtitleTrack === 'pt-br' || subtitleTrack === 'por') && (langLower.startsWith('pt') || langLower.startsWith('por') || langLower === 'pob');
+        const isEnMatch = (subtitleTrack === 'en' || subtitleTrack === 'eng') && langLower.startsWith('en');
+        const isEsMatch = (subtitleTrack === 'es' || subtitleTrack === 'spa') && langLower.startsWith('es');
+        const active = subtitleTrack !== 'off' && (isPtMatch || isEnMatch || isEsMatch || langLower === subtitleTrack.toLowerCase() || t.label === langLabel(subtitleTrack));
+        t.mode = active ? 'showing' : 'disabled';
       }
-    }
-  }, [subtitleTrack, isOpen, subtitleOffsetSec]);
+    };
+
+    syncNativeTracks();
+    el.textTracks.addEventListener?.('addtrack', syncNativeTracks);
+    return () => {
+      el.textTracks?.removeEventListener?.('addtrack', syncNativeTracks);
+    };
+  }, [subtitleTrack, isOpen]);
 
   const handleLoadedMetadata = () => {
     setHasError(false);
@@ -1112,12 +1122,18 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
               >
                 {subtitleTrack !== 'off' && (
                   <track
-                    key={subtitleTrack}
+                    key={`${projectId}-${subtitleTrack}`}
                     kind="subtitles"
                     src={`${API_URL}/projects/${projectId}/subtitles?lang=${subtitleTrack}`}
                     srcLang={subtitleTrack}
                     label={langLabel(subtitleTrack)}
                     default
+                    onLoad={(e) => {
+                      try {
+                        const tr = (e.currentTarget as HTMLTrackElement).track;
+                        if (tr) tr.mode = 'showing';
+                      } catch {}
+                    }}
                   />
                 )}
               </video>
@@ -1340,6 +1356,34 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                       <path d="M2 16a5 5 0 0 1 4 4" />
                       <line x1="2" y1="20" x2="2.01" y2="20" />
                     </svg>
+                  </button>
+                )}
+
+                {/* Dedicated CC Subtitle Button */}
+                {subtitleTracks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (subtitleTrack === 'off') {
+                        const target = availableSubtitles.includes('pt-br') ? 'pt-br' : availableSubtitles[0] || 'en';
+                        setSubtitleTrack(target as any);
+                      } else {
+                        setSubtitleTrack('off');
+                      }
+                    }}
+                    className={`h-10 px-3 flex items-center justify-center gap-1.5 rounded-full border transition-all text-xs font-bold ${
+                      subtitleTrack !== 'off'
+                        ? 'bg-[#EF9F27] border-[#EF9F27] text-black shadow-lg shadow-[#EF9F27]/20 font-black'
+                        : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                    }`}
+                    title={subtitleTrack !== 'off' ? `Legendas ativas (${langLabel(subtitleTrack)}). Clique para desativar.` : 'Ativar legendas (CC)'}
+                  >
+                    <span className="font-mono text-xs">CC</span>
+                    {subtitleTrack !== 'off' && (
+                      <span className="text-[10px] uppercase tracking-wider">
+                        {subtitleTrack === 'pt-br' ? 'PT' : subtitleTrack}
+                      </span>
+                    )}
                   </button>
                 )}
 

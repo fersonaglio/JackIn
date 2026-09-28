@@ -125,32 +125,25 @@ def srt_to_vtt(raw: str, target_vtt: str) -> bool:
         return True
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     lines = text.split("\n")
-    out = ["WEBVTT\n"]
-    cue_count = 0
+    cues = []
     i = 0
     while i < len(lines):
-        line = lines[i]
+        line = lines[i].strip()
         if "-->" in line and ":" in line:
-            cue_time = line
+            # Normalize SRT timing to WebVTT (HH:MM:SS,mmm -> HH:MM:SS.mmm)
+            cue_time = line.replace(",", ".")
             body = []
             i += 1
             while i < len(lines) and lines[i].strip() != "":
-                body.append(lines[i])
+                body.append(lines[i].strip())
                 i += 1
-            # Normalize SRT timing to WebVTT (same HH:MM:SS,mmm -> HH:MM:SS.mmm)
-            cue_time = cue_time.replace(",", ".")
-            out.append(cue_time + "\n")
             if body:
-                out.append("\n".join(body) + "\n")
-            out.append("\n")
-            cue_count += 1
+                cues.append(cue_time + "\n" + "\n".join(body))
         else:
             i += 1
-    if cue_count == 0:
+    if not cues:
         return False
-    result = "\n".join(out)
-    if "WEBVTT" not in result:
-        return False
+    result = "WEBVTT\n\n" + "\n\n".join(cues) + "\n"
     pathlib.Path(target_vtt).write_text(result, encoding="utf-8")
     return True
 

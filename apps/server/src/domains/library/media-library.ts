@@ -797,15 +797,22 @@ router.get('/:id/subtitles', (req: Request, res: Response) => {
   const projectId = String(req.params.id);
   const targetLang = (req.query.lang as string) || 'pt-br';
 
-  // External subtitle downloaded by the subtitle service wins over any
-  // embedded stream — it is the most reliable, highest-quality option.
+  // External subtitle downloaded by the subtitle service or extracted VTT.
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
-  const targetSuffix = targetLang === 'pt-br' ? 'ptbr' : targetLang;
-  const externalVtt = path.join(projectDir, `subs_${targetSuffix}.vtt`);
-  if (existsSync(externalVtt)) {
-    res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
-    res.sendFile(path.resolve(externalVtt));
-    return;
+  const targetCodes = LANG_TO_CODES[targetLang] || [targetLang];
+  const candidateSuffixes = [
+    targetLang === 'pt-br' ? 'ptbr' : targetLang,
+    ...targetCodes,
+    targetLang,
+  ];
+  for (const suffix of candidateSuffixes) {
+    const candidate = path.join(projectDir, `subs_${suffix}.vtt`);
+    if (existsSync(candidate)) {
+      res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(path.resolve(candidate));
+      return;
+    }
   }
 
   // VTT extraído na ingestão para o idioma pedido (ex.: subs_en.vtt).
@@ -816,6 +823,7 @@ router.get('/:id/subtitles', (req: Request, res: Response) => {
     const art = foundCode ? pm.artifacts.subs[foundCode] : null;
     if (art && existsSync(art.path)) {
       res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.resolve(art.path));
       return;
     }
@@ -840,8 +848,6 @@ router.get('/:id/subtitles', (req: Request, res: Response) => {
     res.send('WEBVTT\n\n');
     return;
   }
-
-  const targetCodes = LANG_TO_CODES[targetLang] || [targetLang];
 
   try {
     const ffprobeBin = process.env.FFPROBE_BIN || 'ffprobe';
