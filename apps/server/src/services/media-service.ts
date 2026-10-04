@@ -970,7 +970,9 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
   // 2) playable.mp4 (fallback apenas para codecs legados como mpeg4/xvid) — se o
   // master.mp4 já foi gerado em hevc/h264 com áudio AAC universal, ele toca
   // diretamente em todos os navegadores com aceleração por hardware (GPU 0% CPU).
-  const masterAlreadyUniversal = (info.video?.codec === 'hevc' || info.video?.codec === 'h264') && !!artifacts.master;
+  // HEVC pode ser universal para o navegador, mas não é o alvo do receiver
+  // padrão do Chromecast; por isso ainda precisa de um playable H.264.
+  const masterAlreadyUniversal = info.video?.codec === 'h264' && !!artifacts.master;
   if (!directForChrome && !masterAlreadyUniversal) {
     if (isAborted()) return;
     const out = path.join(projectDir, 'playable.mp4');
@@ -1120,6 +1122,9 @@ export function resolveVideoFile(projectId: string, target: Target, audioLang?: 
     const isHevc = info?.video?.codec === 'hevc';
     if (target === 'h264' && isHevc && pm?.artifacts?.playable && fs.existsSync(pm.artifacts.playable.path)) {
       return { filePath: pm.artifacts.playable.path, prepState: pm.prepState, isArtifact: true };
+    }
+    if (target === 'h264' && isHevc) {
+      return { filePath: null, prepState: pm?.prepState || 'done', isArtifact: false };
     }
     return { filePath: masterFile, prepState: pm?.prepState || 'done', isArtifact: true };
   }

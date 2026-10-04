@@ -601,17 +601,25 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
 
     // Meta de transmissão (Google Cast). Se o endpoint ainda não existir ou
     // falhar, trata como indisponível — o player local continua funcionando.
-    fetch(`${API_URL}/projects/${projectId}/cast`)
-      .then(res => (res.ok ? res.json() : null))
-      .then((data: { available?: boolean; audioTracks?: CastAudioTrack[] } | null) => {
-        setCastMeta({
-          available: !!data?.available,
-          audioTracks: data?.audioTracks || [],
-        });
-      })
-      .catch(() => {
-        setCastMeta({ available: false, audioTracks: [] });
-      });
+    let castPoll: ReturnType<typeof setInterval> | null = null;
+    const loadCastMeta = () => {
+      fetch(`${API_URL}/projects/${projectId}/cast`)
+        .then(res => (res.ok ? res.json() : null))
+        .then((data: { available?: boolean; audioTracks?: CastAudioTrack[] } | null) => {
+          const available = !!data?.available;
+          setCastMeta({ available, audioTracks: data?.audioTracks || [] });
+          if (available && castPoll) {
+            clearInterval(castPoll);
+            castPoll = null;
+          }
+        })
+        .catch(() => setCastMeta({ available: false, audioTracks: [] }));
+    };
+    loadCastMeta();
+    castPoll = setInterval(loadCastMeta, 5000);
+    return () => {
+      if (castPoll) clearInterval(castPoll);
+    };
   }, [isOpen, projectId]);
 
   const handleFetchSubtitles = useCallback(async () => {
@@ -1333,15 +1341,15 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                 )}
 
                 {/* Google Cast (Chromecast) Button */}
-                {castSupported && devicesAvailable && isOpen && (
+                {isOpen && (
                   <button
                     type="button"
                     onClick={handleCastClick}
                     disabled={!castMeta.available}
                     title={
-                      !castMeta.available
-                        ? 'Transmissão indisponível para este vídeo'
-                        : isCasting
+                        !castMeta.available
+                          ? 'Preparando versão compatível com Chromecast'
+                          : isCasting
                           ? 'Parar transmissão'
                           : 'Transmitir para a TV'
                     }

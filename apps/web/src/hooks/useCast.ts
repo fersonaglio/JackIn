@@ -47,7 +47,7 @@ let sdkReady = false;
 let castContextInitialized = false;
 const sdkReadyListeners = new Set<() => void>();
 
-function castSdkAvailable(): boolean {
+function castFrameworkAvailable(): boolean {
   return (
     typeof chrome !== 'undefined' &&
     typeof chrome.cast !== 'undefined' &&
@@ -57,10 +57,22 @@ function castSdkAvailable(): boolean {
   );
 }
 
+function castBaseAvailable(): boolean {
+  return (
+    typeof chrome !== 'undefined' &&
+    typeof chrome.cast !== 'undefined' &&
+    chrome.cast.isAvailable === true
+  );
+}
+
+function castSdkAvailable(): boolean {
+  return castBaseAvailable() && castFrameworkAvailable();
+}
+
 function handleSdkAvailable(available: boolean): void {
   sdkReady = available;
-  if (!available || typeof window === 'undefined' || !castSdkAvailable()) return;
-  if (!castContextInitialized) {
+  if (!available || typeof window === 'undefined' || typeof chrome === 'undefined' || typeof chrome.cast === 'undefined') return;
+  if (castFrameworkAvailable() && !castContextInitialized) {
     castContextInitialized = true;
     try {
       const context = chrome.cast?.framework?.CastContext?.getInstance?.();
@@ -94,6 +106,7 @@ function ensureCastSdk(): void {
     // SDK já presente no DOM (ex.: HMR re-executou este módulo) — usa o que existe.
     sdkInjected = true;
     if (castSdkAvailable()) handleSdkAvailable(true);
+    else if (typeof chrome !== 'undefined' && typeof chrome.cast !== 'undefined') handleSdkAvailable(true);
     return;
   }
   if (sdkInjected) return;
@@ -104,8 +117,38 @@ function ensureCastSdk(): void {
   script.id = CAST_SCRIPT_ID;
   script.src = CAST_SDK_URL;
   script.async = true;
+  script.onload = () => {
+    if (typeof chrome !== 'undefined' && typeof chrome.cast !== 'undefined') handleSdkAvailable(true);
+  };
   script.onerror = () => console.error('[Cast] falha ao carregar o SDK do Google Cast');
   document.head.appendChild(script);
+}
+
+// Alguns perfis Chromium carregam o sender SDK, mas não disparam o callback
+// global quando o script é injetado dinamicamente. A sondagem curta cobre esse
+// caso sem manter timers vivos depois que o SDK fica pronto.
+function watchForCastSdk(): () => void {
+  if (castBaseAvailable()) {
+    handleSdkAvailable(true);
+  }
+  if (castSdkAvailable()) {
+    handleSdkAvailable(true);
+    return () => {};
+  }
+  let attempts = 0;
+  const timer = window.setInterval(() => {
+    attempts += 1;
+    if (castBaseAvailable()) {
+      handleSdkAvailable(true);
+    }
+    if (castSdkAvailable()) {
+      handleSdkAvailable(true);
+      window.clearInterval(timer);
+    } else if (attempts >= 60) {
+      window.clearInterval(timer);
+    }
+  }, 500);
+  return () => window.clearInterval(timer);
 }
 
 // ─── Cache do IP da LAN (o Chromecast busca a mídia direto do servidor local). ───
@@ -147,6 +190,8 @@ export function useCast(): CastState & {
   const castProjectIdRef = useRef<string | null>(null);
   const progressRef = useRef<{ lastSave: number }>({ lastSave: 0 });
   const remotePlayerRef = useRef<{ player: any; controller: any } | null>(null);
+  const legacySessionRef = useRef<any>(null);
+  const legacyInitializedRef = useRef(false);
   const cleanupRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
@@ -177,8 +222,33 @@ export function useCast(): CastState & {
     };
 
     const onSdkReady = () => {
-      if (!castSdkAvailable() || !window.isSecureContext) return;
+      if (typeof chrome === 'undefined' || typeof chrome.cast === 'undefined' || !window.isSecureContext) return;
       setCastSupported(true);
+
+      if (!castFrameworkAvailable()) {
+        if (legacyInitializedRef.current) return;
+        legacyInitializedRef.current = true;
+        try {
+          const castApi: any = chrome.cast;
+          const sessionRequest = new castApi.SessionRequest(castApi.media.DEFAULT_MEDIA_RECEIVER_APP_ID);
+          const apiConfig = new castApi.ApiConfig(
+            sessionRequest,
+            (session: any) => {
+              legacySessionRef.current = session;
+              setIsCasting(true);
+            },
+            (availability: string) => setDevicesAvailable(availability === 'available'),
+          );
+          castApi.initialize(
+            apiConfig,
+            () => setDevicesAvailable(true),
+            (err: unknown) => console.error('[Cast] falha ao inicializar o sender legado:', err),
+          );
+        } catch (err) {
+          console.error('[Cast] falha ao configurar o sender legado:', err);
+        }
+        return;
+      }
 
       const context = chrome.cast.framework.CastContext.getInstance();
       if (!context) return;
@@ -223,6 +293,7 @@ export function useCast(): CastState & {
     const offSdkReady = subscribeSdkReady(onSdkReady);
     cleanupRef.current.push(offSdkReady);
     ensureCastSdk();
+    cleanupRef.current.push(watchForCastSdk());
 
     return () => {
       cleanupRef.current.forEach((off) => {
@@ -241,7 +312,7 @@ export function useCast(): CastState & {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       throw new Error('Cast indisponível fora do navegador');
     }
-    if (!castSdkAvailable()) {
+    if (!castBaseAvailable()) {
       throw new Error('SDK do Google Cast não está disponível (contexto seguro?)');
     }
 
@@ -249,7 +320,19 @@ export function useCast(): CastState & {
     castProjectIdRef.current = opts.projectId;
     setCastProjectId(opts.projectId);
 
-    const session = await chrome.cast.framework.CastContext.getInstance().requestSession();
+    const session = castFrameworkAvailable()
+      ? await chrome.cast.framework.CastContext.getInstance().requestSession()
+      : await new Promise<any>((resolve, reject) => {
+          const castApi: any = chrome.cast;
+          castApi.requestSession(
+            (nextSession: any) => {
+              legacySessionRef.current = nextSession;
+              setIsCasting(true);
+              resolve(nextSession);
+            },
+            reject,
+          );
+        });
 
     const mediaInfo = new chrome.cast.media.MediaInfo(
       buildCastMediaUrl(opts.videoUrl, lanIp, port),
@@ -291,11 +374,21 @@ export function useCast(): CastState & {
   }, []);
 
   const stopCasting = useCallback(async () => {
-    if (typeof window === 'undefined' || !castSdkAvailable()) return;
+    if (typeof window === 'undefined' || !castBaseAvailable()) return;
     try {
-      const session = chrome.cast.framework.CastContext.getInstance().getCurrentSession();
+      const session = castFrameworkAvailable()
+        ? chrome.cast.framework.CastContext.getInstance().getCurrentSession()
+        : legacySessionRef.current;
       if (session) {
-        await session.stop();
+        if (castFrameworkAvailable()) {
+          await session.stop();
+        } else {
+          await new Promise<void>((resolve, reject) => session.stop(resolve, reject));
+          legacySessionRef.current = null;
+          setIsCasting(false);
+          setCastProjectId(null);
+          castProjectIdRef.current = null;
+        }
       }
     } catch (err) {
       console.error('Erro ao parar a transmissão:', err);
