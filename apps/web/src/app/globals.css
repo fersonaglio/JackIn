@@ -651,10 +651,20 @@ video::cue,
   background-color: rgba(0, 0, 0, 0.85);
   color: #ffffff;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: 1.12rem;
+  /* 40% maior que o tamanho anterior de 1.12rem. */
+  font-size: 1.568rem;
   font-weight: 600;
-  line-height: 1.15;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.85);
+  /* Metade do espaçamento vertical anterior. */
+  line-height: 0.6325;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
   padding: 0.1em 0.45em;
   border-radius: 4px;
+}
+
+/* A legenda visível é renderizada pelo CinemaPlayer para que o espaçamento
+   e a posição sejam consistentes entre navegadores. */
+video.jackin-native-cue-hidden::cue {
+  color: transparent;
+  background: transparent;
+  text-shadow: none;
 }

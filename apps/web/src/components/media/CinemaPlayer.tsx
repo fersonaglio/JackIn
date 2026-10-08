@@ -156,6 +156,8 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   const [audioLanguage, setAudioLanguage] = useState<string>('pt-br');
   const [subtitleTrack, setSubtitleTrack] = useState<string>('off');
   const [subtitleOffsetSec, setSubtitleOffsetSec] = useState(0);
+  const [activeSubtitleText, setActiveSubtitleText] = useState('');
+  const [subtitlePosition, setSubtitlePosition] = useState(90);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'tracks' | 'info'>('tracks');
   const [technicalInfo, setTechnicalInfo] = useState<TechnicalMediaInfo | null>(null);
@@ -709,6 +711,71 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
   }, []);
 
+  // Posiciona a legenda logo abaixo da área real do filme. Como o vídeo usa
+  // object-contain, a imagem pode ocupar só parte da altura do player.
+  const applySubtitleCueLayout = useCallback((track: TextTrack) => {
+    const el = videoRef.current;
+    if (!el?.videoWidth || !el.videoHeight || !track.cues) return;
+
+    const rect = el.getBoundingClientRect();
+    const containedHeight = Math.min(rect.height, rect.width * (el.videoHeight / el.videoWidth));
+    const imageBottom = ((rect.height - containedHeight) / 2) + containedHeight;
+    const linePosition = Math.min(98, Math.max(5, (imageBottom / rect.height) * 100 + 2));
+
+    for (let i = 0; i < track.cues.length; i++) {
+      const cue = track.cues[i] as VTTCue;
+      cue.snapToLines = false;
+      cue.line = linePosition;
+    }
+  }, []);
+
+  // Lê as cues ativas e desenha a legenda em um overlay próprio. Isso evita
+  // que cada navegador imponha seu próprio espaçamento e bloco de fundo.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !isOpen || subtitleTrack === 'off') {
+      setActiveSubtitleText('');
+      return;
+    }
+
+    const updateOverlay = () => {
+      const visibleTrack = Array.from(el.textTracks).find((track) => track.mode === 'showing');
+      const cues = visibleTrack?.activeCues;
+      const text = cues
+        ? Array.from(cues).map((cue) => (cue as VTTCue).text.replace(/<[^>]*>/g, '')).join('\n')
+        : '';
+      setActiveSubtitleText(text);
+
+      if (el.videoWidth && el.videoHeight) {
+        const rect = el.getBoundingClientRect();
+        const containedHeight = Math.min(rect.height, rect.width * (el.videoHeight / el.videoWidth));
+        const imageBottom = ((rect.height - containedHeight) / 2) + containedHeight;
+        setSubtitlePosition(Math.min(98, Math.max(5, (imageBottom / rect.height) * 100 + 2)));
+      }
+    };
+
+    const tracks = Array.from(el.textTracks);
+    const bindCueChange = (track: TextTrack) => track.addEventListener('cuechange', updateOverlay);
+    const unbindCueChange = (track: TextTrack) => track.removeEventListener('cuechange', updateOverlay);
+    const handleTrackAdded = (event: Event) => {
+      const track = (event as TrackEvent).track as TextTrack | undefined;
+      if (track) bindCueChange(track);
+      updateOverlay();
+    };
+
+    tracks.forEach(bindCueChange);
+    updateOverlay();
+    el.textTracks.addEventListener('addtrack', handleTrackAdded);
+    el.addEventListener('loadedmetadata', updateOverlay);
+    window.addEventListener('resize', updateOverlay);
+    return () => {
+      tracks.forEach(unbindCueChange);
+      el.textTracks.removeEventListener('addtrack', handleTrackAdded);
+      el.removeEventListener('loadedmetadata', updateOverlay);
+      window.removeEventListener('resize', updateOverlay);
+    };
+  }, [isOpen, subtitleTrack]);
+
   // Garante que o track nativo HTML5 também fique 'showing' (para PiP / Cast)
   useEffect(() => {
     const el = videoRef.current;
@@ -723,15 +790,24 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
         const isEsMatch = (subtitleTrack === 'es' || subtitleTrack === 'spa') && langLower.startsWith('es');
         const active = subtitleTrack !== 'off' && (isPtMatch || isEnMatch || isEsMatch || langLower === subtitleTrack.toLowerCase() || t.label === langLabel(subtitleTrack));
         t.mode = active ? 'showing' : 'disabled';
+
+        // Mantém as legendas ligeiramente abaixo da área útil da imagem,
+        // inclusive quando o vídeo tem barras pretas (object-contain).
+        applySubtitleCueLayout(t);
       }
     };
 
     syncNativeTracks();
+    const handleResize = () => {
+      for (let i = 0; i < el.textTracks.length; i++) applySubtitleCueLayout(el.textTracks[i]);
+    };
+    window.addEventListener('resize', handleResize);
     el.textTracks.addEventListener?.('addtrack', syncNativeTracks);
     return () => {
+      window.removeEventListener('resize', handleResize);
       el.textTracks?.removeEventListener?.('addtrack', syncNativeTracks);
     };
-  }, [subtitleTrack, isOpen]);
+  }, [applySubtitleCueLayout, subtitleTrack, isOpen]);
 
   const handleLoadedMetadata = () => {
     setHasError(false);
@@ -1047,7 +1123,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                 src={buildVideoUrl(videoUrl, audioLanguage)}
                 crossOrigin="anonymous"
                 autoPlay={!showResumePrompt}
-                className={`w-full h-full object-contain ${showControls ? 'cursor-pointer' : 'cursor-none'}`}
+                className={`jackin-native-cue-hidden w-full h-full object-contain ${showControls ? 'cursor-pointer' : 'cursor-none'}`}
                 onClick={() => {
                   if (!showResumePrompt) togglePlay();
                 }}
@@ -1139,7 +1215,10 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                     onLoad={(e) => {
                       try {
                         const tr = (e.currentTarget as HTMLTrackElement).track;
-                        if (tr) tr.mode = 'showing';
+                        if (tr) {
+                          tr.mode = 'showing';
+                          applySubtitleCueLayout(tr);
+                        }
                       } catch {}
                     }}
                   />
@@ -1148,6 +1227,28 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
             ) : (
               <div className="text-center space-y-2">
                 <p className="text-zinc-500 text-sm">Nenhum vídeo disponível</p>
+              </div>
+            )}
+
+            {activeSubtitleText && subtitleTrack !== 'off' && (
+              <div
+                className="absolute inset-x-0 z-20 flex justify-center px-6 pointer-events-none"
+                style={{ top: `${subtitlePosition}%`, transform: 'translateY(-50%)' }}
+              >
+                <div
+                  className="max-w-[92%] rounded px-3 py-1 text-center text-white font-semibold flex flex-col items-center"
+                  style={{
+                    fontSize: '1.568rem',
+                    lineHeight: 0.575,
+                    rowGap: '0.55em',
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
+                  }}
+                >
+                  {activeSubtitleText.split('\n').map((line, index) => (
+                    <span key={`${index}-${line}`}>{line}</span>
+                  ))}
+                </div>
               </div>
             )}
 
