@@ -24,6 +24,7 @@ from search_data import (
     TRANSLATIONS,
     BLACKLIST_LANGS,
     PT_AUDIO_MARKERS,
+    FOREIGN_DUB_SUB_PATTERN,
     MIN_RELEVANCE,
     MIN_CANDIDATES,
     MAX_OPTIONS,
@@ -33,6 +34,18 @@ from search_data import (
     SCORE_WEIGHTS,
     JUNK_PATTERNS,
 )
+
+# "Dub Sub rus", "Sub rus", "Dub + Ukr", "Dub (Ukr)" — um descritor de áudio/
+# legenda explicitamente em língua estrangeira. Quando presente, qualquer tag
+# "[Dublado PT-BR]" apensa ao nome é um spoof de releases russos (DVDSEED).
+_FOREIGN_DUB_SUB_RE = re.compile(FOREIGN_DUB_SUB_PATTERN, re.IGNORECASE)
+
+
+def is_foreign_dub(name: str) -> bool:
+    """True quando o nome traz um "Dub"/"Sub" em língua estrangeira (rus/ukr/eng/...),
+    sinal de que o release NÃO é dublado em português — mesmo carregando uma tag
+    "[Dublado PT-BR]" apensa (spoof)."""
+    return bool(name and _FOREIGN_DUB_SUB_RE.search(name))
 
 def detect_audio_info(file_name: str) -> str:
     name_upper = file_name.upper().replace(".", " ").replace("_", " ")
@@ -110,6 +123,12 @@ def classify_audio(name: str) -> dict:
         if pt_tokens >= 1:
             pt_confirmed = True
             has_pt_sub = True
+    # Spoof guard: "Dub Sub rus"/"Dub + Ukr"/"Sub rus" describe foreign audio —
+    # a "[Dublado PT-BR]" tag appended to such a name is fake (Russian DVDSEED
+    # releases). Downgrade to non-PT so it is never labelled/ranked as dubbed.
+    if is_foreign_dub(name):
+        pt_confirmed = False
+        has_pt_sub = False
     return {"audioType": audio_type, "hasSubtitles": has_leg or has_pt_sub, "ptConfirmed": pt_confirmed, "hasPtSubtitles": has_pt_sub}
 
 def _audio_bonus(name: str, pref: str) -> float:
@@ -190,10 +209,17 @@ def _is_series_pack(name: str) -> bool:
 def language_allowed(name: str) -> bool:
     name_upper = name.upper()
     tokens = re.split(r"[\s.\-_\[\]\(\)]+", name_upper)
+    has_pt_marker = any(x in name_upper for x in ["PTBR", "PT-BR", "PORTUGUESE", "DUBLADO"])
     for token in tokens:
         if token in BLACKLIST_LANGS:
-            if not any(x in name_upper for x in ["PTBR", "PT-BR", "PORTUGUESE", "DUBLADO"]):
+            if not has_pt_marker:
                 return False
+    # Spoof guard: a PT marker is fake when the release's "Dub"/"Sub" is in a
+    # foreign language (ex.: "Dub Sub rus + Original eng ... [Dublado PT-BR]").
+    # Such releases are foreign (Russian DVDSEED-style) and must not be allowed
+    # just because an aggregator appended a "[Dublado PT-BR]" tag.
+    if has_pt_marker and is_foreign_dub(name):
+        return False
     return True
 
 def size_sanity(tier: str, size_gb: float) -> float:

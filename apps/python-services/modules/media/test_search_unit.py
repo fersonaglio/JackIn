@@ -120,6 +120,13 @@ def test_language_and_junk():
     check("ebook junk", m.is_junk("Book.Title.epub"))
     check("sample junk", m.is_junk("Movie.SAMPLE.1080p"))
     check("clean not junk", not m.is_junk("Disclosure.Day.2026.1080p"))
+    # Spoof: tag "Dublado PT-BR" apensa num release com "Dub Sub rus" (russo)
+    # NÃO deve burlar o filtro de idioma (bug DVDSEED).
+    spoof = "The Adventures of Tintin [2011 Blu-ray disc 1080p] Dub Sub rus + Original eng [Dublado PT-BR]"
+    check("spoof russo bloqueado", not m.language_allowed(spoof))
+    check("spoof russo é foreign dub", m.is_foreign_dub(spoof))
+    check("dublado + original eng NÃO é spoof", m.language_allowed("Movie 2011 1080p Dublado PT-BR + Original ENG"))
+    check("sub eng (original) NÃO é bloqueado", m.language_allowed("Movie 2011 1080p WEB-DL Sub Eng"))
 
 
 def test_tier_to_option():
@@ -198,6 +205,11 @@ def test_classify_audio():
     check("generic dual -> no pt subs", gd["hasPtSubtitles"] is False)
     # Plain original has no PT subs.
     check("original -> no pt subs", m.classify_audio("Movie.2024.1080p")["hasPtSubtitles"] is False)
+    # Spoof guard: "Dub Sub rus" com tag "Dublado PT-BR" apensa NÃO confirma PT.
+    spoof = "The Adventures of Tintin [2011 Blu-ray disc 1080p] Dub Sub rus + Original eng [Dublado PT-BR]"
+    s = m.classify_audio(spoof)
+    check("spoof russo -> sem ptConfirmed", s["ptConfirmed"] is False)
+    check("spoof russo -> sem pt subs", s["hasPtSubtitles"] is False)
 
     def t(name):
         return {"name": name, "seeders": "20", "size": str(4 * 1024 ** 3), "info_hash": "q" * 40}

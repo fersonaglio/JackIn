@@ -350,6 +350,29 @@ PT_AUDIO_MARKERS = (
     "🇵🇹", "🇧🇷",
 )
 
+# Foreign (non-PT) audio/subtitle languages. When the release's "Dub"/"Sub"
+# descriptor is tied to one of these, the audio is NOT Portuguese — a tag like
+# "[Dublado PT-BR]" appended to the end of a "Dub Sub rus + Original eng" name
+# (Russian DVDSEED-style releases) is a spoof that must NOT confirm PT audio.
+FOREIGN_DUB_LANGS = (
+    "RUS", "RUSSIAN", "UKR", "UKRAINIAN", "ENG", "ENGLISH", "HIN", "HINDI",
+    "GER", "GERMAN", "FRE", "FRENCH", "SPA", "SPANISH", "ITA", "ITALIAN",
+    "POL", "POLISH", "TUR", "TURKISH", "KOR", "KOREAN", "JPN", "JAPANESE",
+    "CHI", "CHINESE", "VIE", "VIETNAMESE", "THA", "THAI", "ARB", "ARABIC",
+)
+
+# Descritores de "Dub"/"Sub" estrangeiros: "Dub Sub rus", "Sub rus",
+# "Dub + Ukr", "Dub (Ukr)", "Dub rus". Compilado em media_search_engine.
+# Cada língua é delimitada por \b para que tokens curtos ("VIE", "ENG") não
+# casem dentro de outras palavras ("moVIE", "ENGLISH").
+_FOREIGN_LANG_ALT = "(?:" + "|".join(r"\b" + t + r"\b" for t in FOREIGN_DUB_LANGS) + ")"
+
+FOREIGN_DUB_SUB_PATTERN = (
+    r"\bDUB\s+(?:SUB\s+)?" + _FOREIGN_LANG_ALT
+    + r"|\bSUB\s+" + _FOREIGN_LANG_ALT
+    + r"|\bDUB\s*[+/(]\s*" + _FOREIGN_LANG_ALT
+)
+
 # Reverse (English -> Portuguese) translation map for query expansion
 REVERSE_TRANSLATIONS = {
     "the mandalorian and grogu": "o mandaloriano e grogu",
