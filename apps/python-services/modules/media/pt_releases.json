@@ -259,5 +259,19 @@
       "eng",
       "por"
     ]
+  },
+  "7cc39ca331321fa0e8b81cc525eeed7fd0f6a465": {
+    "pt": true,
+    "langs": [
+      "jpn",
+      "por"
+    ]
+  },
+  "a903a115f29d84a552b9ae915f96425103d3d1ed": {
+    "pt": true,
+    "langs": [
+      "eng",
+      "por"
+    ]
   }
 }
