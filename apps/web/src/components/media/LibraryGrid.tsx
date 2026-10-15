@@ -157,7 +157,7 @@ function LibraryCard({
                         : 'bg-red-500/20 border-red-500/50 text-red-400'
             }`}
           >
-            {isWatched ? '✓ 100% Visto' : hasProgress ? `Continuar (${getProjectWatchPercent(project, 5400)}%)` : isDone ? 'Pronto' : isDownloading ? `${project.progressPct || 0}%` : isPreparing ? 'Preparando' : 'Erro'}
+            {isWatched ? '✓ 100% Visto' : hasProgress ? `Continuar (${getProjectWatchPercent(project, 5400)}%)` : isDone ? 'Pronto' : isDownloading ? `${project.progressPct || 0}%` : isPreparing ? `Preparando ${project.progressPct ?? 0}%` : 'Erro'}
           </span>
         </div>
 
@@ -177,10 +177,10 @@ function LibraryCard({
         ) : isPreparing ? (
           <div className="absolute bottom-0 inset-x-0 bg-zinc-950/90 p-2.5 backdrop-blur-md border-t border-zinc-800/80 space-y-1.5 z-20">
             <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-sky-500 h-full rounded-full animate-pulse transition-all duration-300" style={{ width: '60%' }} />
+              <div className="bg-sky-500 h-full rounded-full animate-pulse transition-all duration-300" style={{ width: `${Math.max(5, project.progressPct || 0)}%` }} />
             </div>
             <p className="text-[10px] text-sky-400 font-mono text-center font-bold">
-              Preparando para assistir…
+              {project.progressStatus || 'Preparando para assistir…'}
             </p>
           </div>
         ) : hasProgress ? (

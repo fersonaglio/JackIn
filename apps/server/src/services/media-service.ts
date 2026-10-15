@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { FFMPEG_BIN, FFPROBE_BIN } from './binary-paths.js';
-import { getDb, persist, DATA_DIR } from '../db/schema.js';
+import { getDb, persist, persistThrottled, DATA_DIR } from '../db/schema.js';
 import { progressEvents } from './progress-events.js';
 import { codeToLang, LANG_LABEL, LANG_TO_CODES } from './language-map.js';
 
@@ -439,7 +439,14 @@ function markPrepFailed(projectId: string, error: string, artifacts?: Artifacts,
 }
 
 function emitPrep(projectId: string, progress: number, status: string) {
-  progressEvents.emit(projectId, { stage: 'preparing', progress: Math.min(100, Math.round(progress)), status });
+  const pct = Math.min(100, Math.round(progress));
+  const db = getDb();
+  db.run(
+    "UPDATE projects SET status = 'preparing', progress_pct = ?, progress_status = ? WHERE id = ?",
+    [pct, status, projectId]
+  );
+  persistThrottled();
+  progressEvents.emit(projectId, { stage: 'preparing', progress: pct, status });
 }
 
 // ── FFmpeg runner com progresso real (out_time) ───────────────────────────

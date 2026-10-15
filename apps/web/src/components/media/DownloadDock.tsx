@@ -126,8 +126,10 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
       const statuses = new Set(eps.map((e) => e.status));
       const isDone = b.allDone;
       const isDownloading = b.anyDownloading;
+      const preparingEpisode = eps.find((e) => e.status === 'preparing');
+      const isPreparing = !!preparingEpisode;
       const isPaused = !isDownloading && statuses.has('paused');
-      const status = isDone ? 'done' : isDownloading ? 'downloading' : isPaused ? 'paused' : 'error';
+      const status = isDone ? 'done' : isDownloading ? 'downloading' : isPreparing ? 'preparing' : isPaused ? 'paused' : 'error';
       return {
         id: `series-${eps[0]?.seriesId || ''}`,
         title: b.baseTitle,
@@ -136,8 +138,8 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
           : `${b.readySeasons}/${b.totalSeasons} temporadas`,
         chips: b.totalSeasons > 1 ? seasonChips(b.seasons) : '',
         status,
-        progressPct: b.currentPercent,
-        progressStatus: b.activeDownload?.progressStatus ?? null,
+        progressPct: b.activeDownload?.progressPct ?? preparingEpisode?.progressPct ?? b.currentPercent,
+        progressStatus: b.activeDownload?.progressStatus ?? preparingEpisode?.progressStatus ?? null,
         hasActiveDownload: eps.some((e) => e.status === 'downloading'),
         hasPreparing: eps.some((e) => e.status === 'preparing'),
         breakdown: b,
@@ -280,7 +282,7 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                         {p.title || 'Mídia'}
                       </p>
                       <span className="text-[10px] font-mono font-bold shrink-0">
-                        {isDone ? '✓ 100%' : isPaused ? 'Pausado' : isPreparing ? 'Preparando' : `${pct}%`}
+                        {isDone ? '✓ 100%' : isPaused ? 'Pausado' : isPreparing ? `Preparando ${pct}%` : `${pct}%`}
                       </span>
                     </div>
 
@@ -309,7 +311,7 @@ export default function DownloadDock({ projects, onRetry }: DownloadDockProps) {
                           )}
                         </>
                       ) : isPreparing ? (
-                        <span className="text-sky-300 font-bold">⚙️ {info.stage || 'Otimizando para reprodução…'}</span>
+                        <span className="text-sky-300 font-bold">⚙️ {p.progressStatus || info.stage || 'Otimizando para reprodução…'}</span>
                       ) : isPaused ? (
                         <span className="text-zinc-400">Download em pausa</span>
                       ) : (
