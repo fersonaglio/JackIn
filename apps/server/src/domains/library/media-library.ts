@@ -5,7 +5,7 @@ import { existsSync, rmSync, readdirSync, readFileSync, mkdirSync, writeFileSync
 import path from 'path';
 import { execSync, spawn } from 'child_process';
 import { progressEvents } from '../../services/progress-events.js';
-import { resolveVideoFile, getProjectMedia, prepareProject, isPreparing, resolveCastFile, listCastAudioTracks, probeMedia, findMasterFile, updatePrepState, type Target } from '../../services/media-service.js';
+import { resolveVideoFile, getProjectMedia, prepareProject, isPreparing, resolveCastFile, listCastAudioTracks, probeMedia, findMasterFile, updatePrepState, subtitleVariantScore, type Target } from '../../services/media-service.js';
 import { TRACKERS_LIST } from '../media/trackers.js';
 import { LANG_TO_CODES, codeToLang } from '../../services/language-map.js';
 import { FFMPEG_BIN } from '../../services/binary-paths.js';
@@ -684,19 +684,19 @@ router.get('/:id/tracks', async (req: Request, res: Response) => {
     }
   }
 
-  const subtitlesByLang = new Map<string, any>();
+  // Dedup por idioma escolhendo a MELHOR variante (completa > SDH > Forced,
+  // pt-BR > pt-PT) — antes ficava a primeira do arquivo, que podia ser a Forced.
+  const subtitlesByLang = new Map<string, { index: number; language: string; codec: string; score: number }>();
   for (const s of (info?.subtitles || []).filter((x) => TEXT_SUBTITLE_CODECS.has(x.codec))) {
     const friendly = codeToLang[s.language || ''] || s.language || 'und';
-    if (!subtitlesByLang.has(friendly)) {
-      subtitlesByLang.set(friendly, {
-        index: s.index,
-        language: friendly,
-        codec: s.codec,
-      });
+    const score = subtitleVariantScore(s);
+    const cur = subtitlesByLang.get(friendly);
+    if (!cur || score > cur.score) {
+      subtitlesByLang.set(friendly, { index: s.index, language: friendly, codec: s.codec, score });
     }
   }
 
-  let subtitles = [...subtitlesByLang.values()];
+  let subtitles = [...subtitlesByLang.values()].map(({ score, ...rest }) => rest);
 
   // Variantes de áudio e legendas extraídas na ingestão aparecem no menu.
   // Converte a chave crua do ffprobe (por/eng) para o rótulo amigável
@@ -797,34 +797,43 @@ router.get('/:id/subtitles', (req: Request, res: Response) => {
   const projectId = String(req.params.id);
   const targetLang = (req.query.lang as string) || 'pt-br';
 
-  // External subtitle downloaded by the subtitle service or extracted VTT.
   const projectDir = path.join(DATA_DIR, 'projects', projectId);
   const targetCodes = LANG_TO_CODES[targetLang] || [targetLang];
-  const candidateSuffixes = [
-    targetLang === 'pt-br' ? 'ptbr' : targetLang,
-    ...targetCodes,
-    targetLang,
-  ];
-  for (const suffix of candidateSuffixes) {
-    const candidate = path.join(projectDir, `subs_${suffix}.vtt`);
-    if (existsSync(candidate)) {
+
+  // 1) Legenda externa baixada (OpenSubtitles) — maior prioridade para pt-br.
+  const isPortuguese = targetLang === 'pt-br' || targetLang === 'pt' || targetCodes.includes('por');
+  if (isPortuguese) {
+    const external = path.join(projectDir, 'subs_ptbr.vtt');
+    if (existsSync(external)) {
       res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.sendFile(path.resolve(candidate));
+      res.sendFile(path.resolve(external));
       return;
     }
   }
 
-  // VTT extraído na ingestão para o idioma pedido (ex.: subs_en.vtt).
+  // 2) Melhor variante extraída na ingestão (artifacts.subs já guarda a completa,
+  // não a Forced/SDH). Vem ANTES do scan de arquivos para não servir um
+  // subs_<lang>.vtt antigo (ex.: inglês Forced) no lugar da legenda completa.
   const pm = getProjectMedia(projectId);
   if (pm?.artifacts?.subs && Object.keys(pm.artifacts.subs).length > 0) {
-    const targetCodes = LANG_TO_CODES[targetLang] || [targetLang];
     const foundCode = Object.keys(pm.artifacts.subs).find((l) => targetCodes.includes(l) || l === targetLang);
     const art = foundCode ? pm.artifacts.subs[foundCode] : null;
     if (art && existsSync(art.path)) {
       res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.resolve(art.path));
+      return;
+    }
+  }
+
+  // 3) Scan de arquivos subs_*.vtt (outros idiomas / preparo parcial).
+  for (const suffix of [targetLang, ...targetCodes]) {
+    const candidate = path.join(projectDir, `subs_${suffix}.vtt`);
+    if (existsSync(candidate)) {
+      res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(path.resolve(candidate));
       return;
     }
   }

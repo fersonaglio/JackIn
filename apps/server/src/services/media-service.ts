@@ -103,6 +103,29 @@ const CONTAINER_SAFE: Record<Target, Set<string>> = {
 
 const TEXT_SUB_CODECS = new Set(['subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'srt', 'text', 'mp4']);
 
+// Ranking de variantes de legenda do mesmo idioma. Releases MULTi trazem
+// completa + SDH + Forced (e às vezes pt-BR + pt-PT) — todas com o mesmo código
+// do ffprobe. Precisamos escolher a completa brasileira, nunca a Forced (quase
+// vazia) nem a europeia.
+export function subtitleVariantScore(s: MediaStreamInfo): number {
+  const title = (s.title || '').toLowerCase();
+  let score = 0;
+  if (/\b(forced|for[cç]ada|signs)\b/.test(title)) score -= 50;
+  if (/\b(sdh|hearing|closed|cc)\b/.test(title)) score -= 10;
+  if (/\b(brazil|brasil|brazilian)\b/.test(title)) score += 5;
+  if (/\b(portugal|europe|european|europeu)\b/.test(title)) score -= 2;
+  return score;
+}
+
+// Chave canônica de idioma para o arquivo subs_<lang>.vtt. Conflaciona as
+// variantes de português (BR e PT) em "por" para que a brasileira (melhor score)
+// seja a única canônica — sem isso cada variante sobrescrevia a anterior.
+export function subtitleGroupKey(s: MediaStreamInfo): string {
+  const code = (s.language || 'und').toLowerCase();
+  if (code === 'por' || code === 'pt' || code === 'pob' || code === 'pt-br' || code === 'ptbr') return 'por';
+  return code || 'und';
+}
+
 // ── Cache de probe (mtime+size) ───────────────────────────────────────────
 const probeCache = new Map<string, { key: string; info: MediaInfo }>();
 
@@ -1044,11 +1067,18 @@ async function doPrepare(projectId: string, gen: number): Promise<void> {
   }
 
   // 4) Legendas embutidas → VTT
+  // Agrupa por idioma e extrai SÓ a melhor variante (completa > SDH > Forced,
+  // pt-BR > pt-PT). Antes, cada stream do mesmo idioma gravava no mesmo
+  // subs_<lang>.vtt e o último (Forced/pt-PT) sobrescrevia a legenda completa.
   const textSubs = info.subtitles.filter((s) => TEXT_SUB_CODECS.has(s.codec));
-  for (let i = 0; i < textSubs.length; i++) {
+  const bestSubByLang = new Map<string, MediaStreamInfo>();
+  for (const s of textSubs) {
+    const key = subtitleGroupKey(s);
+    const cur = bestSubByLang.get(key);
+    if (!cur || subtitleVariantScore(s) > subtitleVariantScore(cur)) bestSubByLang.set(key, s);
+  }
+  for (const [lang, s] of bestSubByLang) {
     if (isAborted()) return;
-    const s = textSubs[i];
-    const lang = s.language || 'und';
     const safeLang = lang.replace(/[^a-z0-9-]/gi, '_');
     const out = path.join(projectDir, `subs_${safeLang}.vtt`);
     const tmp = out + tmpSuffix;

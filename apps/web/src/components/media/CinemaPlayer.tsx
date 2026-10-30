@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchPtBrSubtitles, saveWatchProgress, getWatchProgress, markWatched } from '@/lib/api';
 import { pickCastAudioTrackId, type CastAudioTrack } from '@/lib/cast';
+import { parseVttCues, type SubtitleCue } from '@/lib/subtitleParser';
 import { useCast } from '@/hooks/useCast';
 import { nextWatchedState } from '@/lib/watchState';
 
@@ -157,7 +158,8 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
   const [subtitleTrack, setSubtitleTrack] = useState<string>('off');
   const [subtitleOffsetSec, setSubtitleOffsetSec] = useState(0);
   const [activeSubtitleText, setActiveSubtitleText] = useState('');
-  const [subtitlePosition, setSubtitlePosition] = useState(90);
+  const [subtitleCues, setSubtitleCues] = useState<SubtitleCue[]>([]);
+  const [subtitlePosition, setSubtitlePosition] = useState(88);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'tracks' | 'info'>('tracks');
   const [technicalInfo, setTechnicalInfo] = useState<TechnicalMediaInfo | null>(null);
@@ -720,7 +722,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     const rect = el.getBoundingClientRect();
     const containedHeight = Math.min(rect.height, rect.width * (el.videoHeight / el.videoWidth));
     const imageBottom = ((rect.height - containedHeight) / 2) + containedHeight;
-    const linePosition = Math.min(98, Math.max(5, (imageBottom / rect.height) * 100 + 2));
+    const linePosition = Math.min(88, Math.max(5, (imageBottom / rect.height) * 100 + 2));
 
     for (let i = 0; i < track.cues.length; i++) {
       const cue = track.cues[i] as VTTCue;
@@ -729,52 +731,78 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
     }
   }, []);
 
-  // Lê as cues ativas e desenha a legenda em um overlay próprio. Isso evita
-  // que cada navegador imponha seu próprio espaçamento e bloco de fundo.
+  // Busca e parseia o WebVTT da faixa selecionada. O desenho do overlay parte
+  // das cues parseadas (timeupdate) — não do TextTrack nativo, que falhava de
+  // forma inconsistente ao trocar de faixa (só o inglês renderizava).
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !isOpen || subtitleTrack === 'off') {
+    if (!isOpen || subtitleTrack === 'off' || !projectId) {
+      setSubtitleCues([]);
       setActiveSubtitleText('');
       return;
     }
+    // Limpa as cues da faixa anterior imediatamente ao trocar de idioma.
+    setSubtitleCues([]);
+    setActiveSubtitleText('');
+    let cancelled = false;
+    const ctrl = new AbortController();
+    fetch(`${API_URL}/projects/${projectId}/subtitles?lang=${encodeURIComponent(subtitleTrack)}`, {
+      signal: ctrl.signal,
+    })
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((text) => {
+        if (!cancelled) setSubtitleCues(parseVttCues(text));
+      })
+      .catch(() => {
+        if (!cancelled) setSubtitleCues([]);
+      });
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+    };
+  }, [isOpen, projectId, subtitleTrack]);
 
-    const updateOverlay = () => {
-      const visibleTrack = Array.from(el.textTracks).find((track) => track.mode === 'showing');
-      const cues = visibleTrack?.activeCues;
-      const text = cues
-        ? Array.from(cues).map((cue) => (cue as VTTCue).text.replace(/<[^>]*>/g, '')).join('\n')
-        : '';
-      setActiveSubtitleText(text);
+  // Dirige o overlay pela posição real do vídeo, aplicando o offset de sincronia.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !isOpen) return;
+
+    const update = () => {
+      if (subtitleTrack === 'off' || subtitleCues.length === 0) {
+        setActiveSubtitleText('');
+      } else {
+        const t = el.currentTime - subtitleOffsetSec;
+        const parts: string[] = [];
+        for (const c of subtitleCues) {
+          if (t >= c.start && t <= c.end) parts.push(c.text);
+        }
+        setActiveSubtitleText(parts.join('\n'));
+      }
 
       if (el.videoWidth && el.videoHeight) {
         const rect = el.getBoundingClientRect();
         const containedHeight = Math.min(rect.height, rect.width * (el.videoHeight / el.videoWidth));
         const imageBottom = ((rect.height - containedHeight) / 2) + containedHeight;
-        setSubtitlePosition(Math.min(98, Math.max(5, (imageBottom / rect.height) * 100 + 2)));
+        // Logo acima do rodapé (~88%): não fica colada no extremo de baixo nem
+        // sobre a barra de controles. Em conteúdo letterbox respeita a borda da
+        // imagem (sempre <= 88%).
+        setSubtitlePosition(Math.min(88, Math.max(5, (imageBottom / rect.height) * 100 + 2)));
       }
     };
 
-    const tracks = Array.from(el.textTracks);
-    const bindCueChange = (track: TextTrack) => track.addEventListener('cuechange', updateOverlay);
-    const unbindCueChange = (track: TextTrack) => track.removeEventListener('cuechange', updateOverlay);
-    const handleTrackAdded = (event: Event) => {
-      const track = (event as TrackEvent).track as TextTrack | undefined;
-      if (track) bindCueChange(track);
-      updateOverlay();
-    };
-
-    tracks.forEach(bindCueChange);
-    updateOverlay();
-    el.textTracks.addEventListener('addtrack', handleTrackAdded);
-    el.addEventListener('loadedmetadata', updateOverlay);
-    window.addEventListener('resize', updateOverlay);
+    el.addEventListener('timeupdate', update);
+    el.addEventListener('seeked', update);
+    el.addEventListener('loadedmetadata', update);
+    el.addEventListener('play', update);
+    window.addEventListener('resize', update);
+    update();
     return () => {
-      tracks.forEach(unbindCueChange);
-      el.textTracks.removeEventListener('addtrack', handleTrackAdded);
-      el.removeEventListener('loadedmetadata', updateOverlay);
-      window.removeEventListener('resize', updateOverlay);
+      el.removeEventListener('timeupdate', update);
+      el.removeEventListener('seeked', update);
+      el.removeEventListener('loadedmetadata', update);
+      el.removeEventListener('play', update);
+      window.removeEventListener('resize', update);
     };
-  }, [isOpen, subtitleTrack]);
+  }, [isOpen, subtitleTrack, subtitleCues, subtitleOffsetSec]);
 
   // Garante que o track nativo HTML5 também fique 'showing' (para PiP / Cast)
   useEffect(() => {
@@ -1238,7 +1266,7 @@ export default function CinemaPlayer({ isOpen, title, videoUrl, projectId, onClo
                 <div
                   className="max-w-[92%] rounded px-3 py-1 text-center text-white font-semibold flex flex-col items-center"
                   style={{
-                    fontSize: '1.568rem',
+                    fontSize: '1.803rem',
                     lineHeight: 0.575,
                     rowGap: '0.55em',
                     backgroundColor: 'rgba(0, 0, 0, 0.85)',
