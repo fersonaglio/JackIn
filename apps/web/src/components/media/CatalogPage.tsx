@@ -1,6 +1,7 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, useReducedMotion } from 'framer-motion';
 import { usePaginatedCatalog, clampPage } from '@/hooks/usePaginatedCatalog';
 import { useMediaExplorer } from '@/hooks/useMediaExplorer';
 import MediaCard from './MediaCard';
@@ -45,6 +46,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const explorer = useMediaExplorer();
+  const prefersReducedMotion = useReducedMotion();
 
   const tabs = type === 'movie' ? MOVIE_TABS : SERIES_TABS;
   const activeTab = parseGenreParam(searchParams.get('genre'), tabs);
@@ -52,17 +54,24 @@ export default function CatalogPage({ type }: CatalogPageProps) {
 
   const genreKey = activeTab === 'all' ? '' : activeTab;
   const catalog = usePaginatedCatalog(type, genreKey);
-  const { page, totalPages, items, loading, error, setPage } = catalog;
+  const { page, displayPage, totalPages, items, loading, error, setPage } = catalog;
 
-  // Aplica o ?page=N da URL, normalizado entre 1 e totalPages. O servidor
-  // devolve totalPages já na primeira resposta, então page=800 trava na última
-  // página válida sem cascata de requests.
-  const urlPage = pageParam ? parseInt(pageParam, 10) : 1;
+  // Semeia a página a partir do ?page=N da URL UMA única vez (link direto /
+  // reload), quando o totalPages já é conhecido. Depois disso a paginação é
+  // dirigida por estado — trocar de página não navega o Next (sem Suspense/flash).
+  const seedPageRef = useRef<number | null>(null);
+  if (seedPageRef.current === null) {
+    const n = pageParam ? parseInt(pageParam, 10) : 1;
+    seedPageRef.current = Number.isFinite(n) && n > 0 ? n : 1;
+  }
+  const appliedSeedRef = useRef(false);
   useEffect(() => {
-    const target = Number.isFinite(urlPage) ? urlPage : 1;
-    const clamped = clampPage(target, totalPages);
-    if (clamped !== page) setPage(clamped);
-  }, [pageParam, totalPages, page, setPage]);
+    // Só depois do primeiro load (totalPages real conhecido).
+    if (appliedSeedRef.current || loading) return;
+    appliedSeedRef.current = true;
+    const target = clampPage(seedPageRef.current as number, totalPages);
+    if (target !== page) setPage(target);
+  }, [loading, totalPages, page, setPage]);
 
   const handleTab = (key: string) => {
     const base = type === 'movie' ? '/filmes' : '/series';
@@ -72,11 +81,13 @@ export default function CatalogPage({ type }: CatalogPageProps) {
   const handlePageChange = (p: number) => {
     const clamped = clampPage(p, totalPages);
     setPage(clamped);
+    // Atualiza a URL sem disparar a navegação do Next (evita o fallback do
+    // Suspense piscando). A URL continua compartilhável/recarregável.
     const base = type === 'movie' ? '/filmes' : '/series';
     const qs = new URLSearchParams();
     if (activeTab !== 'all') qs.set('genre', activeTab);
     if (clamped > 1) qs.set('page', String(clamped));
-    router.replace(`${base}${qs.toString() ? `?${qs}` : ''}`);
+    window.history.replaceState(null, '', `${base}${qs.toString() ? `?${qs}` : ''}`);
   };
 
   const handleBack = () => router.push('/media');
@@ -99,7 +110,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
             <h1 className="text-xl md:text-2xl font-black uppercase tracking-wide text-zinc-100">
               <span className="text-[#E50914]">{type === 'movie' ? 'Filmes' : 'Séries'}</span>
             </h1>
-            {!loading && totalPages > 0 && (
+            {items.length > 0 && totalPages > 0 && (
               <span className="text-[11px] font-mono text-zinc-500">
                 {totalPages} página{totalPages > 1 ? 's' : ''} · {items.length} título{items.length !== 1 ? 's' : ''}
               </span>
@@ -123,7 +134,7 @@ export default function CatalogPage({ type }: CatalogPageProps) {
             ))}
           </div>
 
-          {loading ? (
+          {items.length === 0 && loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
                 <div key={i} className="aspect-[2/3] rounded-lg bg-zinc-900 animate-pulse" />
@@ -148,11 +159,17 @@ export default function CatalogPage({ type }: CatalogPageProps) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <motion.div
+                key={`${genreKey || 'all'}:${displayPage}`}
+                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+              >
                 {items.map((item) => (
                   <MediaCard key={item.tmdbId} item={item} onSelect={explorer.handleOpenModal} badgeType="lancamento" />
                 ))}
-              </div>
+              </motion.div>
               <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />
             </>
           )}

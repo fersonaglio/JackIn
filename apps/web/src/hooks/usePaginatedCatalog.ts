@@ -6,6 +6,8 @@ import { buildPosterUrl } from '@/data/media';
 
 export interface PaginatedCatalogState {
   page: number;
+  /** Página cujos itens estão de fato renderizados agora (para animar a troca). */
+  displayPage: number;
   totalPages: number;
   items: CatalogItem[];
   loading: boolean;
@@ -43,6 +45,7 @@ export function usePaginatedCatalog(
   genreKey: string
 ): PaginatedCatalogState {
   const [page, setPageState] = useState(1);
+  const [displayPage, setDisplayPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +64,7 @@ export function usePaginatedCatalog(
       const cached = cacheRef.current.get(key);
       if (cached) {
         setItems(cached.items);
+        setDisplayPage(p);
         setPageState(p);
         setTotalPages(cached.totalPages);
         setError(null);
@@ -76,6 +80,7 @@ export function usePaginatedCatalog(
         const typed = onlyType(data.items || [], type);
         cacheRef.current.set(key, { items: typed, totalPages: data.totalPages });
         setItems(typed);
+        setDisplayPage(data.page);
         setPageState(data.page);
         setTotalPages(data.totalPages);
       } catch {
@@ -94,7 +99,11 @@ export function usePaginatedCatalog(
 
   const setPage = useCallback(
     (p: number) => {
-      loadPage(clampPage(p, totalPages));
+      const clamped = clampPage(p, totalPages);
+      // Otimista: destaca a página alvo já no clique e evita que o efeito da URL
+      // dispare um segundo load (que abortava/refazia a requisição e piscava).
+      setPageState(clamped);
+      loadPage(clamped);
     },
     [loadPage, totalPages]
   );
@@ -124,5 +133,5 @@ export function usePaginatedCatalog(
       .catch(() => {});
   }, [page, totalPages, type, genreKey]);
 
-  return { page, totalPages, items, loading, error, setPage, refresh };
+  return { page, displayPage, totalPages, items, loading, error, setPage, refresh };
 }
